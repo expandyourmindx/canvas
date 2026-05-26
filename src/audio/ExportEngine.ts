@@ -1,5 +1,17 @@
 import { ObsidianEngine } from "./ObsidianEngine";
 
+export interface ExportableEngine {
+  getBpm(): number;
+  getCanvasClips(): any[];
+  getPatterns(): Record<string, any[]>;
+  getSampleBuffer(id: string): AudioBuffer | undefined;
+  getLoopSettings?(): { loopStart: number; loopEnd: number };
+  getActivePatternId(): string;
+  obsidian: {
+    obsidianSettings: Record<string, any>;
+  };
+}
+
 export interface ExportSettings {
   format: "wav" | "mp3";
   range: "full" | "loop";
@@ -18,15 +30,15 @@ export class ExportEngine {
    * Primary offline rendering pipeline. Schedules all arranger canvas clips
    * and synth voices, then runs the fast hardware compile thread.
    */
-  public static async renderAudio(engine: any, settings: ExportSettings): Promise<AudioBuffer> {
+  public static async renderAudio(engine: ExportableEngine, settings: ExportSettings): Promise<AudioBuffer> {
     const bpm = engine.getBpm();
     const canvasClips = engine.getCanvasClips() || [];
     const patterns = engine.getPatterns() || {};
 
     let durationSeconds = 16; // default fallback
     
-    // Retrieve loop settings if they exist
-    const loopSettings = engine.getLoopSettings ? engine.getLoopSettings() : { loopStart: 0, loopEnd: 4 };
+    // Retrieve loop settings if they exist using optional chaining
+    const loopSettings = engine.getLoopSettings?.() || { loopStart: 0, loopEnd: 4 };
     const loopStart = settings.range === "loop" ? loopSettings.loopStart : 0;
     const loopEnd = settings.range === "loop" ? loopSettings.loopEnd : Infinity;
 
@@ -193,7 +205,9 @@ export class ExportEngine {
       }
     }
 
-    return offlineCtx.startRendering();
+    const renderedBuffer = await offlineCtx.startRendering();
+    offlineObsidian.stopAll();
+    return renderedBuffer;
   }
 
   /**
