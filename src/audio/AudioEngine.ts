@@ -171,15 +171,10 @@ export class AudioEngine {
     this.scheduler.play();
   }
 
-  public pause() {
-    this.scheduler.pause();
-    // Defer stopAll() past the scheduler's own 12ms timeout that commits pausedTimelinePosition.
-    // Calling stopAll() synchronously here would race against that timer and could fire before
-    // the playhead position is frozen, causing the playhead to lag/jump on resume.
-    setTimeout(() => {
-      this.obsidian.stopAll();
-      this.samplerEngine.stopAll();
-    }, 20);
+  public async pause(): Promise<void> {
+    await this.scheduler.pause();
+    this.obsidian.stopAll();
+    this.samplerEngine.stopAll();
   }
 
   public stop() {

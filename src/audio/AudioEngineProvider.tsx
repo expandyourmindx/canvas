@@ -43,7 +43,7 @@ export interface AudioEngineContextType {
 
   // Core Actions
   play: () => void;
-  pause: () => void;
+  pause: () => Promise<void>;
   stop: () => void;
   setBpm: (bpm: number) => void;
   setPlaybackMode: (mode: "pattern" | "song") => void;

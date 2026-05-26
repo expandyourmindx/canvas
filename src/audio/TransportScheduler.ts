@@ -173,34 +173,41 @@ export class TransportScheduler {
   /**
    * Standard Transport Controls: PAUSE
    */
-  public pause() {
-    if (this.state !== "playing") return;
-
-    this.state = "paused";
-    this.broadcastStateChange();
-
-    // Apply exact 10ms fade-out curve to master gain to suppress click
-    const now = this.audioContext.currentTime;
-    this.masterGainNode.gain.cancelScheduledValues(now);
-    this.masterGainNode.gain.setValueAtTime(0.8, now);
-    this.masterGainNode.gain.linearRampToValueAtTime(0, now + 0.010);
-
-    // Freeze background heartbeat lookahead checks after 12ms
-    setTimeout(() => {
-      if (this.worker) {
-        this.worker.postMessage({ action: "stop" });
+  public pause(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.state !== "playing") {
+        resolve();
+        return;
       }
 
-      // Freeze the playhead instantly with sub-millisecond precision
-      const elapsedContextTime = this.audioContext.currentTime - this.audioContextStartTime;
-      this.pausedTimelinePosition += elapsedContextTime;
+      this.state = "paused";
+      this.broadcastStateChange();
 
-      // Restore master gain to 0.8 for live preview and keyboard play while transport is stopped/paused
-      const nowRamp = this.audioContext.currentTime;
-      this.masterGainNode.gain.cancelScheduledValues(nowRamp);
-      this.masterGainNode.gain.setValueAtTime(0, nowRamp);
-      this.masterGainNode.gain.linearRampToValueAtTime(0.8, nowRamp + 0.010);
-    }, 12);
+      // Apply exact 10ms fade-out curve to master gain to suppress click
+      const now = this.audioContext.currentTime;
+      this.masterGainNode.gain.cancelScheduledValues(now);
+      this.masterGainNode.gain.setValueAtTime(0.8, now);
+      this.masterGainNode.gain.linearRampToValueAtTime(0, now + 0.010);
+
+      // Freeze background heartbeat lookahead checks after 12ms
+      setTimeout(() => {
+        if (this.worker) {
+          this.worker.postMessage({ action: "stop" });
+        }
+
+        // Freeze the playhead instantly with sub-millisecond precision
+        const elapsedContextTime = this.audioContext.currentTime - this.audioContextStartTime;
+        this.pausedTimelinePosition += elapsedContextTime;
+
+        // Restore master gain to 0.8 for live preview and keyboard play while transport is stopped/paused
+        const nowRamp = this.audioContext.currentTime;
+        this.masterGainNode.gain.cancelScheduledValues(nowRamp);
+        this.masterGainNode.gain.setValueAtTime(0, nowRamp);
+        this.masterGainNode.gain.linearRampToValueAtTime(0.8, nowRamp + 0.010);
+
+        resolve();
+      }, 12);
+    });
   }
 
   /**
