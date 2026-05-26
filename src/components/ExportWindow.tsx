@@ -17,7 +17,7 @@ export function ExportWindow({ onClose }: ExportWindowProps) {
   const { engine } = useAudioEngine();
 
   // 1. Interactive Form states matching hardware toggle specifications
-  const [format, setFormat] = useState<"wav" | "mp3">("wav");
+  const [format, setFormat] = useState<"wav">("wav");
   const [range, setRange] = useState<"full" | "loop">("full");
   const [normalize, setNormalize] = useState<boolean>(true);
   const [renderTail, setRenderTail] = useState<boolean>(false);
@@ -158,20 +158,15 @@ export function ExportWindow({ onClose }: ExportWindowProps) {
               </button>
               <button
                 id="format-button-mp3"
-                type="button"
-                onClick={() => setFormat("mp3")}
-                disabled={renderStatus === "rendering"}
-                className={`flex-1 py-1.5 font-mono text-[9px] font-black uppercase border cursor-pointer transition-all ${
-                  format === "mp3"
-                    ? "bg-amber-500/10 border-amber-500/70 text-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
-                    : "bg-[#111316] border-neutral-80/50 hover:border-zinc-700 text-zinc-500"
-                }`}
+                disabled
+                title="MP3 encoding coming soon"
+                className="px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider border border-neutral-700 bg-neutral-900 text-neutral-600 cursor-not-allowed opacity-50"
               >
-                .MP3 (Capped 320kb)
+                .MP3 (Coming Soon)
               </button>
             </div>
             <p className="text-[7px] text-zinc-650 leading-normal mt-1.5 font-mono uppercase">
-              {format === "wav" ? "• 44.1 kHz, 24-bit PCM Dual Waveform" : "• MPEG-Layer 3 Constant Bitrate 320 kbps"}
+              • 44.1 kHz, 16-bit PCM Dual Waveform
             </p>
           </div>
 

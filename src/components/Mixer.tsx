@@ -3,6 +3,7 @@ import { useAudioEngine } from "../audio/useAudioEngine";
 import { Knob } from "./ChannelRack";
 import { Volume2, VolumeX, Shield, Circle, Activity, Radio, Sparkles } from "lucide-react";
 import { ChannelRow } from "../types";
+import { MixerInsert } from "../audio/MixerManager";
 
 interface MixerProps {
   channels?: ChannelRow[];
@@ -127,7 +128,7 @@ export function Mixer({
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   
   // Mixer strips state - locally tracked for rapid visual response, synced to engine on mutations
-  const [insertsState, setInsertsState] = useState<any[]>([]);
+  const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
@@ -176,13 +177,7 @@ export function Mixer({
       const inserts = engine.getInserts();
       setInsertsState(
         inserts.map((ins) => ({
-          index: ins.index,
-          name: ins.name,
-          volume: ins.volume,
-          pan: ins.pan,
-          isMuted: ins.isMuted,
-          isSoloed: ins.isSoloed,
-          fxSlots: ins.fxSlots,
+          ...ins
         }))
       );
     };
@@ -229,13 +224,7 @@ export function Mixer({
     const inserts = engine.getInserts();
     setInsertsState(
       inserts.map((ins) => ({
-        index: ins.index,
-        name: ins.name,
-        volume: ins.volume,
-        pan: ins.pan,
-        isMuted: ins.isMuted,
-        isSoloed: ins.isSoloed,
-        fxSlots: ins.fxSlots,
+        ...ins
       }))
     );
   };

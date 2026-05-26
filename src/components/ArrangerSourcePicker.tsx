@@ -6,10 +6,11 @@
 import React, { useRef } from "react";
 import { Music, Volume2 } from "lucide-react";
 import { PatternData, ChannelRow } from "../types";
+import { AudioEngine } from "../audio/AudioEngine";
 
 interface ArrangerSourcePickerProps {
   patterns: PatternData[];
-  engine: any;
+  engine: AudioEngine;
   channels: ChannelRow[];
   onOpenPianoRoll?: (channelId: string) => void;
   onOpenSampler?: (channelId: string) => void;
@@ -63,7 +64,7 @@ export function ArrangerSourcePicker({
     }
   };
 
-  const loadedSampleIds = engine?.getLoadedSampleIds() || [];
+  const loadedSampleIds = engine.getLoadedSampleIds();
 
   return (
     <div
@@ -190,8 +191,8 @@ export function ArrangerSourcePicker({
                   setSelectedReferenceId(sampleId);
                   
                   let duration = 1;
-                  const buffer = engine?.getSampleBuffer?.(sampleId);
-                  if (buffer && engine?.secondsToBeats) {
+                  const buffer = engine.getSampleBuffer(sampleId);
+                  if (buffer) {
                     duration = engine.secondsToBeats(buffer.duration);
                   }
                   setClipDurationBeats(duration);
