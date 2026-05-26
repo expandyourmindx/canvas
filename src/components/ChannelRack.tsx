@@ -169,7 +169,6 @@ export function ChannelRack({
   const {
     engine,
     playbackState,
-    position,
     events,
     setEvents,
     addEvent,
@@ -185,6 +184,26 @@ export function ChannelRack({
     pushToHistory,
     notifySampleLoaded,
   } = useAudioEngine();
+
+  const activePlayheadIndexRef = useRef<number>(-1);
+  const [, forceStepUpdate] = useState(0);
+
+  useEffect(() => {
+    let rafId: number;
+    const tick = () => {
+      const pos = engine.getCurrentPosition("beats");
+      const newIndex = playbackState === "playing"
+        ? Math.floor((pos % 4) / 0.25)
+        : -1;
+      if (newIndex !== activePlayheadIndexRef.current) {
+        activePlayheadIndexRef.current = newIndex;
+        forceStepUpdate(n => n + 1);
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [playbackState, engine]);
 
   // Pattern renaming state helpers
   const [isRenaming, setIsRenaming] = useState(false);
@@ -495,9 +514,6 @@ export function ChannelRack({
     setIsRenaming(false);
   };
 
-  // Render a mini sequencer playhead locator
-  const activePlayheadIndex = Math.floor((position.beats % 4) / 0.25);
-
   return (
     <div ref={containerRef} className="flex flex-col h-full bg-[#08090a] text-zinc-300 font-mono text-[11px] select-none h-full relative">
 
@@ -604,7 +620,7 @@ export function ChannelRack({
         <div className="flex items-center pl-[185px] h-3 select-none pointer-events-none">
           <div className="flex-1 grid grid-cols-16 gap-[3px] pr-2.5">
             {stepColumns.map((_, i) => {
-              const isCurrent = playbackState === "playing" && activePlayheadIndex === i;
+              const isCurrent = playbackState === "playing" && activePlayheadIndexRef.current === i;
               return (
                 <div key={i} className="flex justify-center items-center h-[4px]">
                   <div
@@ -959,7 +975,7 @@ export function ChannelRack({
                   <div className="w-full grid grid-cols-16 gap-[3px] h-full items-center">
                     {stepColumns.map((beatValue, index) => {
                       const isActive = isStepActive(channel, index);
-                      const isPassing = playbackState === "playing" && activePlayheadIndex === index;
+                      const isPassing = playbackState === "playing" && activePlayheadIndexRef.current === index;
                       const isBeatGroupA = Math.floor(index / 4) % 2 === 0;
 
                       return (
