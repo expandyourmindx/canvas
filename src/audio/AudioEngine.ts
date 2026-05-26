@@ -143,8 +143,8 @@ export class AudioEngine {
           return Math.max(4, Math.ceil(maxBeat / 4) * 4);
         },
         onLoopWrap: () => {
-          this.obsidian.stopAll();
-          this.samplerEngine.stopAll();
+          this.obsidian.stopAll(0.03);
+          this.samplerEngine.stopAll(0.03);
         }
       },
       { bpm, lookaheadMs, tickIntervalMs }

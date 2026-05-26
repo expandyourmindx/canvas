@@ -469,14 +469,16 @@ export class SamplerEngine {
     }
   }
 
-  public stopAll() {
+  public stopAll(fadeOutSeconds: number = 0.05): void {
+    const now = this.audioContext.currentTime;
     this.activeSamplerVoices.forEach((voices) => {
-      voices.forEach((voice) => {
+      voices.forEach((voice: any) => {
         try {
-          voice.source.stop();
-          voice.source.disconnect();
-          voice.gainNode.disconnect();
-        } catch (e) {}
+          voice.gainNode.gain.cancelScheduledValues(now);
+          voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
+          voice.gainNode.gain.linearRampToValueAtTime(0.0001, now + fadeOutSeconds);
+          try { voice.source.stop(now + fadeOutSeconds + 0.01); } catch (e) {}
+        } catch (err) {}
       });
     });
     this.activeSamplerVoices.clear();

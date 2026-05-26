@@ -667,12 +667,26 @@ export class ObsidianEngine {
     this.createVoice(channelId, midiNote, velocity, absoluteContextTime, durationSeconds, destinationNode);
   }
 
-  public stopAll() {
+  public stopAll(fadeOutSeconds: number = 0.05): void {
+    const now = this.audioContext.currentTime;
     this.activeObsidianVoices.forEach((voices) => {
       voices.forEach((voice) => {
-        this.disconnectVoiceNodes(voice);
+        try {
+          // Fade out the master VCA to silence
+          voice.masterVca.gain.cancelScheduledValues(now);
+          voice.masterVca.gain.setValueAtTime(voice.masterVca.gain.value, now);
+          voice.masterVca.gain.linearRampToValueAtTime(0.0001, now + fadeOutSeconds);
+          // Stop oscillators after fade
+          voice.oscillators.forEach((osc: any) => {
+            try { osc.stop(now + fadeOutSeconds + 0.01); } catch (e) {}
+          });
+          if (voice.lfoNode) {
+            try { voice.lfoNode.stop(now + fadeOutSeconds + 0.01); } catch (e) {}
+          }
+        } catch (err) {}
       });
     });
+    // Clear the map immediately so new voices can be created
     this.activeObsidianVoices.clear();
   }
 }
