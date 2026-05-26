@@ -1,0 +1,49 @@
+{
+  "categories": [
+    {
+      "name": "Kicks",
+      "samples": [
+        {
+          "id": "td_wet_kick",
+          "name": "TD Wet Kick",
+          "path": "/samples/Kicks/td_wet_kick.wav"
+        },
+        {
+          "id": "analog_sub_kick",
+          "name": "Analog Sub Kick",
+          "path": "/samples/Kicks/analog_sub_kick.wav"
+        }
+      ]
+    },
+    {
+      "name": "Snares",
+      "samples": [
+        {
+          "id": "crisp_trap_snare",
+          "name": "Crisp Trap Snare",
+          "path": "/samples/Snares/crisp_trap_snare.wav"
+        },
+        {
+          "id": "tight_wood_snare",
+          "name": "Tight Wood Snare",
+          "path": "/samples/Snares/tight_wood_snare.wav"
+        }
+      ]
+    },
+    {
+      "name": "Hats & Percs",
+      "samples": [
+        {
+          "id": "trap_hihat",
+          "name": "Trap Hi-Hat",
+          "path": "/samples/Hats/trap_hihat.wav"
+        },
+        {
+          "id": "ambient_rim",
+          "name": "Ambient Rim",
+          "path": "/samples/Hats/ambient_rim.wav"
+        }
+      ]
+    }
+  ]
+}

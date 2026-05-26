@@ -1,0 +1,514 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from "react";
+import { TopToolbar } from "./TopToolbar";
+import { DraggableWindow } from "./DraggableWindow";
+import { Canvas } from "./Canvas";
+import { ChannelRack } from "./ChannelRack";
+import { Sampler } from "../plugins/Sampler";
+import { PianoRoll } from "./PianoRoll";
+import { Mixer } from "./Mixer";
+import { Obsidian } from "../plugins/Obsidian";
+import { useAudioEngine } from "../audio/useAudioEngine";
+import { ExportWindow } from "./ExportWindow";
+import { SampleBrowser } from "./SampleBrowser";
+import { ChannelRow, SamplerSettings } from "../types";
+import {
+  FileAudio,
+  HelpCircle,
+  Layers,
+  Settings,
+  Terminal,
+  Compass,
+  Radio,
+  Pin,
+  PinOff,
+} from "lucide-react";
+
+export function Desktop() {
+  const { engine, getSampleBuffer, previewChannel, notifySampleLoaded } = useAudioEngine();
+
+  // 1. Maintain visibility states for floating windows
+  const [activeWindows, setActiveWindows] = useState({
+    canvas: true,
+    sequencer: true,
+    sampler: false, // Sampler window initially closed
+    pianoroll: false, // Piano Roll window initially closed
+    mixer: true, // Mixer window initially open
+    obsidian: false, // Obsidian window initially closed
+    export: false, // Export window initially closed
+  });
+
+  // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export"]);
+
+  // 3. Lifted sequencer and sampler states for true visual sync and responsive knobs
+  const [channels, setChannels] = useState<ChannelRow[]>([
+    { id: "sampler_kick", name: "Trap Kick", type: "sample", sampleId: "sampler_kick_sample", mixerTarget: 1, instrumentType: "sampler" },
+    { id: "sampler_snare", name: "Trap Snare", type: "sample", sampleId: "sampler_snare_sample", mixerTarget: 2, instrumentType: "sampler" },
+    { id: "sampler_hihat", name: "Trap Hihat", type: "sample", sampleId: "sampler_hihat_sample", mixerTarget: 3, instrumentType: "sampler" },
+    { id: "obsidian_default", name: "Obsidian Synth", type: "pitch", pitch: 60, mixerTarget: 4, instrumentType: "obsidian" }
+  ]);
+  const [channelMixers, setChannelMixers] = useState<Record<string, number>>({
+    sampler_kick: 1,
+    sampler_snare: 2,
+    sampler_hihat: 3,
+    obsidian_default: 4
+  });
+  const [channelPans, setChannelPans] = useState<Record<string, number>>({});
+  const [channelVols, setChannelVols] = useState<Record<string, number>>({
+    sampler_kick: 80,
+    sampler_snare: 75,
+    sampler_hihat: 65,
+    obsidian_default: 80
+  });
+  const [mutedChannels, setMutedChannels] = useState<Record<string, boolean>>({});
+  const [soloedChannels, setSoloedChannels] = useState<Record<string, boolean>>({});
+  const [activeInstrumentId, setActiveInstrumentId] = useState<string>("obsidian_default");
+
+  // New sampler plugin settings
+  const [samplerSettings, setSamplerSettings] = useState<Record<string, SamplerSettings>>({});
+  const [activeSamplerChannelId, setActiveSamplerChannelId] = useState<string | null>(null);
+
+  // New Obsidian synth state
+  const [activeObsidianChannelId, setActiveObsidianChannelId] = useState<string | null>("obsidian_default");
+
+  // New Piano Roll state
+  const [activePianoRollChannelId, setActivePianoRollChannelId] = useState<string>("obsidian_default");
+
+  // ── Sample Browser State ──
+  const [browserOpen, setBrowserOpen] = useState(true);
+  const [browserPinned, setBrowserPinned] = useState(true);
+  const [browserWidth, setBrowserWidth] = useState(240);
+  const isResizingBrowser = useRef(false);
+
+  // Cached sync state ref to prevent O(N) redundant engine updates on fader sweeps
+  const prevSyncStateRef = useRef<Record<string, { vol: number; pan: number; mixerTarget: number; sampleId?: string; instrumentType?: string }>>({});
+
+  // Sync Channel Rack stats directly into the Audio Engine
+  useEffect(() => {
+    if (!engine) return;
+
+    const prev = prevSyncStateRef.current;
+    const current: typeof prev = {};
+
+    channels.forEach((chan) => {
+      const vol = channelVols[chan.id] ?? 80;
+      const pan = channelPans[chan.id] ?? 0;
+      const target = channelMixers[chan.id] ?? chan.mixerTarget ?? 1;
+      const sampleId = chan.sampleId;
+      const instrumentType = chan.instrumentType;
+
+      current[chan.id] = { vol, pan, mixerTarget: target, sampleId, instrumentType };
+
+      const cached = prev[chan.id];
+      if (!cached) {
+        // Initial sync or newly created channel: update all fields in engine
+        engine.updateChannelVolume(chan.id, vol);
+        engine.updateChannelPan(chan.id, pan);
+        engine.updateChannelMixerTarget(chan.id, target);
+        if (sampleId) {
+          engine.updateChannelSampleId(chan.id, sampleId);
+        }
+        if (instrumentType && engine.updateChannelInstrumentType) {
+          engine.updateChannelInstrumentType(chan.id, instrumentType);
+        }
+      } else {
+        // High-precision O(1) diffing: only fire changed faders/knobs
+        if (cached.vol !== vol) {
+          engine.updateChannelVolume(chan.id, vol);
+        }
+        if (cached.pan !== pan) {
+          engine.updateChannelPan(chan.id, pan);
+        }
+        if (cached.mixerTarget !== target) {
+          engine.updateChannelMixerTarget(chan.id, target);
+        }
+        if (sampleId && cached.sampleId !== sampleId) {
+          engine.updateChannelSampleId(chan.id, sampleId);
+        }
+        if (instrumentType && cached.instrumentType !== instrumentType && engine.updateChannelInstrumentType) {
+          engine.updateChannelInstrumentType(chan.id, instrumentType);
+        }
+      }
+    });
+
+    prevSyncStateRef.current = current;
+  }, [channels, channelVols, channelPans, channelMixers, engine]);
+
+  const toggleWindow = (winId: WindowId) => {
+    setActiveWindows((prev) => {
+      const nextVal = !prev[winId];
+      if (winId === "obsidian" && nextVal && !activeObsidianChannelId) {
+        const firstObsidian = channels.find(c => c.instrumentType === "obsidian" || c.type === "pitch");
+        if (firstObsidian) {
+          setActiveObsidianChannelId(firstObsidian.id);
+        }
+      }
+      return {
+        ...prev,
+        [winId]: nextVal,
+      };
+    });
+  };
+
+  const handleSetFocus = (winId: WindowId) => {
+    if (winId === "obsidian" && !activeObsidianChannelId) {
+      const firstObsidian = channels.find(c => c.instrumentType === "obsidian" || c.type === "pitch");
+      if (firstObsidian) {
+        setActiveObsidianChannelId(firstObsidian.id);
+      }
+    }
+    setWinOrder((prev) => {
+      const filtered = prev.filter((id) => id !== winId);
+      return [...filtered, winId];
+    });
+  };
+
+  const handleOpenSampler = (channelId: string) => {
+    setActiveSamplerChannelId(channelId);
+    setActiveWindows((prev) => ({ ...prev, sampler: true }));
+    handleSetFocus("sampler");
+  };
+
+  const handleOpenObsidian = (channelId: string) => {
+    setActiveObsidianChannelId(channelId);
+    setActiveWindows((prev) => ({ ...prev, obsidian: true }));
+    handleSetFocus("obsidian");
+  };
+
+  const handleOpenPianoRoll = (channelId: string) => {
+    setActivePianoRollChannelId(channelId);
+    setActiveWindows((prev) => ({ ...prev, pianoroll: true }));
+    handleSetFocus("pianoroll");
+  };
+
+  // Base z-index calculations from order position
+  const getZIndex = (winId: WindowId) => {
+    return 10 + winOrder.indexOf(winId);
+  };
+
+  // ── Browser resize handlers ──
+  const handleBrowserResizeStart = (e: React.PointerEvent) => {
+    e.preventDefault();
+    isResizingBrowser.current = true;
+    const startX = e.clientX;
+    const startWidth = browserWidth;
+
+    const onMove = (ev: PointerEvent) => {
+      if (!isResizingBrowser.current) return;
+      const delta = ev.clientX - startX;
+      setBrowserWidth(Math.max(180, Math.min(400, startWidth + delta)));
+    };
+
+    const onUp = () => {
+      isResizingBrowser.current = false;
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
+  // Workspace left offset when browser is pinned and open
+  const workspaceOffset = browserPinned && browserOpen ? browserWidth : 0;
+
+  return (
+    <div className="absolute inset-0 h-screen w-screen bg-[#070809] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900/30 via-[#0a0b0d] to-[#040506] overflow-hidden flex flex-col font-sans select-none text-neutral-200">
+
+      {/* 2. Extensible top toolbar */}
+      <TopToolbar
+        activeWindows={activeWindows}
+        toggleWindow={toggleWindow}
+        onSetFocus={handleSetFocus}
+        browserOpen={browserOpen}
+        onToggleBrowser={() => setBrowserOpen((prev) => !prev)}
+      />
+
+      {/* ── Pinned Sample Browser Panel ── */}
+      {browserPinned && browserOpen && (
+        <div
+          className="fixed left-0 top-11 bottom-0 bg-[#0a0b0d] border-r border-neutral-800 flex flex-col select-none"
+          style={{ width: browserWidth, zIndex: 45 }}
+        >
+          {/* Panel Header */}
+          <div className="flex items-center justify-between px-2 py-1.5 border-b border-neutral-800 bg-[#101114] shrink-0">
+            <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Sample Browser</span>
+            <button
+              onClick={() => setBrowserPinned(false)}
+              className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
+              title="Unpin – switch to floating window"
+            >
+              <Pin className="h-3 w-3" />
+            </button>
+          </div>
+          {/* Browser Contents */}
+          <div className="flex-1 overflow-hidden [&>div]:!w-full">
+            <SampleBrowser
+              engine={engine}
+              channels={channels}
+              getSampleBuffer={getSampleBuffer}
+              previewChannel={previewChannel}
+              onSampleLoaded={notifySampleLoaded}
+            />
+          </div>
+          {/* Resize Handle */}
+          <div
+            onPointerDown={handleBrowserResizeStart}
+            className="absolute right-0 top-0 bottom-0 w-[5px] cursor-col-resize hover:bg-cyan-500/20 active:bg-cyan-500/30 transition-colors z-10"
+          />
+        </div>
+      )}
+
+      {/* 1. Full-screen overflow-hidden dark desktop environment space */}
+      <main
+        className="flex-1 relative mt-14 overflow-hidden w-full h-[calc(100vh-3.5rem)] select-none transition-[margin-left] duration-100"
+        style={{ marginLeft: workspaceOffset }}
+      >
+
+        {/* Decorative Grid Wallpaper / Workspace Background */}
+        <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:16px_16px] z-0" />
+
+        {/* Futuristic Subtle Circular Ambient Glow */}
+        <div className="absolute top-[20%] left-[30%] w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none z-0" />
+        <div className="absolute bottom-[20%] right-[25%] w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none z-0" />
+
+        {/* 3. Floating window wrapper: Arranger Canvas window */}
+        <DraggableWindow
+          id="canvas"
+          title="Arranger Canvas (Timeline Timeline v2)"
+          isVisible={activeWindows.canvas}
+          onClose={() => toggleWindow("canvas")}
+          onFocus={() => handleSetFocus("canvas")}
+          zIndex={getZIndex("canvas")}
+          defaultX={30}
+          defaultY={30}
+          defaultWidth={880}
+          defaultHeight={460}
+          minWidth={550}
+          minHeight={300}
+        >
+          <Canvas
+            channels={channels}
+            setChannels={setChannels}
+            setChannelVols={setChannelVols}
+            setChannelMixers={setChannelMixers}
+            onOpenWindow={(winId) => {
+              setActiveWindows((prev) => ({ ...prev, [winId]: true }));
+              handleSetFocus(winId);
+            }}
+            onOpenPianoRoll={handleOpenPianoRoll}
+            onOpenSampler={handleOpenSampler}
+            onOpenObsidian={handleOpenObsidian}
+            onOpenChannelRack={() => {
+              setActiveWindows((prev) => ({ ...prev, sequencer: true }));
+              handleSetFocus("sequencer");
+            }}
+          />
+        </DraggableWindow>
+
+        {/* 3. Floating window wrapper: Step pattern Channel Rack Sequencer */}
+        <DraggableWindow
+          id="sequencer"
+          title="Channel Rack"
+          isVisible={activeWindows.sequencer}
+          onClose={() => toggleWindow("sequencer")}
+          onFocus={() => handleSetFocus("sequencer")}
+          zIndex={getZIndex("sequencer")}
+          defaultX={90}
+          defaultY={170}
+          defaultWidth={850}
+          defaultHeight={420}
+          minWidth={600}
+          minHeight={250}
+        >
+          <ChannelRack
+            channels={channels}
+            setChannels={setChannels}
+            channelMixers={channelMixers}
+            setChannelMixers={setChannelMixers}
+            channelPans={channelPans}
+            setChannelPans={setChannelPans}
+            channelVols={channelVols}
+            setChannelVols={setChannelVols}
+            mutedChannels={mutedChannels}
+            setMutedChannels={setMutedChannels}
+            soloedChannels={soloedChannels}
+            setSoloedChannels={setSoloedChannels}
+            activeInstrumentId={activeInstrumentId}
+            setActiveInstrumentId={setActiveInstrumentId}
+            onOpenSampler={handleOpenSampler}
+            onOpenPianoRoll={handleOpenPianoRoll}
+            onOpenObsidian={handleOpenObsidian}
+          />
+        </DraggableWindow>
+
+        {/* 3. Floating window wrapper: Sampler plugin window */}
+        {activeWindows.sampler && activeSamplerChannelId && (
+          <DraggableWindow
+            id="sampler"
+            title={`Sampler - ${channels.find(c => c.id === activeSamplerChannelId)?.name || "Default"}`}
+            isVisible={activeWindows.sampler}
+            onClose={() => toggleWindow("sampler")}
+            onFocus={() => handleSetFocus("sampler")}
+            zIndex={getZIndex("sampler")}
+            defaultX={280}
+            defaultY={190}
+            defaultWidth={480}
+            defaultHeight={295}
+            minWidth={360}
+            minHeight={220}
+          >
+            <Sampler
+              channelId={activeSamplerChannelId}
+              channels={channels}
+              setChannels={setChannels}
+              channelVols={channelVols}
+              channelPans={channelPans}
+              setChannelVols={setChannelVols}
+              setChannelPans={setChannelPans}
+              samplerSettings={samplerSettings}
+              setSamplerSettings={setSamplerSettings}
+            />
+          </DraggableWindow>
+        )}
+
+        {/* 3. Floating window wrapper: Piano Roll window */}
+        {activeWindows.pianoroll && (
+          <DraggableWindow
+            id="pianoroll"
+            title={`Piano Roll - ${channels.find(c => c.id === activePianoRollChannelId)?.name || "Default"}`}
+            isVisible={activeWindows.pianoroll}
+            onClose={() => toggleWindow("pianoroll")}
+            onFocus={() => handleSetFocus("pianoroll")}
+            zIndex={getZIndex("pianoroll")}
+            defaultX={120}
+            defaultY={110}
+            defaultWidth={800}
+            defaultHeight={440}
+            minWidth={480}
+            minHeight={250}
+          >
+            <PianoRoll
+              channels={channels}
+              activeChannelId={activePianoRollChannelId}
+              setActiveChannelId={setActivePianoRollChannelId}
+              channelVols={channelVols}
+              channelPans={channelPans}
+            />
+          </DraggableWindow>
+        )}
+
+        {/* 3. Floating window wrapper: Master Mixer Console window */}
+        <DraggableWindow
+          id="mixer"
+          title="Master Mixer"
+          isVisible={activeWindows.mixer}
+          onClose={() => toggleWindow("mixer")}
+          onFocus={() => handleSetFocus("mixer")}
+          zIndex={getZIndex("mixer")}
+          defaultX={50}
+          defaultY={250}
+          defaultWidth={880}
+          defaultHeight={330}
+          minWidth={550}
+          minHeight={280}
+        >
+          <Mixer
+            channels={channels}
+            channelMixers={channelMixers}
+          />
+        </DraggableWindow>
+
+        {/* 3. Floating window wrapper: Obsidian Synth Instrument window (Hidden via CSS, NEVER unmounted) */}
+        <DraggableWindow
+          id="obsidian"
+          title={`Obsidian Synth - ${channels.find(c => c.id === activeObsidianChannelId)?.name || "Default"}`}
+          isVisible={activeWindows.obsidian}
+          onClose={() => toggleWindow("obsidian")}
+          onFocus={() => handleSetFocus("obsidian")}
+          zIndex={getZIndex("obsidian")}
+          defaultX={160}
+          defaultY={140}
+          defaultWidth={730}
+          defaultHeight={460}
+          minWidth={700}
+          minHeight={450}
+        >
+          <Obsidian channelId={activeObsidianChannelId || undefined} />
+        </DraggableWindow>
+
+        {/* 3. Floating window wrapper: Export Window */}
+        {activeWindows.export && (
+          <DraggableWindow
+            id="export"
+            title="MASTER EXPORT"
+            isVisible={activeWindows.export}
+            onClose={() => toggleWindow("export")}
+            onFocus={() => handleSetFocus("export")}
+            zIndex={getZIndex("export")}
+            defaultX={200}
+            defaultY={120}
+            defaultWidth={500}
+            defaultHeight={420}
+            minWidth={440}
+            minHeight={350}
+          >
+            <ExportWindow
+              onClose={() => toggleWindow("export")}
+              focused={winOrder[winOrder.length - 1] === "export"}
+            />
+          </DraggableWindow>
+        )}
+
+      </main>
+
+      {/* ── Floating Sample Browser (unpinned mode) ── */}
+      {!browserPinned && browserOpen && (
+        <DraggableWindow
+          id="samplebrowser"
+          title="Sample Browser"
+          isVisible={true}
+          onClose={() => setBrowserOpen(false)}
+          onFocus={() => {}}
+          zIndex={48}
+          defaultX={10}
+          defaultY={60}
+          defaultWidth={260}
+          defaultHeight={500}
+          minWidth={200}
+          minHeight={300}
+        >
+          <div className="h-full flex flex-col">
+            {/* Pin button in floating header */}
+            <div className="flex items-center justify-end px-1 py-0.5 border-b border-neutral-800 bg-[#101114] shrink-0">
+              <button
+                onClick={() => setBrowserPinned(true)}
+                className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
+                title="Pin – dock to left edge"
+              >
+                <PinOff className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden [&>div]:!w-full">
+              <SampleBrowser
+                engine={engine}
+                channels={channels}
+                getSampleBuffer={getSampleBuffer}
+                previewChannel={previewChannel}
+                onSampleLoaded={notifySampleLoaded}
+              />
+            </div>
+          </div>
+        </DraggableWindow>
+      )}
+
+    </div>
+  );
+}
+

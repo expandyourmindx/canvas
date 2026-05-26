@@ -1,0 +1,6 @@
+{
+  "name": "Headless DAW Audio Engine",
+  "description": "The high-precision, lookahead scheduler and transport controller for a web-based Digital Audio Workstation (DAW).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
