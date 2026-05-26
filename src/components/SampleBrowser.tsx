@@ -76,7 +76,6 @@ export function SampleBrowser({
   const [builtInCategories, setBuiltInCategories] = useState<Category[]>([]);
 
   // ── User folders (FSAA or fallback) ──
-  const libraryRef = useRef(getLibraryManager());
   const [userFolders, setUserFolders] = useState<UserFolder[]>([]);
   const fallbackInputRef = useRef<HTMLInputElement>(null);
 
@@ -117,10 +116,10 @@ export function SampleBrowser({
     fetchSampleIndex();
 
     // Subscribe to FSAA library updates
-    setUserFolders([...libraryRef.current.getFolders()]);
-    const unsubscribe = libraryRef.current.subscribe(() => {
+    setUserFolders([...getLibraryManager().getFolders()]);
+    const unsubscribe = getLibraryManager().subscribe(() => {
       if (active) {
-        setUserFolders([...libraryRef.current.getFolders()]);
+        setUserFolders([...getLibraryManager().getFolders()]);
       }
     });
 
@@ -195,7 +194,7 @@ export function SampleBrowser({
     setLoadingItems((prev) => ({ ...prev, [node.path]: true }));
 
     try {
-      const arrayBuffer = await libraryRef.current.loadBuffer(node);
+      const arrayBuffer = await getLibraryManager().loadBuffer(node);
       const decodedBuffer = await engine.loadSample(node.path, arrayBuffer);
       onSampleLoaded?.();
       return decodedBuffer;
@@ -268,7 +267,13 @@ export function SampleBrowser({
   const handleAddFolderClick = async () => {
     if (typeof (window as any).showDirectoryPicker !== "undefined") {
       try {
-        await libraryRef.current.addFolder();
+        const beforeFolders = getLibraryManager().getFolders().map(f => f.name);
+        await getLibraryManager().addFolder();
+        const afterFolders = getLibraryManager().getFolders();
+        const newFolder = afterFolders.find(f => !beforeFolders.includes(f.name));
+        if (newFolder) {
+          setExpandedPaths(prev => ({ ...prev, [newFolder.name]: true }));
+        }
       } catch (err) {
         console.warn("FSAA folder pick failed/cancelled", err);
       }
@@ -279,17 +284,17 @@ export function SampleBrowser({
 
   const handleRemoveFolder = async (folderIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    await libraryRef.current.removeFolder(folderIndex);
+    await getLibraryManager().removeFolder(folderIndex);
   };
 
   const handleReauthorizeFolder = async (folderIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    await libraryRef.current.reauthorizeFolder(folderIndex);
+    await getLibraryManager().reauthorizeFolder(folderIndex);
   };
 
   const handleFallbackFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      libraryRef.current.addFilesFromFallback(e.target.files);
+      getLibraryManager().addFilesFromFallback(e.target.files);
     }
   };
 

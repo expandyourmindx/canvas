@@ -51,12 +51,14 @@ const IDB_STORE = "directory-handles";
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(IDB_NAME, 1);
+    const request = indexedDB.open(IDB_NAME, 2); // bump version to 2
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(IDB_STORE)) {
-        db.createObjectStore(IDB_STORE);
+      // Delete old store if it exists with wrong schema
+      if (db.objectStoreNames.contains(IDB_STORE)) {
+        db.deleteObjectStore(IDB_STORE);
       }
+      db.createObjectStore(IDB_STORE);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
@@ -244,11 +246,26 @@ export class SampleLibraryManager {
     if (!folder || !folder.handle) return false;
 
     try {
-      const options = { mode: "read" as const };
-      const status = await (folder.handle as any).requestPermission(options);
-      if (status === "granted") {
+      let authorized = false;
+
+      try {
+        const status = await (folder.handle as any).requestPermission({ mode: "read" });
+        authorized = status === "granted";
+      } catch (err) {
+        // requestPermission not available — try scanning directly
+        try {
+          folder.children = await this.scanDirectory(folder.handle, folder.name);
+          authorized = true;
+        } catch (scanErr) {
+          authorized = false;
+        }
+      }
+
+      if (authorized) {
         folder.authorized = true;
-        folder.children = await this.scanDirectory(folder.handle, folder.name);
+        if (folder.children.length === 0) {
+          folder.children = await this.scanDirectory(folder.handle, folder.name);
+        }
         this.notify();
         return true;
       }
@@ -264,26 +281,34 @@ export class SampleLibraryManager {
       const loadedFolders: UserFolder[] = [];
 
       for (const [name, handle] of Object.entries(handles)) {
-        const permission = await (handle as any).queryPermission({ mode: "read" });
-        const authorized = permission === "granted";
-
+        let authorized = false;
         let children: SampleNode[] = [];
-        if (authorized) {
-          children = await this.scanDirectory(handle, name);
+
+        try {
+          const permission = await (handle as any).queryPermission({ mode: "read" });
+          authorized = permission === "granted";
+        } catch (err) {
+          // queryPermission not available on this handle — treat as unauthorized
+          authorized = false;
         }
 
-        loadedFolders.push({
-          name,
-          handle,
-          children,
-          authorized,
-        });
+        if (authorized) {
+          try {
+            children = await this.scanDirectory(handle, name);
+          } catch (err) {
+            console.warn(`Failed to scan restored folder: ${name}`, err);
+          }
+        }
+
+        loadedFolders.push({ name, handle, children, authorized });
       }
 
       this.folders = loadedFolders;
       this.notify();
     } catch (err) {
       console.error("Failed to restore directory handles", err);
+      // Still notify so UI renders even if restore failed
+      this.notify();
     }
   }
 
