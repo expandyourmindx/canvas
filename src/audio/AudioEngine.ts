@@ -69,8 +69,6 @@ export class AudioEngine {
 
 
   // State Change Event Callbacks (allowing any UI layer to subscribe to transport updates)
-  private onStateChangeCallbacks: Array<(state: TransportState) => void> = [];
-  private onTimelineTickCallbacks: Array<(currentPositionSeconds: number, currentPositionBeats: number) => void> = [];
 
   // Channel state and routing cache for interactive hardware previewing
   private channelVols: Record<string, number> = {};
@@ -202,9 +200,7 @@ export class AudioEngine {
     return this.scheduler.getCurrentPosition(unit);
   }
 
-  public getCurrentTime(): number {
-    return this.scheduler.getCurrentPosition("seconds");
-  }
+
 
   public setLoop(active: boolean, startBeats?: number, endBeats?: number) {
     this.scheduler.setLoop(active, startBeats, endBeats);
@@ -668,6 +664,13 @@ export class AudioEngine {
     // Instruct audio engine hardware thread to fire/terminate waveforms
     osc.start(absoluteContextTime);
     osc.stop(stopTime);
+
+    osc.onended = () => {
+      try {
+        osc.disconnect();
+        gainNode.disconnect();
+      } catch (err) {}
+    };
   }
 
   /**
@@ -691,6 +694,13 @@ export class AudioEngine {
 
     osc.start(absoluteContextTime);
     osc.stop(absoluteContextTime + 0.09);
+
+    osc.onended = () => {
+      try {
+        osc.disconnect();
+        gainNode.disconnect();
+      } catch (err) {}
+    };
   }
 
 
@@ -872,34 +882,7 @@ export class AudioEngine {
     this.samplerEngine.triggerCanvasSample(clip, absoluteContextTime, sampleOffsetSeconds);
   }
 
-  /**
-   * Synthesize individual midi synth canvas notes.
-   */
-  private synthesizeCanvasNote(note: PatternNote, absoluteContextTime: number, durationBeats: number, channelId?: string) {
-    const frequency = 440 * Math.pow(2, (note.pitch - 69) / 12);
 
-    const osc = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, absoluteContextTime);
-
-    const attack = 0.01;
-    const decay = this.beatsToSeconds(durationBeats) - attack;
-
-    gainNode.gain.setValueAtTime(0, absoluteContextTime);
-    gainNode.gain.linearRampToValueAtTime(note.velocity * 0.25, absoluteContextTime + attack);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, absoluteContextTime + attack + Math.max(0.005, decay));
-
-    const mixerTarget = channelId ? (this.channelMixerTargets[channelId] ?? 1) : 1;
-    const insert = this.getOrCreateMixerInsert(mixerTarget);
-
-    osc.connect(gainNode);
-    gainNode.connect(insert.gainNode);
-
-    osc.start(absoluteContextTime);
-    osc.stop(absoluteContextTime + attack + Math.max(0.005, decay) + 0.01);
-  }
 
   /**
    * Delegated Mixer Console & Audio Node Routing wrappers.

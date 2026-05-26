@@ -357,8 +357,7 @@ export function ChannelRack({
   const handleStepToggle = (channel: ChannelRow, stepIndex: number) => {
     const targetBeat = stepIndex * 0.25;
 
-    // Force immediate visual update by cloning current channel row state array
-    setChannels(prev => [...prev]);
+
 
     if (channel.type === "sample") {
       const sampleId = channel.sampleId!;
@@ -438,7 +437,7 @@ export function ChannelRack({
     if (channel.type === "sample") {
       setEvents(events.filter(e => e.sampleId !== channel.sampleId));
     } else {
-      setEvents(events.filter(e => e.pitch !== channel.pitch));
+      setEvents(events.filter(e => e.channelId !== channel.id));
     }
   };
 
