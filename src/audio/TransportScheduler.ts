@@ -9,6 +9,7 @@ export interface SchedulerDelegate {
   scheduleTimelineSegment: (startSeconds: number, endSeconds: number, scheduledIds?: Set<string>) => void;
   triggerMetronomeClick: (beatNumber: number, absoluteContextTime: number) => void;
   getPatternLength?: () => number;
+  onLoopWrap?: () => void;
 }
 
 /**
@@ -400,6 +401,10 @@ export class TransportScheduler {
       // Without this, pausedTimelinePosition still points to the pre-wrap seconds value,
       // causing the displayed playhead to jump backward after every loop wrap.
       this.pausedTimelinePosition = loopStartSeconds;
+
+      if (this.delegate.onLoopWrap) {
+        this.delegate.onLoopWrap();
+      }
 
       // Wrap lookahead scheduling window back to loopStartSeconds
       this.nextTimelineTimeToSchedule = loopStartSeconds;

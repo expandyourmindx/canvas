@@ -128,7 +128,7 @@ export class AudioEngine {
       this.audioContext,
       this.masterGainNode,
       {
-        scheduleTimelineSegment: (start, end) => this.scheduleTimelineSegment(start, end),
+        scheduleTimelineSegment: (start, end, scheduledIds) => this.scheduleTimelineSegment(start, end, scheduledIds),
         triggerMetronomeClick: (beat, time) => this.triggerMetronomeClick(beat, time),
         getPatternLength: () => {
           const events = this.getEvents();
@@ -141,6 +141,10 @@ export class AudioEngine {
             }
           }
           return Math.max(4, Math.ceil(maxBeat / 4) * 4);
+        },
+        onLoopWrap: () => {
+          this.obsidian.stopAll();
+          this.samplerEngine.stopAll();
         }
       },
       { bpm, lookaheadMs, tickIntervalMs }
