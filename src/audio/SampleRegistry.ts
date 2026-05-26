@@ -4,24 +4,33 @@
  */
 
 /**
- * SampleRegistry manages the decoding, caching, and retrieval of AudioBuffers.
+ * SampleRegistry manages the decoding, caching, and retrieval of AudioBuffers with LRU eviction.
  * Decoupled from AudioEngine.ts as part of Phase 1 Refactoring.
  */
 export class SampleRegistry {
   private audioContext: AudioContext;
   private sampleBuffers: Map<string, AudioBuffer> = new Map();
+  private accessOrder: string[] = [];
+  private readonly maxCacheSize: number;
 
-  constructor(audioContext: AudioContext) {
+  constructor(audioContext: AudioContext, maxCacheSize: number = 150) {
     this.audioContext = audioContext;
+    this.maxCacheSize = maxCacheSize;
   }
 
-  /**
-   * Decodes an ArrayBuffer of an audio file and registers it as a reusable sample buffer.
-   */
   public async loadSample(id: string, arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
+    // Return cached buffer if already loaded — move to front of access order
+    const existing = this.sampleBuffers.get(id);
+    if (existing) {
+      this.touchAccessOrder(id);
+      return existing;
+    }
+
     try {
       const decodedData = await this.audioContext.decodeAudioData(arrayBuffer);
       this.sampleBuffers.set(id, decodedData);
+      this.accessOrder.push(id);
+      this.evictIfNeeded();
       return decodedData;
     } catch (error) {
       console.error(`Error decoding audio sample for ID: ${id}`, error);
@@ -29,17 +38,40 @@ export class SampleRegistry {
     }
   }
 
-  /**
-   * Retrieves loaded sample identifiers.
-   */
+  public getSampleBuffer(id: string): AudioBuffer | undefined {
+    const buffer = this.sampleBuffers.get(id);
+    if (buffer) {
+      this.touchAccessOrder(id);
+    }
+    return buffer;
+  }
+
   public getLoadedSampleIds(): string[] {
     return Array.from(this.sampleBuffers.keys());
   }
 
-  /**
-   * Retrieves specific loaded sample buffer.
-   */
-  public getSampleBuffer(id: string): AudioBuffer | undefined {
-    return this.sampleBuffers.get(id);
+  public removeSample(id: string): void {
+    this.sampleBuffers.delete(id);
+    this.accessOrder = this.accessOrder.filter(k => k !== id);
+  }
+
+  public clearAll(): void {
+    this.sampleBuffers.clear();
+    this.accessOrder = [];
+  }
+
+  private touchAccessOrder(id: string): void {
+    this.accessOrder = this.accessOrder.filter(k => k !== id);
+    this.accessOrder.push(id);
+  }
+
+  private evictIfNeeded(): void {
+    while (this.sampleBuffers.size > this.maxCacheSize) {
+      const oldest = this.accessOrder.shift();
+      if (oldest) {
+        this.sampleBuffers.delete(oldest);
+      }
+    }
   }
 }
+
