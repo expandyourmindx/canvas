@@ -238,7 +238,11 @@ export class AudioEngine {
    * Searches and processes all sequence notes inside the requested timeline frame.
    * Maps relative sequence times to absolute Web Audio hardware clock seconds.
    */
-  private scheduleTimelineSegment(startSeconds: number, endSeconds: number) {
+  private scheduleTimelineSegment(
+    startSeconds: number,
+    endSeconds: number,
+    scheduledIds?: Set<string>
+  ): void {
     const startBeats = this.secondsToBeats(startSeconds);
     const endBeats = this.secondsToBeats(endSeconds);
     const playbackMode = this.getPlaybackMode();
@@ -260,6 +264,12 @@ export class AudioEngine {
         const eventIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideEvent;
 
         if (eventStartsInWindow || eventIntersectionInPlaybackStart) {
+          const eventKey = `${event.channelId ?? 'default'}-${event.time}-${event.pitch ?? event.id}`;
+          if (scheduledIds) {
+            if (scheduledIds.has(eventKey)) continue;
+            scheduledIds.add(eventKey);
+          }
+
           if (event.sampleId) {
             // Trigger the sampler engine play function
             let targetHardwareTime = 0;
@@ -298,6 +308,12 @@ export class AudioEngine {
           const clipIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideClip;
 
           if (clipStartsInWindow || clipIntersectionInPlaybackStart) {
+            const eventKey = `clip-sample-${clip.id}`;
+            if (scheduledIds) {
+              if (scheduledIds.has(eventKey)) continue;
+              scheduledIds.add(eventKey);
+            }
+
             let targetHardwareTime = 0;
             let calculatedOffset = this.beatsToSeconds(clip.cropStart || 0);
 
@@ -335,6 +351,12 @@ export class AudioEngine {
               const noteIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideNote;
 
               if (noteStartsInWindow || noteIntersectionInPlaybackStart) {
+                const eventKey = `clip-pattern-${clip.id}-${note.id || (note.time + '-' + note.pitch)}`;
+                if (scheduledIds) {
+                  if (scheduledIds.has(eventKey)) continue;
+                  scheduledIds.add(eventKey);
+                }
+
                 let targetHardwareTime = 0;
                 let noteOffsetSecs = 0;
 

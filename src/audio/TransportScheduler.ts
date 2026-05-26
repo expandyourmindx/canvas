@@ -6,7 +6,7 @@
 export type TransportState = "playing" | "paused" | "stopped";
 
 export interface SchedulerDelegate {
-  scheduleTimelineSegment: (startSeconds: number, endSeconds: number) => void;
+  scheduleTimelineSegment: (startSeconds: number, endSeconds: number, scheduledIds?: Set<string>) => void;
   triggerMetronomeClick: (beatNumber: number, absoluteContextTime: number) => void;
   getPatternLength?: () => number;
 }
@@ -366,7 +366,8 @@ export class TransportScheduler {
     }
 
     // 1. Schedule all matching events in our current window segment
-    this.delegate.scheduleTimelineSegment(startTimelineSeconds, endTimelineSeconds);
+    const scheduledThisTick = new Set<string>();
+    this.delegate.scheduleTimelineSegment(startTimelineSeconds, endTimelineSeconds, scheduledThisTick);
 
     // Handlers for metronome ticking if audio output testing is active
     if (this.metronomeEnabled) {
@@ -405,7 +406,7 @@ export class TransportScheduler {
 
       // Schedule the remaining wrapped timeline section
       const nextEnd = loopStartSeconds + loopedEndSeconds;
-      this.delegate.scheduleTimelineSegment(loopStartSeconds, nextEnd);
+      this.delegate.scheduleTimelineSegment(loopStartSeconds, nextEnd, scheduledThisTick);
 
       // Handle looped metronome ticking
       if (this.metronomeEnabled) {
