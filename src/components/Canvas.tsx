@@ -797,13 +797,47 @@ export function Canvas({
                               durationBeats = engine.secondsToBeats(buffer.duration);
                             }
 
+                            // Find or create a matching channel rack entry for the dropped sample
+                            let targetChannelId = id;
+                            const existingChannel = channels.find(c => c.sampleId === id || c.id === id);
+
+                            if (existingChannel) {
+                              targetChannelId = existingChannel.id;
+                            } else if (setChannels) {
+                              const nextIndex = channels.length + 1;
+                              const newChanId = `sampler_${Date.now()}`;
+                              const newChannel = {
+                                id: newChanId,
+                                name: getSampleName(id).slice(0, 20),
+                                type: "sample" as const,
+                                sampleId: id,
+                                mixerTarget: Math.min(99, nextIndex),
+                                instrumentType: "sampler" as const
+                              };
+
+                              setChannels(prev => [...prev, newChannel]);
+
+                              if (setChannelVols) setChannelVols(prev => ({ ...prev, [newChanId]: 80 }));
+                              if (setChannelMixers) setChannelMixers(prev => ({ ...prev, [newChanId]: Math.min(99, nextIndex) }));
+
+                              engine.updateChannelVolume(newChanId, 80);
+                              engine.updateChannelPan(newChanId, 0);
+                              engine.updateChannelMixerTarget(newChanId, Math.min(99, nextIndex));
+                              engine.updateChannelSampleId(newChanId, id);
+                              if (engine.updateChannelInstrumentType) {
+                                engine.updateChannelInstrumentType(newChanId, "sampler");
+                              }
+
+                              targetChannelId = newChanId;
+                            }
+
                             const newClip = {
                               id: `clip_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                               laneIndex: laneIdx,
                               startBeat: Math.max(0, Math.min(totalBeats - durationBeats, snappedBeat)),
                               duration: durationBeats,
                               type: "sample" as const,
-                              referenceId: id,
+                              referenceId: targetChannelId,
                               name: getSampleName(id),
                               color: "from-emerald-600/20 to-emerald-500/10 text-emerald-400 border-emerald-500/30",
                               cropStart: 0,
@@ -824,7 +858,17 @@ export function Canvas({
                             setClipCropStart(newClip.cropStart || 0);
 
                             if (pushToHistory) {
-                              pushToHistory(channels);
+                              const updatedChannels = existingChannel
+                                ? channels
+                                : [...channels, {
+                                    id: targetChannelId,
+                                    name: getSampleName(id).slice(0, 20),
+                                    type: "sample" as const,
+                                    sampleId: id,
+                                    mixerTarget: Math.min(99, channels.length + 1),
+                                    instrumentType: "sampler" as const
+                                  }];
+                              pushToHistory(updatedChannels);
                             }
                           } catch (err) {
                             console.error("Error setting canvas clip from sample browser drop", err);
