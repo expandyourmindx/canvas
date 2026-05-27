@@ -127,6 +127,15 @@ export function Desktop() {
   const [browserWidth, setBrowserWidth] = useState(240);
   const isResizingBrowser = useRef(false);
 
+  // Sync the pinned sample browser width to a global CSS custom variable
+  useEffect(() => {
+    const widthVal = browserPinned && browserOpen ? `${browserWidth}px` : "0px";
+    document.documentElement.style.setProperty("--sample-browser-width", widthVal);
+    return () => {
+      document.documentElement.style.removeProperty("--sample-browser-width");
+    };
+  }, [browserPinned, browserOpen, browserWidth]);
+
   // Cached sync state ref to prevent O(N) redundant engine updates on fader sweeps
   const prevSyncStateRef = useRef<Record<string, { vol: number; pan: number; mixerTarget: number; sampleId?: string; instrumentType?: string }>>({});
 
@@ -256,8 +265,7 @@ export function Desktop() {
     document.addEventListener("pointerup", onUp);
   };
 
-  // Workspace left offset when browser is pinned and open
-  const workspaceOffset = browserPinned && browserOpen ? browserWidth : 0;
+
 
   return (
     <div className="absolute inset-0 h-screen w-screen bg-[#070809] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900/30 via-[#0a0b0d] to-[#040506] overflow-hidden flex flex-col font-sans select-none text-neutral-200">
@@ -310,7 +318,7 @@ export function Desktop() {
       {browserPinned && browserOpen && (
         <div
           className="fixed left-0 top-11 bottom-0 bg-[#0a0b0d] border-r border-neutral-800 flex flex-col select-none"
-          style={{ width: browserWidth, zIndex: 45 }}
+          style={{ width: "var(--sample-browser-width)", zIndex: 45 }}
         >
           {/* Panel Header */}
           <div className="flex items-center justify-between px-2 py-1.5 border-b border-neutral-800 bg-[#101114] shrink-0">
@@ -343,8 +351,11 @@ export function Desktop() {
 
       {/* 1. Full-screen overflow-hidden dark desktop environment space */}
       <main
-        className="flex-1 relative mt-14 overflow-hidden w-full h-[calc(100vh-3.5rem)] select-none transition-[margin-left] duration-100"
-        style={{ marginLeft: workspaceOffset }}
+        className="flex-1 relative mt-14 overflow-hidden h-[calc(100vh-3.5rem)] select-none transition-[margin-left,width] duration-100"
+        style={{
+          marginLeft: "var(--sample-browser-width)",
+          width: "calc(100% - var(--sample-browser-width))"
+        }}
       >
 
         {/* Decorative Grid Wallpaper / Workspace Background */}

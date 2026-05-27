@@ -148,8 +148,8 @@ export function DraggableWindow({
   // Window styling styles
   const windowStyles: React.CSSProperties = isMaximized
     ? {
-      position: "fixed",
-      top: "2.75rem", // clearance for toolbar (h-11 = 2.75rem)
+      position: "absolute",
+      top: 0,
       left: 0,
       right: 0,
       bottom: 0,
