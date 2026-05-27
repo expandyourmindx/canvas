@@ -363,7 +363,7 @@ export function SampleBrowser({
               : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-neutral-850/30"
           }`}
           style={{ paddingLeft: `${10 + depth * 8}px` }}
-          title="Drag into lane or channel rack. Click to preview."
+          title={node.name}
         >
           <div className="flex items-center gap-1.5 truncate">
             {isLoading ? (
@@ -467,7 +467,7 @@ export function SampleBrowser({
                                 ? "bg-[#181d26] text-cyan-400 border-cyan-500/30"
                                 : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-neutral-850/30"
                             }`}
-                            title="Drag into lane or channel rack. Click to preview."
+                            title={sample.name}
                           >
                             <div className="flex items-center gap-1.5 truncate">
                               {isLoading ? (

@@ -113,6 +113,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const engineRef = useRef<AudioEngine | null>(null);
   if (!engineRef.current) {
     engineRef.current = new AudioEngine();
+    engineRef.current.setPlaybackMode("song");
   }
   const engine = engineRef.current;
 
@@ -132,7 +133,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   // React state elements for UI consumption
   const [playbackState, setPlaybackState] = useState<TransportState>(engine.getState());
-  const [playbackMode, setPlaybackModeState] = useState<"pattern" | "song">(engine.getPlaybackMode());
+  const [playbackMode, setPlaybackModeState] = useState<"pattern" | "song">("song");
   const [bpm, setBpmState] = useState<number>(engine.getBpm());
   const [metronomeEnabled, setMetronomeEnabled] = useState<boolean>(engine.isMetronomeEnabled());
   const [loopSettings, setLoopSettings] = useState(engine.getLoopSettings());

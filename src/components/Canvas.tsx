@@ -271,14 +271,7 @@ export function Canvas({
     }
   }, [patterns, engine, selectedClipType, selectedReferenceId]);
 
-  // Check if a clip placement overlaps with any existing block on that lane
-  const checkOverlap = (laneIndex: number, startBeat: number, duration: number) => {
-    return canvasClips.some(
-      clip =>
-        clip.laneIndex === laneIndex &&
-        !(startBeat + duration <= clip.startBeat || startBeat >= clip.startBeat + clip.duration)
-    );
-  };
+
 
   // Resolve metadata (human labels, theme colors) for selected brush element
   const getClipMetadata = (type: "pattern" | "sample", refId: string) => {
@@ -318,7 +311,7 @@ export function Canvas({
     }
 
     if (startBeat + duration > totalBeats) return;
-    if (checkOverlap(laneIndex, startBeat, duration)) return;
+
 
     const meta = getClipMetadata(selectedClipType, selectedReferenceId);
 
