@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import {
   Play,
@@ -41,6 +41,7 @@ interface TopToolbarProps {
 
 export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpen, onToggleBrowser }: TopToolbarProps) {
   const {
+    engine,
     playbackState,
     playbackMode,
     position,
@@ -57,6 +58,64 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     baseOctave,
     setBaseOctave,
   } = useAudioEngine();
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !engine) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const analyser = engine.getOrCreateMixerInsert(0).analyserNode;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let animationId: number;
+
+    const draw = () => {
+      animationId = requestAnimationFrame(draw);
+
+      analyser.getByteFrequencyData(dataArray);
+
+      // Trailing motion blur fade
+      ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const barWidth = (canvas.width / 16);
+      let x = 0;
+
+      for (let i = 0; i < 16; i++) {
+        // Average bands to fill standard audio visual ranges nicely
+        const index = Math.floor((i / 16) * (bufferLength * 0.45));
+        const val = dataArray[index] || 0;
+        
+        // Scale to fit the visual canvas height
+        const barHeight = (val / 255) * canvas.height * 0.9;
+
+        // Visual spectrum coloring gradient
+        const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+        grad.addColorStop(0, "#10b981"); // emerald green bottom
+        grad.addColorStop(0.5, "#06b6d4"); // cyan middle
+        grad.addColorStop(1, "#f59e0b"); // amber peak
+
+        ctx.fillStyle = grad;
+        const yPos = canvas.height - barHeight;
+        
+        // Draw sleek bar block
+        ctx.fillRect(x, yPos, barWidth - 1, barHeight);
+
+        x += barWidth;
+      }
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [engine]);
 
   // Local state for Tempo BPM to handle smooth inline keyboard entry
   const [bpmInput, setBpmInput] = useState<string>(bpm.toString());
@@ -212,6 +271,14 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
             </div>
           )}
         </button>
+
+        {/* Real-time Spectrogram Visualizer */}
+        <div 
+          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-24 rounded-sm shadow-inner relative overflow-hidden select-none"
+          title="Master Output Spectrogram Visualizer"
+        >
+          <canvas ref={canvasRef} width="96" height="30" className="w-full h-full" />
+        </div>
 
         {/* BPM Input Setting */}
         <form onSubmit={handleBpmSubmit} className="relative items-center hidden sm:flex">
