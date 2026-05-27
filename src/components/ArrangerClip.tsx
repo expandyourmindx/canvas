@@ -7,6 +7,7 @@ import React, { useRef, useEffect } from "react";
 import { CanvasClip, PatternData } from "../types";
 import { LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX } from "../config";
 import { useAudioEngine } from "../audio/useAudioEngine";
+import { Keyboard, Music } from "lucide-react";
 
 interface ArrangerClipProps {
   clip: CanvasClip;
@@ -119,7 +120,7 @@ export function ArrangerClip({
       peaksCache.set(sampleId, { mins, maxs });
     }
 
-    // 2. Draw the pixel-accurate waveform centered around heightPx / 2
+    // 2. Draw the pixel-accurate waveform centered around the body below the header
     const cache = peaksCache.get(sampleId);
     if (cache) {
       const { mins, maxs } = cache;
@@ -131,8 +132,10 @@ export function ArrangerClip({
 
       if (clipDurationSeconds <= 0 || sampleDurationSeconds <= 0) return;
 
+      const headerHeight = 16;
+      const bodyHeight = heightPx - headerHeight;
+      const midY = headerHeight + bodyHeight / 2;
       const ampScale = 0.85; // Standard amplitude scale to keep clean vertical margins
-      const midY = heightPx / 2;
 
       ctx.strokeStyle = "rgba(34, 211, 238, 0.85)"; // High-contrast cyan
       ctx.lineWidth = 1.2;
@@ -166,8 +169,8 @@ export function ArrangerClip({
           }
         }
 
-        const yMin = midY + min * midY * ampScale;
-        const yMax = midY + max * midY * ampScale;
+        const yMin = midY + min * (bodyHeight / 2) * ampScale;
+        const yMax = midY + max * (bodyHeight / 2) * ampScale;
 
         ctx.beginPath();
         ctx.moveTo(i, yMin);
@@ -203,16 +206,17 @@ export function ArrangerClip({
         e.stopPropagation();
         handleClipDoubleClick(clip);
       }}
-      className={`canvas-clip-body absolute border rounded-none bg-gradient-to-br ${
+      className={`canvas-clip-body absolute border rounded-xs flex flex-col justify-between overflow-hidden shadow-lg cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto transition-all ${
         clip.color
-      } py-0.5 flex flex-col justify-between overflow-hidden shadow-md cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto ${
-        isSelected ? "border-white/60 shadow-[inset_0_0_4px_rgba(255,255,255,0.25)]" : ""
+      } ${
+        isSelected ? "border-white shadow-[inset_0_0_6px_rgba(255,255,255,0.3)] ring-1 ring-white/30" : "border-neutral-850"
       }`}
       style={{
         left: `${leftPx}px`,
         width: `${widthPx}px`,
         top: `${topPx}px`,
         height: `${heightPx}px`,
+        background: "#0a0b0d",
       }}
       title="Double-click to edit, Drag handles to crop, Right-click to delete"
     >
@@ -242,18 +246,23 @@ export function ArrangerClip({
         title="Drag right edge to crop end / change duration"
       />
 
-      <div className="flex flex-col text-left leading-none truncate pointer-events-none z-10 px-1.5 pt-0.5">
-        <span className="text-[8.5px] font-black uppercase truncate text-neutral-100">{clip.name}</span>
-        <span className="text-[7px] font-mono opacity-50 truncate mt-0.5">
-          {clip.type === "pattern" ? `PAT: ${clip.referenceId}` : `WAV: ${clip.referenceId}`}
+      {/* Sleek Unified Header */}
+      <div className="w-full h-4 bg-[#14161a] border-b border-neutral-850 flex items-center px-1.5 gap-1.5 shrink-0 z-10 select-none pointer-events-none">
+        {clip.type === "pattern" ? (
+          <Keyboard className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+        ) : (
+          <Music className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+        )}
+        <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-200 truncate leading-none mt-px">
+          {clip.name}
         </span>
       </div>
 
-      <div className="w-full flex-1 min-h-0 flex items-end pointer-events-none select-none z-10">
+      <div className="w-full flex-1 min-h-0 flex items-end pointer-events-none select-none z-10 pb-0.5">
         {clip.type === "sample" ? (
-          <div className="w-full h-6" />
+          <div className="w-full h-5" />
         ) : (
-          <div className="w-full h-6.5 relative bg-black/45 rounded-xs overflow-hidden pointer-events-none mt-0.5 border border-neutral-900/40">
+          <div className="w-full h-5 relative overflow-hidden pointer-events-none">
             {(() => {
               const pattern = patterns.find((p) => p.id === clip.referenceId);
               if (!pattern) return null;
@@ -276,7 +285,7 @@ export function ArrangerClip({
                 return (
                   <div
                     key={idx}
-                    className="absolute h-[2px] bg-cyan-400/80 shadow-[0_0_2.5px_#22d3ee] rounded-xs"
+                    className="absolute h-[3px] bg-neutral-400/80 shadow-[0_0_2px_rgba(255,255,255,0.15)] rounded-xs"
                     style={{
                       left: `${noteLeftPx}px`,
                       width: `${noteWidthPx}px`,
