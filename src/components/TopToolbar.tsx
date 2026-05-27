@@ -59,7 +59,13 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     setBaseOctave,
   } = useAudioEngine();
 
+  const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const visModeRef = useRef<"spectrum" | "waveform">("spectrum");
+
+  useEffect(() => {
+    visModeRef.current = visMode;
+  }, [visMode]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -95,32 +101,73 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     const draw = () => {
       animationId = requestAnimationFrame(draw);
 
-      analyser.getByteFrequencyData(dataArray);
+      if (visModeRef.current === "waveform") {
+        analyser.getByteTimeDomainData(dataArray);
 
-      // Trailing motion blur fade
-      ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Solid dark background clear
+        ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      for (let i = 0; i < numBars; i++) {
-        const binIndex = binIndices[i];
-        const val = dataArray[binIndex] || 0;
+        // Zero-crossing trigger search to stabilize the oscilloscope line
+        let triggerIndex = 0;
+        for (let i = 0; i < bufferLength / 2; i++) {
+          if (dataArray[i] < 128 && dataArray[i + 1] >= 128) {
+            triggerIndex = i;
+            break;
+          }
+        }
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = "#34d399"; // Glowing Emerald
+        ctx.shadowColor = "#34d399";
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+
+        const displayLength = Math.min(bufferLength - triggerIndex, 256); // show a clean window of 256 samples
+        const sliceWidth = canvas.width / displayLength;
         
-        // Scale frequency amplitude using decibel-like weighting
-        const amplitude = val / 255;
-        // Subtle gain compensation for high-end bands to balance visual energy
-        const boost = 1 + (i / numBars) * 0.45;
-        const barHeight = Math.min(canvas.height, amplitude * canvas.height * 0.95 * boost);
+        for (let i = 0; i < displayLength; i++) {
+          const v = dataArray[triggerIndex + i] / 128.0;
+          const y = (v * canvas.height) / 2;
+          const x = i * sliceWidth;
 
-        // Professional cyan-to-emerald gradient spectrum coloring
-        const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-        grad.addColorStop(0, "#06b6d4"); // cyan bottom
-        grad.addColorStop(1, "#34d399"); // emerald top
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
 
-        ctx.fillStyle = grad;
-        const yPos = canvas.height - barHeight;
-        
-        // Draw high-precision thin bar
-        ctx.fillRect(i * barWidth, yPos, barWidth - 1, barHeight);
+        ctx.stroke();
+        ctx.shadowBlur = 0; // reset
+      } else {
+        analyser.getByteFrequencyData(dataArray);
+
+        // Trailing motion blur fade
+        ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < numBars; i++) {
+          const binIndex = binIndices[i];
+          const val = dataArray[binIndex] || 0;
+          
+          // Scale frequency amplitude using decibel-like weighting
+          const amplitude = val / 255;
+          // Subtle gain compensation for high-end bands to balance visual energy
+          const boost = 1 + (i / numBars) * 0.45;
+          const barHeight = Math.min(canvas.height, amplitude * canvas.height * 0.95 * boost);
+
+          // Professional cyan-to-emerald gradient spectrum coloring
+          const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+          grad.addColorStop(0, "#06b6d4"); // cyan bottom
+          grad.addColorStop(1, "#34d399"); // emerald top
+
+          ctx.fillStyle = grad;
+          const yPos = canvas.height - barHeight;
+          
+          // Draw high-precision thin bar
+          ctx.fillRect(i * barWidth, yPos, barWidth - 1, barHeight);
+        }
       }
     };
 
@@ -286,12 +333,13 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
           )}
         </button>
 
-        {/* Real-time Spectrogram Visualizer */}
+        {/* Real-time Spectrogram/Waveform Visualizer */}
         <div 
-          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-36 rounded-sm shadow-inner relative overflow-hidden select-none"
-          title="Master Output Spectrogram Visualizer"
+          onClick={() => setVisMode(prev => prev === "spectrum" ? "waveform" : "spectrum")}
+          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-36 rounded-sm shadow-inner relative overflow-hidden select-none cursor-pointer hover:border-neutral-700 hover:bg-[#121316] transition-all"
+          title={`Click to toggle visualization mode (Current: ${visMode === "spectrum" ? "Spectrum" : "Waveform"})`}
         >
-          <canvas ref={canvasRef} width="144" height="30" className="w-full h-full" />
+          <canvas ref={canvasRef} width="144" height="30" className="w-full h-full pointer-events-none" />
         </div>
 
         {/* BPM Input Setting */}
