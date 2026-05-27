@@ -761,6 +761,7 @@ export function Canvas({
                               duration: durationBeats,
                               type: "sample" as const,
                               referenceId: id,
+                              name: getSampleName(id),
                               color: "from-emerald-600/20 to-emerald-500/10 text-emerald-400 border-emerald-500/30",
                               cropStart: 0,
                             };

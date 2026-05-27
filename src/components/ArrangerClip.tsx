@@ -5,7 +5,7 @@
 
 import React, { useRef, useEffect } from "react";
 import { CanvasClip, PatternData } from "../types";
-import { LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX } from "../config";
+import { LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX, AVAILABLE_SAMPLES } from "../config";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { Keyboard, Music } from "lucide-react";
 
@@ -53,6 +53,22 @@ export function ArrangerClip({
   const widthPx = clip.duration * beatWidth;
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
+
+  const resolvedName = clip.name || (() => {
+    if (clip.type === "pattern") {
+      const match = patterns.find((p) => p.id === clip.referenceId);
+      return match?.name || "MIDI Pattern";
+    } else {
+      const preset = AVAILABLE_SAMPLES.find((s) => s.id === clip.referenceId);
+      if (preset) return preset.name;
+      return clip.referenceId
+        .replace(".wav", "")
+        .replace(".mp3", "")
+        .split(/[-_]/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    }
+  })();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
@@ -254,7 +270,7 @@ export function ArrangerClip({
           <Music className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
         )}
         <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-200 truncate leading-none mt-px">
-          {clip.name}
+          {resolvedName}
         </span>
       </div>
 
