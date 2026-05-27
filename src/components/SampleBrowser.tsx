@@ -87,6 +87,7 @@ export function SampleBrowser({
 
   // ── Preview Source Tracking ──
   const previewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const localPreviewCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
   // Stop active preview when transport plays or stops
   useEffect(() => {
@@ -168,9 +169,9 @@ export function SampleBrowser({
     };
   };
 
-  // On-demand load and decode of a single built-in sample
+  // On-demand load and decode of a single built-in sample for preview (does not register in engine timeline state)
   const loadBuiltInSample = async (sample: Sample): Promise<AudioBuffer | null> => {
-    const cached = getSampleBuffer(sample.id);
+    const cached = localPreviewCacheRef.current.get(sample.id) || getSampleBuffer(sample.id);
     if (cached) return cached;
 
     setLoadingItems((prev) => ({ ...prev, [sample.id]: true }));
@@ -179,31 +180,37 @@ export function SampleBrowser({
       const res = await fetch(sample.path);
       if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
       const ab = await res.arrayBuffer();
-      const decodedBuffer = await engine.loadSample(sample.id, ab);
-      onSampleLoaded?.();
+      
+      const ctx = engine.audioContext as AudioContext;
+      const decodedBuffer = await ctx.decodeAudioData(ab);
+      
+      localPreviewCacheRef.current.set(sample.id, decodedBuffer);
       return decodedBuffer;
     } catch (err) {
-      console.error(`Failed to lazy load/decode built-in sample: ${sample.name}`, err);
+      console.error(`Failed to lazy load/decode built-in sample for preview: ${sample.name}`, err);
       return null;
     } finally {
       setLoadingItems((prev) => ({ ...prev, [sample.id]: false }));
     }
   };
 
-  // On-demand load and decode of a single user sample
+  // On-demand load and decode of a single user sample for preview (does not register in engine timeline state)
   const loadUserSample = async (node: SampleNode): Promise<AudioBuffer | null> => {
-    const cached = getSampleBuffer(node.path);
+    const cached = localPreviewCacheRef.current.get(node.path) || getSampleBuffer(node.path);
     if (cached) return cached;
 
     setLoadingItems((prev) => ({ ...prev, [node.path]: true }));
 
     try {
       const arrayBuffer = await getLibraryManager().loadBuffer(node);
-      const decodedBuffer = await engine.loadSample(node.path, arrayBuffer);
-      onSampleLoaded?.();
+      
+      const ctx = engine.audioContext as AudioContext;
+      const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      localPreviewCacheRef.current.set(node.path, decodedBuffer);
       return decodedBuffer;
     } catch (err) {
-      console.error(`Failed to lazy load/decode user sample: ${node.name}`, err);
+      console.error(`Failed to lazy load/decode user sample for preview: ${node.name}`, err);
       return null;
     } finally {
       setLoadingItems((prev) => ({ ...prev, [node.path]: false }));
