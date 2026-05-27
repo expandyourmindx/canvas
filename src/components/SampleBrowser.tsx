@@ -25,6 +25,7 @@ import {
   SampleNode,
   UserFolder,
 } from "../audio/SampleLibraryManager";
+import { useAudioEngine } from "../audio/useAudioEngine";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -88,8 +89,17 @@ export function SampleBrowser({
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const { playbackState } = useAudioEngine();
+
   // ── Preview Source Tracking ──
   const previewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Stop active preview when transport plays or stops
+  useEffect(() => {
+    if (playbackState === "playing" || playbackState === "stopped") {
+      stopActivePreview();
+    }
+  }, [playbackState]);
 
   // Load sample index and subscribe to library changes
   useEffect(() => {
@@ -208,6 +218,7 @@ export function SampleBrowser({
 
   // ── Preview click handlers ──
   const handlePreviewBuiltIn = async (sample: Sample) => {
+    stopActivePreview(); // Stop immediately on click
     try {
       const buffer = await loadBuiltInSample(sample);
       if (buffer) {
@@ -219,6 +230,7 @@ export function SampleBrowser({
   };
 
   const handlePreviewUser = async (node: SampleNode) => {
+    stopActivePreview(); // Stop immediately on click
     try {
       const buffer = await loadUserSample(node);
       if (buffer) {
