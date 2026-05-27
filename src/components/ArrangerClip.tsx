@@ -61,11 +61,14 @@ export function ArrangerClip({
     } else {
       const preset = AVAILABLE_SAMPLES.find((s) => s.id === clip.referenceId);
       if (preset) return preset.name;
-      return clip.referenceId
-        .replace(".wav", "")
-        .replace(".mp3", "")
+      
+      const parts = clip.referenceId.split(/[/\\]/);
+      const fileName = parts[parts.length - 1] || clip.referenceId;
+      
+      return fileName
+        .replace(/\.(wav|mp3|ogg|flac|aac|m4a)$/i, "")
         .split(/[-_]/)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .map((w) => w ? w.charAt(0).toUpperCase() + w.slice(1) : "")
         .join(" ");
     }
   })();

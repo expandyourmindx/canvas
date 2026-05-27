@@ -236,11 +236,15 @@ export function Canvas({
   const getSampleName = (id: string) => {
     const preset = AVAILABLE_SAMPLES.find(s => s.id === id);
     if (preset) return preset.name;
-    return id
-      .replace(".wav", "")
-      .replace(".mp3", "")
+
+    // Extract filename from full path
+    const parts = id.split(/[/\\]/);
+    const fileName = parts[parts.length - 1] || id;
+
+    return fileName
+      .replace(/\.(wav|mp3|ogg|flac|aac|m4a)$/i, "")
       .split(/[-_]/)
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : "")
       .join(" ");
   };
 
