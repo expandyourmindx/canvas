@@ -69,8 +69,26 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     if (!ctx) return;
 
     const analyser = engine.getOrCreateMixerInsert(0).analyserNode;
+    analyser.fftSize = 1024;
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
+
+    const sampleRate = analyser.context.sampleRate || 44100;
+    const numBars = 36; // High resolution bands
+    const barWidth = canvas.width / numBars;
+
+    // Scientific logarithmic bin mapping: accurately distributes bands across human hearing range (20Hz - 20kHz)
+    const minHz = 35;
+    const maxHz = 18000;
+    const binIndices = new Int32Array(numBars);
+    for (let i = 0; i < numBars; i++) {
+      const targetHz = minHz * Math.pow(maxHz / minHz, i / (numBars - 1));
+      const binIndex = Math.min(
+        bufferLength - 1,
+        Math.max(0, Math.round((targetHz * 1024) / sampleRate))
+      );
+      binIndices[i] = binIndex;
+    }
 
     let animationId: number;
 
@@ -83,30 +101,26 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
       ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = (canvas.width / 16);
-      let x = 0;
-
-      for (let i = 0; i < 16; i++) {
-        // Average bands to fill standard audio visual ranges nicely
-        const index = Math.floor((i / 16) * (bufferLength * 0.45));
-        const val = dataArray[index] || 0;
+      for (let i = 0; i < numBars; i++) {
+        const binIndex = binIndices[i];
+        const val = dataArray[binIndex] || 0;
         
-        // Scale to fit the visual canvas height
-        const barHeight = (val / 255) * canvas.height * 0.9;
+        // Scale frequency amplitude using decibel-like weighting
+        const amplitude = val / 255;
+        // Subtle gain compensation for high-end bands to balance visual energy
+        const boost = 1 + (i / numBars) * 0.45;
+        const barHeight = Math.min(canvas.height, amplitude * canvas.height * 0.95 * boost);
 
-        // Visual spectrum coloring gradient
+        // Professional cyan-to-emerald gradient spectrum coloring
         const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-        grad.addColorStop(0, "#10b981"); // emerald green bottom
-        grad.addColorStop(0.5, "#06b6d4"); // cyan middle
-        grad.addColorStop(1, "#f59e0b"); // amber peak
+        grad.addColorStop(0, "#06b6d4"); // cyan bottom
+        grad.addColorStop(1, "#34d399"); // emerald top
 
         ctx.fillStyle = grad;
         const yPos = canvas.height - barHeight;
         
-        // Draw sleek bar block
-        ctx.fillRect(x, yPos, barWidth - 1, barHeight);
-
-        x += barWidth;
+        // Draw high-precision thin bar
+        ctx.fillRect(i * barWidth, yPos, barWidth - 1, barHeight);
       }
     };
 
@@ -274,10 +288,10 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
 
         {/* Real-time Spectrogram Visualizer */}
         <div 
-          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-24 rounded-sm shadow-inner relative overflow-hidden select-none"
+          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-36 rounded-sm shadow-inner relative overflow-hidden select-none"
           title="Master Output Spectrogram Visualizer"
         >
-          <canvas ref={canvasRef} width="96" height="30" className="w-full h-full" />
+          <canvas ref={canvasRef} width="144" height="30" className="w-full h-full" />
         </div>
 
         {/* BPM Input Setting */}
