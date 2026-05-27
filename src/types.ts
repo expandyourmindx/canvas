@@ -125,6 +125,7 @@ export interface MixerInsert {
 export interface CanvasProject {
   version: string;
   savedAt: string;
+  projectName?: string;
   bpm: number;
   playbackMode: "pattern" | "song";
   channels: ChannelRow[];

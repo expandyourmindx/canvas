@@ -36,9 +36,6 @@ export function Desktop() {
     notifySampleLoaded,
     registerSetChannels,
     registerDesktopSync,
-    autosaveProject,
-    restoreAutosave,
-    dismissAutosave,
     missingSamples,
     dismissMissingSamples
   } = useAudioEngine();
@@ -273,38 +270,6 @@ export function Desktop() {
         browserOpen={browserOpen}
         onToggleBrowser={() => setBrowserOpen((prev) => !prev)}
       />
-
-      {/* ── SESSION RECOVERY BANNER ── */}
-      {autosaveProject && (
-        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4">
-          <div className="bg-[#0b0c0f]/90 backdrop-blur-md border border-indigo-500/30 rounded-md p-4 shadow-[0_8px_32px_rgba(99,102,241,0.25)] flex flex-col gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="flex items-center gap-2.5">
-              <div className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
-              <div className="h-2 w-2 absolute rounded-full bg-indigo-500" />
-              <h3 className="text-xs font-black tracking-wider text-indigo-400 uppercase">
-                Unsaved Session Found
-              </h3>
-            </div>
-            <p className="text-[10px] text-zinc-400 leading-relaxed">
-              We recovered an unsaved session from <span className="text-zinc-200 font-bold font-mono">{new Date(autosaveProject.savedAt).toLocaleString()}</span>. Would you like to restore it?
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <button
-                onClick={restoreAutosave}
-                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-[10px] uppercase font-bold tracking-widest rounded-sm hover:scale-102 active:scale-98 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
-              >
-                Restore Session
-              </button>
-              <button
-                onClick={dismissAutosave}
-                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-zinc-400 hover:text-white text-[10px] uppercase font-bold tracking-widest rounded-sm active:scale-98 transition-all cursor-pointer"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── OFFLINE SAMPLES WARNING BANNER ── */}
       {missingSamples && missingSamples.length > 0 && (

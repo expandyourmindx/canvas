@@ -61,11 +61,31 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     setBaseOctave,
     saveProject,
     loadProject,
+    autosaveProject,
+    restoreAutosave,
+    isDirty,
   } = useAudioEngine();
 
   const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const visModeRef = useRef<"spectrum" | "waveform">("spectrum");
+
+  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
+  const fileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (fileMenuRef.current && !fileMenuRef.current.contains(event.target as Node)) {
+        setIsFileMenuOpen(false);
+      }
+    };
+    if (isFileMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isFileMenuOpen]);
 
   useEffect(() => {
     visModeRef.current = visMode;
@@ -250,24 +270,75 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
           </span>
         </div>
 
-        {/* Project Manual Operations */}
-        <div className="flex items-center gap-1.5 ml-2">
+        {/* File Menu Dropdown */}
+        <div className="relative ml-2" ref={fileMenuRef}>
           <button
-            onClick={saveProject}
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm hover:bg-neutral-850 text-[9px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
-            title="Save Project (Ctrl+S)"
+            onClick={() => setIsFileMenuOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-sm hover:bg-neutral-850 text-[10px] uppercase font-mono tracking-wider font-extrabold text-neutral-450 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
+            title="File operations and autosave recovery"
           >
-            <Save className="h-3 w-3" />
-            <span className="hidden md:inline">Save</span>
+            <FolderOpen className="h-3 w-3" />
+            <span>File</span>
+            {isDirty && (
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse ml-0.5" title="Unsaved changes" />
+            )}
+            <ChevronDown className="h-2.5 w-2.5 opacity-60 ml-0.5" />
           </button>
-          <button
-            onClick={loadProject}
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm hover:bg-neutral-855 text-[9px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
-            title="Load Project (Ctrl+O)"
-          >
-            <Upload className="h-3 w-3" />
-            <span className="hidden md:inline">Load</span>
-          </button>
+
+          {isFileMenuOpen && (
+            <div className="absolute left-0 mt-1 w-64 bg-[#141517]/95 backdrop-blur-md border border-neutral-800 rounded-md shadow-2xl py-1 z-[100] animate-in fade-in slide-in-from-top-2 duration-150">
+              <button
+                onClick={() => {
+                  setIsFileMenuOpen(false);
+                  saveProject();
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 text-left text-[9px] text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-bold">
+                  <Save className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Save Project</span>
+                </div>
+                <span className="text-[8px] font-mono text-zinc-500">Ctrl+S</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsFileMenuOpen(false);
+                  loadProject();
+                }}
+                className="w-full flex items-center justify-between px-3 py-2 text-left text-[9px] text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer transition-colors border-b border-neutral-800/40"
+              >
+                <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-bold">
+                  <Upload className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Load Project</span>
+                </div>
+                <span className="text-[8px] font-mono text-zinc-500">Ctrl+O</span>
+              </button>
+
+              {autosaveProject && (
+                <button
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    restoreAutosave();
+                  }}
+                  className="w-full flex flex-col px-3 py-2.5 text-left hover:bg-emerald-600/10 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-extrabold text-emerald-400 group-hover:text-emerald-300">
+                    <Activity className="h-3.5 w-3.5 animate-pulse text-emerald-500" />
+                    <span>Recover Autosave</span>
+                  </div>
+                  <div className="mt-1 flex flex-col gap-0.5 text-[8px] text-zinc-400 leading-tight">
+                    <div className="truncate">
+                      Project: <span className="text-zinc-300 font-semibold font-mono">{autosaveProject.projectName || "Untitled"}</span>
+                    </div>
+                    <div className="text-[7.5px] text-zinc-500">
+                      Saved: {new Date(autosaveProject.savedAt).toLocaleString()}
+                    </div>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

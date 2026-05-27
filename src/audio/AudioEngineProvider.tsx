@@ -96,6 +96,7 @@ export interface AudioEngineContextType {
   // Project Save & Load Actions
   saveProject: () => void;
   loadProject: () => void;
+  isDirty: boolean;
   registerDesktopSync: (sync: {
     getChannels: () => ChannelRow[];
     getChannelVols: () => Record<string, number>;
@@ -163,6 +164,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const [autosaveProject, setAutosaveProject] = useState<CanvasProject | null>(null);
   const [missingSamples, setMissingSamples] = useState<string[] | null>(null);
   const [projectName, setProjectName] = useState<string>("Untitled");
+  const [isDirty, setIsDirty] = useState<boolean>(false);
 
   const registerSetChannels = useCallback((cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => {
     setChannelsCallbackRef.current = cb;
@@ -223,8 +225,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
     historyRef.current = currentHistory;
     historyIndexRef.current = currentHistory.length - 1;
+    setIsDirty(true);
     console.log(`[Undo/Redo System] Pushed state to history. Index: ${historyIndexRef.current}`);
-  }, [engine]);
+  }, [engine, setIsDirty]);
 
   const undo = useCallback(() => {
     if (historyIndexRef.current > 0) {
@@ -244,9 +247,10 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       setEventsState(engine.getEvents());
       setCanvasClipsState(engine.getCanvasClips());
       setPatternsState(engine.getPatternsList());
+      setIsDirty(true);
       console.log(`[Undo/Redo System] Executed Undo. Index: ${historyIndexRef.current}`);
     }
-  }, [engine]);
+  }, [engine, setIsDirty]);
 
   const redo = useCallback(() => {
     if (historyIndexRef.current < historyRef.current.length - 1) {
@@ -266,9 +270,10 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       setEventsState(engine.getEvents());
       setCanvasClipsState(engine.getCanvasClips());
       setPatternsState(engine.getPatternsList());
+      setIsDirty(true);
       console.log(`[Undo/Redo System] Executed Redo. Index: ${historyIndexRef.current}`);
     }
-  }, [engine]);
+  }, [engine, setIsDirty]);
 
   // Seed initial project state into history
   useEffect(() => {
@@ -354,12 +359,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const setBpm = useCallback((newBpm: number) => {
     engine.setBpm(newBpm);
     setBpmState(engine.getBpm());
-  }, [engine]);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
 
   const setPlaybackMode = useCallback((mode: "pattern" | "song") => {
     engine.setPlaybackMode(mode);
     setPlaybackModeState(mode);
-  }, [engine]);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
 
   const toggleMetronome = useCallback((override?: boolean) => {
     engine.toggleMetronome(override);
@@ -369,7 +376,8 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const setLoop = useCallback((active: boolean, startBeats: number = 0, endBeats: number = 4) => {
     engine.setLoop(active, startBeats, endBeats);
     setLoopSettings(engine.getLoopSettings());
-  }, [engine]);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
 
   const setPlayheadPosition = useCallback((beats: number) => {
     engine.setPlayheadPosition(beats);
@@ -490,6 +498,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     return {
       version: "0.18.1",
       savedAt: new Date().toISOString(),
+      projectName,
       bpm: engine.getBpm(),
       playbackMode: engine.getPlaybackMode(),
       channels: desktopStateRef.current.getChannels(),
@@ -505,7 +514,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       loopSettings: engine.getLoopSettings(),
       sampleIds: engine.getLoadedSampleIds(),
     };
-  }, [engine]);
+  }, [engine, projectName]);
 
   const restoreProjectState = useCallback(async (project: CanvasProject) => {
     if (!project || !desktopStateRef.current) return;
@@ -645,8 +654,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       loopEnabled: lSettings.loopEnabled
     });
 
+    if (project.projectName) {
+      setProjectName(project.projectName);
+    }
+    setIsDirty(false);
+
     console.log("[Project Restoration] Restored project successfully!");
-  }, [engine, pushToHistory, notifySampleLoaded]);
+  }, [engine, pushToHistory, notifySampleLoaded, setProjectName, setIsDirty]);
 
   const saveProject = useCallback(async () => {
     const project = collectProjectState();
@@ -675,6 +689,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
         let savedName = handle.name;
         if (savedName.endsWith(".cnv")) savedName = savedName.slice(0, -4);
         setProjectName(savedName);
+        setIsDirty(false);
 
         console.log("[Project Save] Project successfully saved natively!");
         return;
@@ -698,8 +713,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    setIsDirty(false);
     console.log("[Project Save] Project successfully saved via traditional download!");
-  }, [collectProjectState, projectName]);
+  }, [collectProjectState, projectName, setIsDirty, setProjectName]);
 
   const loadProject = useCallback(() => {
     const input = document.createElement("input");
@@ -772,6 +788,8 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   // beforeunload guard effect
   useEffect(() => {
+    if (!isDirty) return;
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "Are you sure you want to exit? Unsaved changes will be lost.";
@@ -779,7 +797,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, []);
+  }, [isDirty]);
 
   // Check for autosave on mount
   useEffect(() => {
@@ -884,6 +902,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     notifySampleLoaded,
     saveProject,
     loadProject,
+    isDirty,
     registerDesktopSync,
     autosaveProject,
     restoreAutosave,
