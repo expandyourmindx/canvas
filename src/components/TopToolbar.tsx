@@ -207,6 +207,60 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
   const [showOctaveMenu, setShowOctaveMenu] = useState<boolean>(false);
   const [displayMode, setDisplayMode] = useState<"time" | "beats">("time");
 
+  const [isTapped, setIsTapped] = useState(false);
+  const tapTimesRef = useRef<number[]>([]);
+  const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (tapTimeoutRef.current) {
+        clearTimeout(tapTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleTap = () => {
+    const now = Date.now();
+    const lastTap = tapTimesRef.current[tapTimesRef.current.length - 1];
+
+    // Reset tap history if more than 2 seconds pass between taps
+    if (lastTap && now - lastTap > 2000) {
+      tapTimesRef.current = [];
+    }
+
+    tapTimesRef.current.push(now);
+
+    // BPM is calculated from the average interval between the last 4 taps
+    if (tapTimesRef.current.length > 4) {
+      tapTimesRef.current.shift();
+    }
+
+    // Update BPM live once at least 2 taps are recorded
+    if (tapTimesRef.current.length >= 2) {
+      let totalInterval = 0;
+      const count = tapTimesRef.current.length - 1;
+      for (let i = 0; i < count; i++) {
+        totalInterval += tapTimesRef.current[i + 1] - tapTimesRef.current[i];
+      }
+      const avgIntervalMs = totalInterval / count;
+      const calculatedBpm = 60000 / avgIntervalMs;
+      const roundedBpm = Math.round(calculatedBpm * 10) / 10;
+
+      if (roundedBpm >= 20 && roundedBpm <= 300) {
+        setBpm(roundedBpm);
+      }
+    }
+
+    // Tactile micro-animation visual feedback on tap
+    if (tapTimeoutRef.current) {
+      clearTimeout(tapTimeoutRef.current);
+    }
+    setIsTapped(true);
+    tapTimeoutRef.current = setTimeout(() => {
+      setIsTapped(false);
+    }, 120);
+  };
+
   const handleWindowClick = (winId: any) => {
     toggleWindow(winId);
     if (!activeWindows[winId]) {
@@ -455,6 +509,20 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
             BPM
           </span>
         </form>
+
+        {/* Tap Tempo Button */}
+        <button
+          type="button"
+          onClick={handleTap}
+          className={`h-7 px-2.5 rounded-sm items-center justify-center font-mono text-[9px] font-extrabold uppercase tracking-wider cursor-pointer border transition-all active:scale-95 duration-100 hidden sm:flex ${
+            isTapped
+              ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
+              : "border-neutral-800 bg-[#0d0e10]/40 text-neutral-400 hover:text-neutral-200 hover:bg-[#121316]/60"
+          }`}
+          title="Tap Tempo (Click repeatedly to set BPM)"
+        >
+          Tap
+        </button>
 
         {/* Metronome sounds trigger */}
         <button
