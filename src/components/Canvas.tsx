@@ -302,13 +302,7 @@ export function Canvas({
   const handleCellClick = (laneIndex: number, startBeat: number) => {
     if (!selectedClipType) return;
 
-    let duration = clipDurationBeats;
-    if (selectedClipType === "sample") {
-      const buffer = getSampleBuffer(selectedReferenceId);
-      if (buffer) {
-        duration = engine.secondsToBeats(buffer.duration);
-      }
-    }
+    const duration = clipDurationBeats;
 
     if (startBeat + duration > totalBeats) return;
 
@@ -457,6 +451,15 @@ export function Canvas({
     scrollContainerRef,
     tracksContainerRef,
   });
+
+  const handleClipPointerDownWrapper = (e: React.PointerEvent<HTMLDivElement>, clip: CanvasClip) => {
+    if (activeTool === "pencil") {
+      setSelectedClipType(clip.type);
+      setSelectedReferenceId(clip.referenceId);
+      setClipDurationBeats(clip.duration);
+    }
+    handleClipPointerDown(e, clip);
+  };
 
   const {
     handleResizeDown,
@@ -826,7 +829,7 @@ export function Canvas({
                         getSampleBuffer={getSampleBuffer}
                         removeCanvasClip={removeCanvasClip}
                         handleClipSplit={handleClipSplit}
-                        handleClipPointerDown={handleClipPointerDown}
+                        handleClipPointerDown={handleClipPointerDownWrapper}
                         handleClipPointerMove={handleClipPointerMove}
                         handleClipPointerUp={handleClipPointerUp}
                         handleClipDoubleClick={handleClipDoubleClick}
