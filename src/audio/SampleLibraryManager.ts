@@ -410,3 +410,11 @@ export class SampleLibraryManager {
     throw new Error("No file or handle found for this sample node");
   }
 }
+
+let _libraryManager: SampleLibraryManager | null = null;
+export function getLibraryManager(): SampleLibraryManager {
+  if (!_libraryManager) {
+    _libraryManager = new SampleLibraryManager();
+  }
+  return _libraryManager;
+}

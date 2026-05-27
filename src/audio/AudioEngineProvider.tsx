@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
 import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings } from "../types";
+import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 
 export interface AudioEngineContextType {
   /** The raw AudioEngine instance, if direct low-level API access is required. */
@@ -505,7 +506,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     };
   }, [engine]);
 
-  const restoreProjectState = useCallback((project: CanvasProject) => {
+  const restoreProjectState = useCallback(async (project: CanvasProject) => {
     if (!project || !desktopStateRef.current) return;
 
     // 1. push undo snapshot
@@ -575,13 +576,67 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       loopEnabled: lSettings.loopEnabled
     });
 
-    // 9. warn about missing user samples
+    // 9. warn about missing user samples with auto-resolve search
     const loadedIds = engine.getLoadedSampleIds();
+    const unresolvedMissing: string[] = [];
+
+    // Helper to find a file node in SampleLibraryManager folders by path or filename
+    const findSampleInLibrary = (sampleId: string): SampleNode | null => {
+      const library = getLibraryManager();
+      // 1. Try finding by exact virtual path
+      let found = library.findNodeByPath(sampleId);
+      if (found && found.type === "file") return found;
+
+      // 2. Try finding by filename
+      const filename = sampleId.split("/").pop() || sampleId;
+      
+      const searchByName = (nodes: SampleNode[]): SampleNode | null => {
+        for (const node of nodes) {
+          if (node.type === "file" && (node.name === filename || node.path === sampleId)) {
+            return node;
+          }
+          if (node.children) {
+            const res = searchByName(node.children);
+            if (res) return res;
+          }
+        }
+        return null;
+      };
+
+      for (const folder of library.getFolders()) {
+        if (folder.authorized) {
+          const res = searchByName(folder.children);
+          if (res) return res;
+        }
+      }
+      return null;
+    };
+
     if (project.sampleIds) {
-      const missing = project.sampleIds.filter(id => !loadedIds.includes(id));
-      const userMissing = missing.filter(id => !id.startsWith("sampler_"));
-      if (userMissing.length > 0) {
-        setMissingSamples(userMissing);
+      for (const sampleId of project.sampleIds) {
+        if (loadedIds.includes(sampleId)) continue;
+        if (sampleId.startsWith("sampler_")) continue; // built-in samples are seeded/in-memory
+
+        // Try to resolve from authorized library folders
+        const matchedNode = findSampleInLibrary(sampleId);
+        if (matchedNode) {
+          try {
+            console.log(`[Auto-resolve] Attempting to load missing sample "${sampleId}" from library at "${matchedNode.path}"`);
+            const ab = await getLibraryManager().loadBuffer(matchedNode);
+            await engine.loadSample(sampleId, ab);
+            console.log(`[Auto-resolve] Successfully restored sample: ${sampleId}`);
+            notifySampleLoaded();
+            continue; // Successfully resolved!
+          } catch (err) {
+            console.error(`[Auto-resolve] Failed to load sample ${sampleId} from matching file`, err);
+          }
+        }
+        
+        unresolvedMissing.push(sampleId);
+      }
+
+      if (unresolvedMissing.length > 0) {
+        setMissingSamples(unresolvedMissing);
       } else {
         setMissingSamples(null);
       }
@@ -590,7 +645,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     }
 
     console.log("[Project Restoration] Restored project successfully!");
-  }, [engine, pushToHistory]);
+  }, [engine, pushToHistory, notifySampleLoaded]);
 
   const saveProject = useCallback(() => {
     const project = collectProjectState();

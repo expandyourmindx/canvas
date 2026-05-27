@@ -24,8 +24,10 @@ import {
   SampleLibraryManager,
   SampleNode,
   UserFolder,
+  getLibraryManager,
 } from "../audio/SampleLibraryManager";
 import { useAudioEngine } from "../audio/useAudioEngine";
+export { getLibraryManager };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,15 +56,7 @@ interface SampleBrowserProps {
   onSampleLoaded?: () => void;
 }
 
-// ─── Singleton library manager (survives re-renders, shared across mounts) ──
 
-let _libraryManager: SampleLibraryManager | null = null;
-export function getLibraryManager(): SampleLibraryManager {
-  if (!_libraryManager) {
-    _libraryManager = new SampleLibraryManager();
-  }
-  return _libraryManager;
-}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
