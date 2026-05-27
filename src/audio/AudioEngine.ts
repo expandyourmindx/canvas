@@ -260,7 +260,7 @@ export class AudioEngine {
 
         // Case 2: Event started before the current scheduling interval, but ends after startSeconds,
         // AND this is the very first tick of starting/resuming playback (to play ongoing mid-loaded samples/notes)
-        const isStartInstantOfPlayback = Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
+        const isStartInstantOfPlayback = this.scheduler.isGenuinePlaybackStart && Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
         const playheadIsInsideEvent = eventSecs < startSeconds && eventEndSecs > startSeconds;
         const eventIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideEvent;
 
@@ -304,7 +304,7 @@ export class AudioEngine {
 
         if (clip.type === "sample") {
           const clipStartsInWindow = clip.startBeat >= startBeats && clip.startBeat < endBeats;
-          const isStartInstantOfPlayback = Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
+          const isStartInstantOfPlayback = this.scheduler.isGenuinePlaybackStart && Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
           const playheadIsInsideClip = clipStartSecs < startSeconds && clipEndSecs > startSeconds;
           const clipIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideClip;
 
@@ -347,7 +347,7 @@ export class AudioEngine {
               const absoluteNoteEndSecs = absoluteNoteSecs + absoluteNoteDurationSecs;
 
               const noteStartsInWindow = absoluteNoteBeat >= startBeats && absoluteNoteBeat < endBeats;
-              const isStartInstantOfPlayback = Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
+              const isStartInstantOfPlayback = this.scheduler.isGenuinePlaybackStart && Math.abs(startSeconds - this.scheduler.pausedTimelinePosition) < 0.075;
               const playheadIsInsideNote = absoluteNoteSecs < startSeconds && absoluteNoteEndSecs > startSeconds;
               const noteIntersectionInPlaybackStart = isStartInstantOfPlayback && playheadIsInsideNote;
 

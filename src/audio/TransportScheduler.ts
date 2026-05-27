@@ -35,6 +35,7 @@ export class TransportScheduler {
   public audioContextStartTime: number = 0;
   public pausedTimelinePosition: number = 0;
   public nextTimelineTimeToSchedule: number = 0;
+  public isGenuinePlaybackStart: boolean = false;
 
   // Loop bounding settings
   private isLooping: boolean = false;
@@ -155,6 +156,7 @@ export class TransportScheduler {
 
     // Start lookahead cursor from where the playhead currently sits
     this.nextTimelineTimeToSchedule = this.pausedTimelinePosition;
+    this.isGenuinePlaybackStart = true;
 
     // Synchronize the metronome scheduler cursor beats
     this.nextMetronomeBeatToSchedule = Math.ceil(this.secondsToBeats(this.pausedTimelinePosition));
@@ -268,6 +270,7 @@ export class TransportScheduler {
 
     if (this.state === "playing") {
       this.audioContextStartTime = this.audioContext.currentTime;
+      this.isGenuinePlaybackStart = true;
     }
 
     this.broadcastTimelineTick();
@@ -435,6 +438,9 @@ export class TransportScheduler {
       // Increment scheduler track position to the end of the evaluated lookahead window
       this.nextTimelineTimeToSchedule = endTimelineSeconds;
     }
+
+    // After the first scheduler tick of playback or jump, reset the start instant flag.
+    this.isGenuinePlaybackStart = false;
 
     // Inform subscribing classes of new real-time coordinate position changes
     this.broadcastTimelineTick();
