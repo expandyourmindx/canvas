@@ -63,6 +63,15 @@ export function Canvas({
     notifySampleLoaded,
   } = useAudioEngine();
 
+  const [placingClip, setPlacingClip] = useState<CanvasClip | null>(null);
+  const placingClipRef = useRef<CanvasClip | null>(null);
+  const placingPointerId = useRef<number | null>(null);
+
+  const updatePlacingClip = (clip: CanvasClip | null) => {
+    placingClipRef.current = clip;
+    setPlacingClip(clip);
+  };
+
   // Grid sizing parameters (Arranger window defaults)
   const totalBeats = 128;
   const [zoomX, setZoomX] = useState<number>(1.0);
@@ -808,7 +817,75 @@ export function Canvas({
                         }
 
                         if (snappedBeat >= 0 && snappedBeat + finalDuration <= totalBeats) {
-                          handleCellClick(laneIdx, snappedBeat);
+                          const meta = getClipMetadata(selectedClipType, selectedReferenceId);
+                          const tempClip: CanvasClip = {
+                            id: `placing-clip-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
+                            type: selectedClipType,
+                            startBeat: snappedBeat,
+                            duration: finalDuration,
+                            laneIndex: laneIdx,
+                            referenceId: selectedReferenceId,
+                            name: meta.name,
+                            color: meta.color,
+                            cropStart: 0
+                          };
+                          updatePlacingClip(tempClip);
+                          placingPointerId.current = e.pointerId;
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                        }
+                      }}
+                      onPointerMove={(e) => {
+                        if (placingPointerId.current === e.pointerId && placingClipRef.current) {
+                          e.stopPropagation();
+                          const container = tracksContainerRef.current;
+                          if (!container) return;
+
+                          const rect = container.getBoundingClientRect();
+                          const trackX = e.clientX - rect.left - 130;
+                          const rawBeat = trackX / beatWidth;
+                          const snap = activeSnapResolution;
+                          const snappedBeat = snap !== null
+                            ? Math.round(rawBeat / snap) * snap
+                            : rawBeat;
+
+                          const trackY = e.clientY - rect.top;
+                          const calculatedLane = Math.floor(trackY / LANE_HEIGHT_PX);
+
+                          const finalLane = Math.max(0, Math.min(laneCount - 1, calculatedLane));
+                          const finalBeat = Math.max(0, Math.min(totalBeats - placingClipRef.current.duration, snappedBeat));
+
+                          if (placingClipRef.current.laneIndex !== finalLane || placingClipRef.current.startBeat !== finalBeat) {
+                            const updated = {
+                              ...placingClipRef.current,
+                              startBeat: finalBeat,
+                              laneIndex: finalLane
+                            };
+                            updatePlacingClip(updated);
+                          }
+                        }
+                      }}
+                      onPointerUp={(e) => {
+                        if (placingPointerId.current === e.pointerId) {
+                          e.stopPropagation();
+                          try {
+                            e.currentTarget.releasePointerCapture(e.pointerId);
+                          } catch (err) {
+                            console.error("Failed to release pointer capture:", err);
+                          }
+
+                          if (placingClipRef.current) {
+                            addCanvasClip(placingClipRef.current);
+                            pushToHistory(channels);
+                          }
+
+                          updatePlacingClip(null);
+                          placingPointerId.current = null;
+                        }
+                      }}
+                      onLostPointerCapture={(e) => {
+                        if (placingPointerId.current === e.pointerId) {
+                          updatePlacingClip(null);
+                          placingPointerId.current = null;
                         }
                       }}
                     />
@@ -844,6 +921,29 @@ export function Canvas({
                       />
                     );
                   })}
+
+                  {/* Render the ghost clip in a slightly transparent state */}
+                  {placingClip && (
+                    <div className="opacity-80 pointer-events-none select-none transition-all duration-75">
+                      <ArrangerClip
+                        clip={placingClip}
+                        beatWidth={beatWidth}
+                        isSelected={false}
+                        activeTool="pencil"
+                        patterns={patterns}
+                        getSampleBuffer={getSampleBuffer}
+                        removeCanvasClip={() => {}}
+                        handleClipSplit={() => {}}
+                        handleClipPointerDown={() => {}}
+                        handleClipPointerMove={() => {}}
+                        handleClipPointerUp={() => {}}
+                        handleClipDoubleClick={() => {}}
+                        handleResizeDown={() => {}}
+                        handleResizeMove={() => {}}
+                        handleResizeUp={() => {}}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Sticky Add Lane row */}
