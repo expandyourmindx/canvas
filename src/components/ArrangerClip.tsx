@@ -206,7 +206,7 @@ export function ArrangerClip({
         e.stopPropagation();
         handleClipDoubleClick(clip);
       }}
-      className={`canvas-clip-body absolute border rounded-xs flex flex-col justify-between overflow-hidden shadow-lg cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto transition-all ${
+      className={`canvas-clip-body absolute border rounded-xs flex flex-col justify-between overflow-hidden shadow-lg cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto ${
         clip.color
       } ${
         isSelected ? "border-white shadow-[inset_0_0_6px_rgba(255,255,255,0.3)] ring-1 ring-white/30" : "border-neutral-850"
