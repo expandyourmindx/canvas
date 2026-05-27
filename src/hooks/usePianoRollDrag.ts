@@ -25,7 +25,8 @@ interface UsePianoRollDragProps {
   activeTool: 'pencil' | 'pointer' | 'split';
   selectedNoteIds: string[];
   setSelectedNoteIds: (ids: string[]) => void;
-  pushToHistory: () => void;
+  pushToHistory: (channels: ChannelRow[]) => void;
+  channels: ChannelRow[];
   handleKeyAudition: (pitch: number) => void;
   filteredEvents: DAWEvent[];
   timelineRef: React.RefObject<HTMLDivElement>;
@@ -44,6 +45,7 @@ export function usePianoRollDrag({
   selectedNoteIds,
   setSelectedNoteIds,
   pushToHistory,
+  channels,
   handleKeyAudition,
   filteredEvents,
   timelineRef,
@@ -189,7 +191,7 @@ export function usePianoRollDrag({
         lastNoteDurationRef.current = finalNote.duration;
       }
       dragPlacementRef.current = null;
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 
@@ -278,7 +280,7 @@ export function usePianoRollDrag({
       const element = e.currentTarget;
       element.releasePointerCapture(e.pointerId);
       resizeStateRef.current = null;
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 
@@ -394,7 +396,7 @@ export function usePianoRollDrag({
       e.currentTarget.releasePointerCapture(e.pointerId);
       relocateStateRef.current = null;
       setDraggingNoteId(null);
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 
@@ -608,7 +610,7 @@ export function usePianoRollDrag({
     if (groupDragStart) {
       e.currentTarget.releasePointerCapture(e.pointerId);
       setGroupDragStart(null);
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 

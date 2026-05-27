@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 
 export function Desktop() {
-  const { engine, getSampleBuffer, previewChannel, notifySampleLoaded } = useAudioEngine();
+  const { engine, getSampleBuffer, previewChannel, notifySampleLoaded, registerSetChannels } = useAudioEngine();
 
   // 1. Maintain visibility states for floating windows
   const [activeWindows, setActiveWindows] = useState({
@@ -53,6 +53,10 @@ export function Desktop() {
     { id: "sampler_hihat", name: "Trap Hihat", type: "sample", sampleId: "sampler_hihat_sample", mixerTarget: 3, instrumentType: "sampler" },
     { id: "obsidian_default", name: "Obsidian Synth", type: "pitch", pitch: 60, mixerTarget: 4, instrumentType: "obsidian" }
   ]);
+
+  useEffect(() => {
+    registerSetChannels(setChannels, channels);
+  }, [registerSetChannels, setChannels]);
   const [channelMixers, setChannelMixers] = useState<Record<string, number>>({
     sampler_kick: 1,
     sampler_snare: 2,

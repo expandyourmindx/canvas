@@ -494,7 +494,7 @@ export function ChannelRack({
       // 3. Switch active focus to newly cloned pattern and set its events reactively
       setActivePatternId(newPatId);
       setEvents(clonedEvents);
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 
@@ -762,7 +762,7 @@ export function ChannelRack({
                         engine.updateChannelSampleId(channel.id, id);
                       }
                       if (pushToHistory) {
-                        pushToHistory();
+                        pushToHistory(channels);
                       }
                       console.log(`Mapped browser sample to channel rack slot: ${name}`);
                     } catch (err) {

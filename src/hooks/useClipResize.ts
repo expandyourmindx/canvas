@@ -4,14 +4,15 @@
  */
 
 import React, { useRef } from "react";
-import { CanvasClip } from "../types";
+import { CanvasClip, ChannelRow } from "../types";
 
 interface UseClipResizeProps {
   canvasClips: CanvasClip[];
   setCanvasClips: React.Dispatch<React.SetStateAction<CanvasClip[]>>;
   beatWidth: number;
   snapResolution: number | null;
-  pushToHistory: () => void;
+  pushToHistory: (channels: ChannelRow[]) => void;
+  channels: ChannelRow[];
 }
 
 export function useClipResize({
@@ -20,6 +21,7 @@ export function useClipResize({
   beatWidth,
   snapResolution,
   pushToHistory,
+  channels,
 }: UseClipResizeProps) {
   const resizeStateRef = useRef<{
     clipId: string;
@@ -103,7 +105,7 @@ export function useClipResize({
       const element = e.currentTarget;
       element.releasePointerCapture(e.pointerId);
       resizeStateRef.current = null;
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 

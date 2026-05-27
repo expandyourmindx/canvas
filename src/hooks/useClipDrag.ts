@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useEffect } from "react";
-import { CanvasClip } from "../types";
+import { CanvasClip, ChannelRow } from "../types";
 import { LANE_HEIGHT_PX, CLIP_TOP_OFFSET_PX } from "../config";
 
 interface UseClipDragProps {
@@ -17,7 +17,8 @@ interface UseClipDragProps {
   setCanvasClips: React.Dispatch<React.SetStateAction<CanvasClip[]>>;
   selectedIds: string[];
   setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
-  pushToHistory: () => void;
+  pushToHistory: (channels: ChannelRow[]) => void;
+  channels: ChannelRow[];
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   tracksContainerRef: React.RefObject<HTMLDivElement>;
 }
@@ -33,6 +34,7 @@ export function useClipDrag({
   selectedIds,
   setSelectedIds,
   pushToHistory,
+  channels,
   scrollContainerRef,
   tracksContainerRef,
 }: UseClipDragProps) {
@@ -368,7 +370,7 @@ export function useClipDrag({
       }
 
       dragStartRef.current = null;
-      pushToHistory();
+      pushToHistory(channels);
     }
   };
 

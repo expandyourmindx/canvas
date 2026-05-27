@@ -299,7 +299,7 @@ export function PianoRoll({
       });
 
       setEvents(nextEvents);
-      pushToHistory();
+      pushToHistory(channels);
       console.log(`MIDI note(s) split in half at beat ${snappedSplitBeat}`);
     }
   };
@@ -309,7 +309,7 @@ export function PianoRoll({
     e.preventDefault();
     e.stopPropagation();
     setEvents(events.filter((ev) => ev.id !== noteId));
-    pushToHistory();
+    pushToHistory(channels);
   };
 
   // Hook Integration
@@ -344,6 +344,7 @@ export function PianoRoll({
     selectedNoteIds,
     setSelectedNoteIds,
     pushToHistory,
+    channels,
     handleKeyAudition,
     filteredEvents,
     timelineRef,
@@ -562,7 +563,7 @@ export function PianoRoll({
                   ? events.filter((ev) => ev.sampleId !== activeChannel.sampleId)
                   : events;
                 setEvents(updatedEvents);
-                pushToHistory();
+                pushToHistory(channels);
               }
             }}
             className="h-7 px-2 border border-neutral-850 bg-[#0d0e10] hover:bg-neutral-800 text-[9px] font-bold uppercase tracking-wider text-zinc-400 hover:text-red-400 cursor-pointer flex items-center gap-1 transition-colors"
@@ -680,6 +681,7 @@ export function PianoRoll({
                     setEvents={setEvents}
                     events={events}
                     pushToHistory={pushToHistory}
+                    channels={channels}
                     handleNoteRightClick={handleNoteRightClick}
                     handleNoteSplit={handleNoteSplit}
                     handleNotePointerDown={handleNotePointerDown}

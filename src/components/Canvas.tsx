@@ -373,7 +373,7 @@ export function Canvas({
 
       const updated = canvasClips.map((c) => (c.id === clip.id ? clipA : c));
       setCanvasClips([...updated, clipB]);
-      pushToHistory();
+      pushToHistory(channels);
       console.log(`Arranger Clip "${clip.name}" split at beat ${snappedSplitBeat}`);
     }
   };
@@ -460,6 +460,7 @@ export function Canvas({
     selectedIds,
     setSelectedIds,
     pushToHistory,
+    channels,
     scrollContainerRef,
     tracksContainerRef,
   });
@@ -474,6 +475,7 @@ export function Canvas({
     beatWidth,
     snapResolution: activeSnapResolution,
     pushToHistory,
+    channels,
   });
 
   // Middle-Click Panning overrides
@@ -773,7 +775,7 @@ export function Canvas({
                             });
 
                             if (pushToHistory) {
-                              pushToHistory();
+                              pushToHistory(channels);
                             }
                           } catch (err) {
                             console.error("Error setting canvas clip from sample browser drop", err);

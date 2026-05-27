@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
-import { CanvasClip, PatternData } from "../types";
+import { CanvasClip, PatternData, ChannelRow } from "../types";
 
 export interface AudioEngineContextType {
   /** The raw AudioEngine instance, if direct low-level API access is required. */
@@ -85,7 +85,8 @@ export interface AudioEngineContextType {
   // Undo / Redo Actions
   undo: () => void;
   redo: () => void;
-  pushToHistory: () => void;
+  pushToHistory: (channels: ChannelRow[]) => void;
+  registerSetChannels: (cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => void;
 
   // Sample loading reactivity
   sampleCount: number;
@@ -102,6 +103,7 @@ interface ProjectState {
   events: DAWEvent[];
   canvasClips: CanvasClip[];
   patterns: PatternData[];
+  channels: ChannelRow[];
 }
 
 export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
@@ -117,6 +119,16 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   // History / Undo / Redo Ref stack
   const historyRef = useRef<ProjectState[]>([]);
   const historyIndexRef = useRef<number>(-1);
+  const latestChannelsRef = useRef<ChannelRow[]>([]);
+  const setChannelsCallbackRef = useRef<((channels: ChannelRow[]) => void) | null>(null);
+
+  const registerSetChannels = useCallback((cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => {
+    setChannelsCallbackRef.current = cb;
+    if (initialChannels && historyRef.current.length === 1 && historyIndexRef.current === 0) {
+      historyRef.current[0].channels = structuredClone(initialChannels);
+      latestChannelsRef.current = structuredClone(initialChannels);
+    }
+  }, []);
 
   // React state elements for UI consumption
   const [playbackState, setPlaybackState] = useState<TransportState>(engine.getState());
@@ -140,11 +152,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   }, [engine, focusedChannelId]);
 
   // 4. Undo/Redo State Serialization stack
-  const pushToHistory = useCallback(() => {
+  const pushToHistory = useCallback((channels: ChannelRow[]) => {
+    latestChannelsRef.current = channels;
     const stateToPush: ProjectState = {
       events: structuredClone(engine.getEvents()),
       canvasClips: structuredClone(engine.getCanvasClips()),
       patterns: structuredClone(engine.getPatternsList()),
+      channels: structuredClone(channels),
     };
 
     const currentHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -155,7 +169,8 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       const isIdentical =
         JSON.stringify(lastState.events) === JSON.stringify(stateToPush.events) &&
         JSON.stringify(lastState.canvasClips) === JSON.stringify(stateToPush.canvasClips) &&
-        JSON.stringify(lastState.patterns) === JSON.stringify(stateToPush.patterns);
+        JSON.stringify(lastState.patterns) === JSON.stringify(stateToPush.patterns) &&
+        JSON.stringify(lastState.channels) === JSON.stringify(stateToPush.channels);
       if (isIdentical) return;
     }
 
@@ -178,6 +193,11 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       engine.setCanvasClips(structuredClone(targetState.canvasClips));
       engine.setPatternsList(structuredClone(targetState.patterns));
 
+      // Restore channel rack state
+      if (targetState.channels && setChannelsCallbackRef.current) {
+        setChannelsCallbackRef.current(structuredClone(targetState.channels));
+      }
+
       // Sync React state
       setEventsState(engine.getEvents());
       setCanvasClipsState(engine.getCanvasClips());
@@ -195,6 +215,11 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       engine.setCanvasClips(structuredClone(targetState.canvasClips));
       engine.setPatternsList(structuredClone(targetState.patterns));
 
+      // Restore channel rack state
+      if (targetState.channels && setChannelsCallbackRef.current) {
+        setChannelsCallbackRef.current(structuredClone(targetState.channels));
+      }
+
       // Sync React state
       setEventsState(engine.getEvents());
       setCanvasClipsState(engine.getCanvasClips());
@@ -209,6 +234,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       events: structuredClone(engine.getEvents()),
       canvasClips: structuredClone(engine.getCanvasClips()),
       patterns: structuredClone(engine.getPatternsList()),
+      channels: [],
     };
     historyRef.current = [initialState];
     historyIndexRef.current = 0;
@@ -356,14 +382,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     engine.addEvent(newEvent);
     setEventsState([...engine.getEvents()]);
     setPatternsState([...engine.getPatternsList()]);
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const clearEvents = useCallback(() => {
     engine.clearEvents();
     setEventsState([...engine.getEvents()]);
     setPatternsState([...engine.getPatternsList()]);
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const setCanvasClips = useCallback((newClipsOrFunc: CanvasClip[] | ((prev: CanvasClip[]) => CanvasClip[])) => {
@@ -380,13 +406,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const addCanvasClip = useCallback((newClip: CanvasClip) => {
     engine.addCanvasClip(newClip);
     setCanvasClipsState([...engine.getCanvasClips()]);
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const removeCanvasClip = useCallback((id: string) => {
     engine.removeCanvasClip(id);
     setCanvasClipsState([...engine.getCanvasClips()]);
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const getSampleBuffer = useCallback((sampleId: string) => {
@@ -430,13 +456,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const createPattern = useCallback((id: string, name: string) => {
     engine.createPattern(id, name);
     setPatternsState(engine.getPatternsList());
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const renamePattern = useCallback((id: string, newName: string) => {
     engine.renamePattern(id, newName);
     setPatternsState(engine.getPatternsList());
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const deletePattern = useCallback((id: string) => {
@@ -445,7 +471,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setCanvasClipsState(engine.getCanvasClips());
     setActivePatternIdState(engine.getActivePatternId());
     setEventsState([...engine.getEvents()]);
-    pushToHistory();
+    pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
   const contextValue: AudioEngineContextType = {
@@ -492,6 +518,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     undo,
     redo,
     pushToHistory,
+    registerSetChannels,
     sampleCount,
     notifySampleLoaded,
   };

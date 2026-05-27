@@ -5,6 +5,7 @@
 
 import React from "react";
 import { DAWEvent } from "../audio/AudioEngine";
+import { ChannelRow } from "../types";
 
 const getPitchName = (midi: number): string => {
   const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -27,7 +28,8 @@ interface PianoRollNoteProps {
   isDragging: boolean;
   setEvents: (events: DAWEvent[]) => void;
   events: DAWEvent[];
-  pushToHistory: () => void;
+  pushToHistory: (channels: ChannelRow[]) => void;
+  channels: ChannelRow[];
   handleNoteRightClick: (e: React.MouseEvent, noteId: string) => void;
   handleNoteSplit: (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => void;
   handleNotePointerDown: (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => void;
@@ -55,6 +57,7 @@ export function PianoRollNote({
   setEvents,
   events,
   pushToHistory,
+  channels,
   handleNoteRightClick,
   handleNoteSplit,
   handleNotePointerDown,
@@ -95,7 +98,7 @@ export function PianoRollNote({
       onPointerEnter={(e) => {
         if (e.buttons === 2) {
           setEvents(events.filter((ev) => ev.id !== noteEvent.id));
-          pushToHistory();
+          pushToHistory(channels);
         }
       }}
       onPointerMove={
