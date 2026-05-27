@@ -162,6 +162,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   const [autosaveProject, setAutosaveProject] = useState<CanvasProject | null>(null);
   const [missingSamples, setMissingSamples] = useState<string[] | null>(null);
+  const [projectName, setProjectName] = useState<string>("Untitled");
 
   const registerSetChannels = useCallback((cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => {
     setChannelsCallbackRef.current = cb;
@@ -647,27 +648,74 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     console.log("[Project Restoration] Restored project successfully!");
   }, [engine, pushToHistory, notifySampleLoaded]);
 
-  const saveProject = useCallback(() => {
+  const saveProject = useCallback(async () => {
     const project = collectProjectState();
     if (!project) return;
-    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+
+    const suggestedName = `${projectName}.cnv`;
+    const jsonStr = JSON.stringify(project, null, 2);
+
+    // Native showSaveFilePicker
+    if (typeof (window as any).showSaveFilePicker !== "undefined") {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName,
+          types: [{
+            description: "Canvas Project File",
+            accept: {
+              "application/json": [".cnv"]
+            }
+          }]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(jsonStr);
+        await writable.close();
+
+        // Update active project name
+        let savedName = handle.name;
+        if (savedName.endsWith(".cnv")) savedName = savedName.slice(0, -4);
+        setProjectName(savedName);
+
+        console.log("[Project Save] Project successfully saved natively!");
+        return;
+      } catch (err) {
+        // AbortError indicates user clicked cancel; do not fall back
+        if ((err as any).name === "AbortError") {
+          console.log("[Project Save] Save cancelled by user");
+          return;
+        }
+        console.warn("Native file save picker failed, falling back to download link method", err);
+      }
+    }
+
+    // Traditional download fallback
+    const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `canvas_project_${new Date().toISOString().slice(0, 10)}.canvas`;
+    link.download = suggestedName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [collectProjectState]);
+    console.log("[Project Save] Project successfully saved via traditional download!");
+  }, [collectProjectState, projectName]);
 
   const loadProject = useCallback(() => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".canvas,application/json";
+    input.accept = ".cnv,.canvas,application/json";
     input.onchange = (e: any) => {
       const file = e.target.files?.[0];
       if (!file) return;
+
+      // Extract and format project name
+      let name = file.name;
+      if (name.endsWith(".canvas")) name = name.slice(0, -7);
+      else if (name.endsWith(".cnv")) name = name.slice(0, -4);
+      else if (name.endsWith(".json")) name = name.slice(0, -5);
+      setProjectName(name);
+
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
@@ -685,7 +733,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       reader.readAsText(file);
     };
     input.click();
-  }, [restoreProjectState]);
+  }, [restoreProjectState, setProjectName]);
 
   const restoreAutosave = useCallback(() => {
     if (autosaveProject) {
