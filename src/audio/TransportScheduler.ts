@@ -9,7 +9,7 @@ export interface SchedulerDelegate {
   scheduleTimelineSegment: (startSeconds: number, endSeconds: number, scheduledIds?: Set<string>) => void;
   triggerMetronomeClick: (beatNumber: number, absoluteContextTime: number) => void;
   getPatternLength?: () => number;
-  onLoopWrap?: () => void;
+  onLoopWrap?: (loopEndHardwareTime: number) => void;
 }
 
 /**
@@ -392,6 +392,9 @@ export class TransportScheduler {
 
     // 2. Perform looping wrap-around math if a boundary was crossed
     if (activeIsLooping && loopedEndSeconds !== null) {
+      // Calculate the physical hardware time when the loop end boundary is crossed.
+      const loopEndHardwareTime = this.audioContextStartTime + (loopEndSeconds - this.pausedTimelinePosition);
+
       // Reposition our anchor offsets:
       // We physically shift the audio start time anchor forward by the loop length.
       // In the context of "t_timeline = t_start_timeline + (t_context - t_start_audio)",
@@ -406,7 +409,7 @@ export class TransportScheduler {
       this.pausedTimelinePosition = loopStartSeconds;
 
       if (this.delegate.onLoopWrap) {
-        this.delegate.onLoopWrap();
+        this.delegate.onLoopWrap(loopEndHardwareTime);
       }
 
       // Wrap lookahead scheduling window back to loopStartSeconds

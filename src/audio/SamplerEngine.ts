@@ -477,8 +477,8 @@ export class SamplerEngine {
     }
   }
 
-  public stopAll(fadeOutSeconds: number = 0.05): void {
-    const now = this.audioContext.currentTime;
+  public stopAll(fadeOutSeconds: number = 0.05, stopTime?: number): void {
+    const now = stopTime !== undefined ? stopTime : this.audioContext.currentTime;
     this.activeSamplerVoices.forEach((voices) => {
       voices.forEach((voice: any) => {
         try {

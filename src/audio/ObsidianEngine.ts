@@ -667,8 +667,8 @@ export class ObsidianEngine {
     this.createVoice(channelId, midiNote, velocity, absoluteContextTime, durationSeconds, destinationNode);
   }
 
-  public stopAll(fadeOutSeconds: number = 0.05): void {
-    const now = this.audioContext.currentTime;
+  public stopAll(fadeOutSeconds: number = 0.05, stopTime?: number): void {
+    const now = stopTime !== undefined ? stopTime : this.audioContext.currentTime;
     this.activeObsidianVoices.forEach((voices) => {
       voices.forEach((voice) => {
         try {
