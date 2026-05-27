@@ -488,6 +488,7 @@ export function Canvas({
     snapResolution: activeSnapResolution,
     pushToHistory,
     channels,
+    selectedIds,
   });
 
   const handleResizeDownWrapper = (

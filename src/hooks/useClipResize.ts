@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useRef } from "react";
 import { CanvasClip, ChannelRow } from "../types";
 
@@ -13,6 +8,7 @@ interface UseClipResizeProps {
   snapResolution: number | null;
   pushToHistory: (channels: ChannelRow[]) => void;
   channels: ChannelRow[];
+  selectedIds: string[];
 }
 
 export function useClipResize({
@@ -22,15 +18,19 @@ export function useClipResize({
   snapResolution,
   pushToHistory,
   channels,
+  selectedIds,
 }: UseClipResizeProps) {
   const resizeStateRef = useRef<{
     clipId: string;
     pointerId: number;
     edge: "left" | "right";
-    initialStartBeat: number;
-    initialDuration: number;
-    initialCropStart: number;
     startX: number;
+    originalClips: {
+      id: string;
+      initialStartBeat: number;
+      initialDuration: number;
+      initialCropStart: number;
+    }[];
   } | null>(null);
 
   const handleResizeDown = (
@@ -44,14 +44,22 @@ export function useClipResize({
     const element = e.currentTarget;
     element.setPointerCapture(e.pointerId);
 
+    const isSelectionResize = selectedIds.includes(clip.id);
+    const clipsToResize = isSelectionResize
+      ? canvasClips.filter((c) => selectedIds.includes(c.id))
+      : [clip];
+
     resizeStateRef.current = {
       clipId: clip.id,
       pointerId: e.pointerId,
       edge,
-      initialStartBeat: clip.startBeat,
-      initialDuration: clip.duration,
-      initialCropStart: clip.cropStart || 0,
       startX: e.clientX,
+      originalClips: clipsToResize.map((c) => ({
+        id: c.id,
+        initialStartBeat: c.startBeat,
+        initialDuration: c.duration,
+        initialCropStart: c.cropStart || 0,
+      })),
     };
   };
 
@@ -63,39 +71,82 @@ export function useClipResize({
     const deltaX = e.clientX - state.startX;
     const deltaBeats = deltaX / beatWidth;
 
-    const currentClips = [...canvasClips];
-
     const snap = snapResolution;
-    if (state.edge === "right") {
-      const rawDur = state.initialDuration + deltaBeats;
-      const snappedDur = snap !== null
-        ? Math.max(snap, Math.round(rawDur / snap) * snap)
-        : Math.max(0.001, rawDur);
+    const minDuration = snap !== null ? snap : 0.001;
 
-      const updated = currentClips.map((c) =>
-        c.id === state.clipId ? { ...c, duration: snappedDur } : c
-      );
+    if (state.edge === "right") {
+      const draggedOrig = state.originalClips.find((o) => o.id === state.clipId);
+      if (!draggedOrig) return;
+
+      const rawDur = draggedOrig.initialDuration + deltaBeats;
+      const snappedDur = snap !== null
+        ? Math.round(rawDur / snap) * snap
+        : rawDur;
+
+      let snappedDelta = snappedDur - draggedOrig.initialDuration;
+
+      // Minimum length constraint: clamp the delta to ensure no clip goes below minDuration
+      state.originalClips.forEach((orig) => {
+        const minDelta = minDuration - orig.initialDuration;
+        if (snappedDelta < minDelta) {
+          snappedDelta = minDelta;
+        }
+      });
+
+      const updated = canvasClips.map((c) => {
+        const orig = state.originalClips.find((o) => o.id === c.id);
+        if (orig) {
+          return {
+            ...c,
+            duration: orig.initialDuration + snappedDelta,
+          };
+        }
+        return c;
+      });
       setCanvasClips(updated);
     } else {
-      const rightAnchor = state.initialStartBeat + state.initialDuration;
-      const rawStart = state.initialStartBeat + deltaBeats;
+      const draggedOrig = state.originalClips.find((o) => o.id === state.clipId);
+      if (!draggedOrig) return;
 
-      const snapLimit = snap !== null ? snap : 0.001;
+      const rawStart = draggedOrig.initialStartBeat + deltaBeats;
       const snappedStart = snap !== null
         ? Math.round(rawStart / snap) * snap
         : rawStart;
 
-      const maxSnappedStart = rightAnchor - snapLimit;
-      const finalStart = Math.max(0, Math.min(maxSnappedStart, snappedStart));
-      const finalDuration = rightAnchor - finalStart;
-      const cropOffset = finalStart - state.initialStartBeat;
-      const finalCropStart = state.initialCropStart + cropOffset;
+      let snappedDelta = snappedStart - draggedOrig.initialStartBeat;
 
-      const updated = currentClips.map((c) =>
-        c.id === state.clipId
-          ? { ...c, startBeat: finalStart, duration: finalDuration, cropStart: finalCropStart }
-          : c
-      );
+      // Apply constraints across all clips in the selection:
+      // 1. Prevent start beat from going negative (snappedDelta >= -initialStartBeat)
+      // 2. Prevent crop start from going negative (snappedDelta >= -initialCropStart)
+      // 3. Prevent duration from falling below minDuration (snappedDelta <= initialDuration - minDuration)
+      state.originalClips.forEach((orig) => {
+        const minDeltaStart = -orig.initialStartBeat;
+        const minDeltaCrop = -orig.initialCropStart;
+        const maxDeltaDur = orig.initialDuration - minDuration;
+
+        if (snappedDelta < minDeltaStart) {
+          snappedDelta = minDeltaStart;
+        }
+        if (snappedDelta < minDeltaCrop) {
+          snappedDelta = minDeltaCrop;
+        }
+        if (snappedDelta > maxDeltaDur) {
+          snappedDelta = maxDeltaDur;
+        }
+      });
+
+      const updated = canvasClips.map((c) => {
+        const orig = state.originalClips.find((o) => o.id === c.id);
+        if (orig) {
+          return {
+            ...c,
+            startBeat: orig.initialStartBeat + snappedDelta,
+            duration: orig.initialDuration - snappedDelta,
+            cropStart: orig.initialCropStart + snappedDelta,
+          };
+        }
+        return c;
+      });
       setCanvasClips(updated);
     }
   };
