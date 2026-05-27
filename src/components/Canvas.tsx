@@ -466,13 +466,13 @@ export function Canvas({
   });
 
   const handleClipPointerDownWrapper = (e: React.PointerEvent<HTMLDivElement>, clip: CanvasClip) => {
-    if (activeTool === "pencil") {
-      setSelectedClipType(clip.type);
-      setSelectedReferenceId(clip.referenceId);
-      setClipDurationBeats(clip.duration);
-    }
+    setSelectedClipType(clip.type);
+    setSelectedReferenceId(clip.referenceId);
+    setClipDurationBeats(clip.duration);
     handleClipPointerDown(e, clip);
   };
+
+  const resizingClipIdRef = useRef<string | null>(null);
 
   const {
     handleResizeDown,
@@ -486,6 +486,29 @@ export function Canvas({
     pushToHistory,
     channels,
   });
+
+  const handleResizeDownWrapper = (
+    e: React.PointerEvent<HTMLDivElement>,
+    clip: CanvasClip,
+    edge: "left" | "right"
+  ) => {
+    resizingClipIdRef.current = clip.id;
+    setSelectedClipType(clip.type);
+    setSelectedReferenceId(clip.referenceId);
+    setClipDurationBeats(clip.duration);
+    handleResizeDown(e, clip, edge);
+  };
+
+  const handleResizeUpWrapper = (e: React.PointerEvent<HTMLDivElement>) => {
+    handleResizeUp(e);
+    if (resizingClipIdRef.current) {
+      const updatedClip = canvasClips.find((c) => c.id === resizingClipIdRef.current);
+      if (updatedClip) {
+        setClipDurationBeats(updatedClip.duration);
+      }
+      resizingClipIdRef.current = null;
+    }
+  };
 
   // Middle-Click Panning overrides
   const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -784,6 +807,11 @@ export function Canvas({
                               return updated;
                             });
 
+                            // Load properties into pencil tool for the next placement
+                            setSelectedClipType(newClip.type);
+                            setSelectedReferenceId(newClip.referenceId);
+                            setClipDurationBeats(newClip.duration);
+
                             if (pushToHistory) {
                               pushToHistory(channels);
                             }
@@ -876,6 +904,11 @@ export function Canvas({
                           if (placingClipRef.current) {
                             addCanvasClip(placingClipRef.current);
                             pushToHistory(channels);
+
+                            // Load properties into pencil tool for the next placement
+                            setSelectedClipType(placingClipRef.current.type);
+                            setSelectedReferenceId(placingClipRef.current.referenceId);
+                            setClipDurationBeats(placingClipRef.current.duration);
                           }
 
                           updatePlacingClip(null);
@@ -915,9 +948,9 @@ export function Canvas({
                         handleClipPointerMove={handleClipPointerMove}
                         handleClipPointerUp={handleClipPointerUp}
                         handleClipDoubleClick={handleClipDoubleClick}
-                        handleResizeDown={handleResizeDown}
+                        handleResizeDown={handleResizeDownWrapper}
                         handleResizeMove={handleResizeMove}
-                        handleResizeUp={handleResizeUp}
+                        handleResizeUp={handleResizeUpWrapper}
                       />
                     );
                   })}
