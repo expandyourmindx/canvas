@@ -269,7 +269,7 @@ export function ArrangerClip({
         ) : (
           <Music className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
         )}
-        <span className="text-[8.5px] font-black uppercase tracking-wider text-neutral-200 truncate leading-none mt-px">
+        <span className="text-[7.5px] font-semibold uppercase tracking-wider text-neutral-300 truncate leading-none mt-px">
           {resolvedName}
         </span>
       </div>
