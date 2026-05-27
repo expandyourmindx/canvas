@@ -29,7 +29,19 @@ import {
 } from "lucide-react";
 
 export function Desktop() {
-  const { engine, getSampleBuffer, previewChannel, notifySampleLoaded, registerSetChannels } = useAudioEngine();
+  const {
+    engine,
+    getSampleBuffer,
+    previewChannel,
+    notifySampleLoaded,
+    registerSetChannels,
+    registerDesktopSync,
+    autosaveProject,
+    restoreAutosave,
+    dismissAutosave,
+    missingSamples,
+    dismissMissingSamples
+  } = useAudioEngine();
 
   // 1. Maintain visibility states for floating windows
   const [activeWindows, setActiveWindows] = useState({
@@ -57,6 +69,16 @@ export function Desktop() {
   useEffect(() => {
     registerSetChannels(setChannels, channels);
   }, [registerSetChannels, setChannels]);
+
+  // Lifted state synchronization reference to avoid stale state capture
+  const stateRef = useRef({
+    channels,
+    channelVols: {} as Record<string, number>,
+    channelPans: {} as Record<string, number>,
+    channelMixers: {} as Record<string, number>,
+    samplerSettings: {} as Record<string, SamplerSettings>
+  });
+
   const [channelMixers, setChannelMixers] = useState<Record<string, number>>({
     sampler_kick: 1,
     sampler_snare: 2,
@@ -76,6 +98,24 @@ export function Desktop() {
 
   // New sampler plugin settings
   const [samplerSettings, setSamplerSettings] = useState<Record<string, SamplerSettings>>({});
+
+  stateRef.current = { channels, channelVols, channelPans, channelMixers, samplerSettings };
+
+  useEffect(() => {
+    if (registerDesktopSync) {
+      registerDesktopSync({
+        getChannels: () => stateRef.current.channels,
+        getChannelVols: () => stateRef.current.channelVols,
+        getChannelPans: () => stateRef.current.channelPans,
+        getChannelMixers: () => stateRef.current.channelMixers,
+        setChannels: (c: ChannelRow[]) => setChannels(c),
+        setChannelVols: (v: Record<string, number>) => setChannelVols(v),
+        setChannelPans: (p: Record<string, number>) => setChannelPans(p),
+        setChannelMixers: (m: Record<string, number>) => setChannelMixers(m),
+        setSamplerSettings: (s: Record<string, SamplerSettings>) => setSamplerSettings(s)
+      });
+    }
+  }, [registerDesktopSync]);
   const [activeSamplerChannelId, setActiveSamplerChannelId] = useState<string | null>(null);
 
   // New Obsidian synth state
@@ -233,6 +273,73 @@ export function Desktop() {
         browserOpen={browserOpen}
         onToggleBrowser={() => setBrowserOpen((prev) => !prev)}
       />
+
+      {/* ── SESSION RECOVERY BANNER ── */}
+      {autosaveProject && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4">
+          <div className="bg-[#0b0c0f]/90 backdrop-blur-md border border-indigo-500/30 rounded-md p-4 shadow-[0_8px_32px_rgba(99,102,241,0.25)] flex flex-col gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-2.5">
+              <div className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+              <div className="h-2 w-2 absolute rounded-full bg-indigo-500" />
+              <h3 className="text-xs font-black tracking-wider text-indigo-400 uppercase">
+                Unsaved Session Found
+              </h3>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-relaxed">
+              We recovered an unsaved session from <span className="text-zinc-200 font-bold font-mono">{new Date(autosaveProject.savedAt).toLocaleString()}</span>. Would you like to restore it?
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={restoreAutosave}
+                className="px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-[10px] uppercase font-bold tracking-widest rounded-sm hover:scale-102 active:scale-98 transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+              >
+                Restore Session
+              </button>
+              <button
+                onClick={dismissAutosave}
+                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-zinc-400 hover:text-white text-[10px] uppercase font-bold tracking-widest rounded-sm active:scale-98 transition-all cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── OFFLINE SAMPLES WARNING BANNER ── */}
+      {missingSamples && missingSamples.length > 0 && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[99] w-full max-w-lg px-4">
+          <div className="bg-[#0b0c0f]/90 backdrop-blur-md border border-amber-500/30 rounded-md p-4 shadow-[0_8px_32px_rgba(245,158,11,0.20)] flex flex-col gap-3 animate-in fade-in slide-in-from-top-4 duration-305">
+            <div className="flex items-center gap-2.5 text-amber-400">
+              <Radio className="h-4 w-4 animate-pulse" />
+              <h3 className="text-xs font-black tracking-wider uppercase">
+                Offline Samples Flagged
+              </h3>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-relaxed">
+              The following files could not be automatically resolved and are currently offline. Please locate them or drag them back into the browser to re-authorize permission:
+            </p>
+            <div className="max-h-24 overflow-y-auto bg-black/40 rounded p-2 border border-neutral-900 font-mono text-[9px] text-amber-200/90 flex flex-col gap-1">
+              {missingSamples.map((sampleId) => (
+                <div key={sampleId} className="truncate">
+                  ⚠️ {sampleId}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[8px] text-zinc-550 uppercase tracking-widest">
+                Built-in presets seeded automatically
+              </span>
+              <button
+                onClick={dismissMissingSamples}
+                className="px-3 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-zinc-400 hover:text-white text-[10px] uppercase font-bold tracking-widest rounded-sm active:scale-98 transition-all cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Pinned Sample Browser Panel ── */}
       {browserPinned && browserOpen && (

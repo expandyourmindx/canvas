@@ -19,7 +19,9 @@ import {
   ChevronDown,
   Disc,
   Zap,
-  FolderOpen
+  FolderOpen,
+  Save,
+  Upload
 } from "lucide-react";
 import { CANVAS_VERSION } from "../config";
 
@@ -57,6 +59,8 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
     setPcKeyboardMidiActive,
     baseOctave,
     setBaseOctave,
+    saveProject,
+    loadProject,
   } = useAudioEngine();
 
   const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
@@ -235,14 +239,36 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
       id="daw-top-toolbar"
       className="fixed top-0 left-0 right-0 h-11 bg-[#16171a] border-b border-neutral-800 z-50 px-3 flex items-center justify-between select-none shadow-md"
     >
-      {/* LEFT BRAND SECTION */}
-      <div className="flex items-baseline gap-2 pl-1 select-none">
-        <h1 className="text-sm font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 uppercase font-sans leading-none">
-          CANVAS
-        </h1>
-        <span className="text-[8px] font-mono tracking-wide text-indigo-400 font-bold opacity-80 mt-0.5">
-          v{CANVAS_VERSION}
-        </span>
+      {/* LEFT BRAND SECTION & SAVE/LOAD BUTTONS */}
+      <div className="flex items-center gap-4 pl-1 select-none">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-sm font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 uppercase font-sans leading-none">
+            CANVAS
+          </h1>
+          <span className="text-[8px] font-mono tracking-wide text-indigo-400 font-bold opacity-80 mt-0.5">
+            v{CANVAS_VERSION}
+          </span>
+        </div>
+
+        {/* Project Manual Operations */}
+        <div className="flex items-center gap-1.5 ml-2">
+          <button
+            onClick={saveProject}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm hover:bg-neutral-850 text-[9px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
+            title="Save Project (Ctrl+S)"
+          >
+            <Save className="h-3 w-3" />
+            <span className="hidden md:inline">Save</span>
+          </button>
+          <button
+            onClick={loadProject}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm hover:bg-neutral-855 text-[9px] uppercase font-mono tracking-wider font-extrabold text-neutral-400 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
+            title="Load Project (Ctrl+O)"
+          >
+            <Upload className="h-3 w-3" />
+            <span className="hidden md:inline">Load</span>
+          </button>
+        </div>
       </div>
 
       {/* CENTER COMPACT TRANSPORT CONSOLE */}

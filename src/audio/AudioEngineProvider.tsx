@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
-import { CanvasClip, PatternData, ChannelRow } from "../types";
+import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings } from "../types";
 
 export interface AudioEngineContextType {
   /** The raw AudioEngine instance, if direct low-level API access is required. */
@@ -91,6 +91,26 @@ export interface AudioEngineContextType {
   // Sample loading reactivity
   sampleCount: number;
   notifySampleLoaded: () => void;
+
+  // Project Save & Load Actions
+  saveProject: () => void;
+  loadProject: () => void;
+  registerDesktopSync: (sync: {
+    getChannels: () => ChannelRow[];
+    getChannelVols: () => Record<string, number>;
+    getChannelPans: () => Record<string, number>;
+    getChannelMixers: () => Record<string, number>;
+    setChannels: (channels: ChannelRow[]) => void;
+    setChannelVols: (vols: Record<string, number>) => void;
+    setChannelPans: (pans: Record<string, number>) => void;
+    setChannelMixers: (mixers: Record<string, number>) => void;
+    setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
+  }) => void;
+  autosaveProject: CanvasProject | null;
+  restoreAutosave: () => void;
+  dismissAutosave: () => void;
+  missingSamples: string[] | null;
+  dismissMissingSamples: () => void;
 }
 
 export const AudioEngineContext = createContext<AudioEngineContextType | null>(null);
@@ -122,6 +142,25 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const historyIndexRef = useRef<number>(-1);
   const latestChannelsRef = useRef<ChannelRow[]>([]);
   const setChannelsCallbackRef = useRef<((channels: ChannelRow[]) => void) | null>(null);
+
+  const desktopStateRef = useRef<{
+    getChannels: () => ChannelRow[];
+    getChannelVols: () => Record<string, number>;
+    getChannelPans: () => Record<string, number>;
+    getChannelMixers: () => Record<string, number>;
+    setChannels: (channels: ChannelRow[]) => void;
+    setChannelVols: (vols: Record<string, number>) => void;
+    setChannelPans: (pans: Record<string, number>) => void;
+    setChannelMixers: (mixers: Record<string, number>) => void;
+    setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
+  } | null>(null);
+
+  const registerDesktopSync = useCallback((sync: any) => {
+    desktopStateRef.current = sync;
+  }, []);
+
+  const [autosaveProject, setAutosaveProject] = useState<CanvasProject | null>(null);
+  const [missingSamples, setMissingSamples] = useState<string[] | null>(null);
 
   const registerSetChannels = useCallback((cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => {
     setChannelsCallbackRef.current = cb;
@@ -241,37 +280,6 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     historyIndexRef.current = 0;
   }, [engine]);
 
-  // Keyboard shortcut listener for global Undo/Redo commands
-  useEffect(() => {
-    const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      if (
-        activeEl &&
-        (activeEl.tagName === "INPUT" ||
-          activeEl.tagName === "TEXTAREA" ||
-          activeEl.getAttribute("contenteditable") === "true")
-      ) {
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-        if (e.key === "z" || e.key === "Z") {
-          e.preventDefault();
-          if (e.shiftKey) {
-            redo();
-          } else {
-            undo();
-          }
-        } else if (e.key === "y" || e.key === "Y") {
-          e.preventDefault();
-          redo();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalShortcuts);
-    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
-  }, [undo, redo]);
 
   // High-performance continuous position coordinates state.
   const [position, setPosition] = useState({ seconds: 0, beats: 0 });
@@ -475,6 +483,255 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     pushToHistory(latestChannelsRef.current);
   }, [engine, pushToHistory]);
 
+  const collectProjectState = useCallback((): CanvasProject | null => {
+    if (!desktopStateRef.current) return null;
+    return {
+      version: "0.18.1",
+      savedAt: new Date().toISOString(),
+      bpm: engine.getBpm(),
+      playbackMode: engine.getPlaybackMode(),
+      channels: desktopStateRef.current.getChannels(),
+      channelVols: desktopStateRef.current.getChannelVols(),
+      channelPans: desktopStateRef.current.getChannelPans(),
+      channelMixers: desktopStateRef.current.getChannelMixers(),
+      events: engine.getEvents(),
+      canvasClips: engine.getCanvasClips(),
+      patterns: engine.getPatternsList(),
+      samplerSettings: engine.getAllSamplerSettings(),
+      obsidianSettings: engine.obsidian.obsidianSettings,
+      mixerInserts: engine.getMixerInserts(),
+      loopSettings: engine.getLoopSettings(),
+      sampleIds: engine.getLoadedSampleIds(),
+    };
+  }, [engine]);
+
+  const restoreProjectState = useCallback((project: CanvasProject) => {
+    if (!project || !desktopStateRef.current) return;
+
+    // 1. push undo snapshot
+    pushToHistory(desktopStateRef.current.getChannels());
+
+    // 2. engine state
+    engine.setPatternsList(project.patterns);
+    engine.setCanvasClips(project.canvasClips);
+    engine.setEvents(project.events);
+
+    // 3. channel rack React state
+    desktopStateRef.current.setChannels(project.channels);
+    desktopStateRef.current.setChannelVols(project.channelVols);
+    desktopStateRef.current.setChannelPans(project.channelPans);
+    desktopStateRef.current.setChannelMixers(project.channelMixers);
+    desktopStateRef.current.setSamplerSettings(project.samplerSettings || {});
+
+    // 4. channel routing / engine volume/panning/routing sync
+    project.channels.forEach((chan) => {
+      engine.updateChannelVolume(chan.id, project.channelVols[chan.id] ?? 80);
+      engine.updateChannelPan(chan.id, project.channelPans[chan.id] ?? 0);
+      engine.updateChannelMixerTarget(chan.id, project.channelMixers[chan.id] ?? chan.mixerTarget ?? 1);
+      if (chan.sampleId) {
+        engine.updateChannelSampleId(chan.id, chan.sampleId);
+      }
+      if (chan.instrumentType) {
+        engine.updateChannelInstrumentType(chan.id, chan.instrumentType);
+      }
+    });
+
+    // 5. instrument settings
+    if (project.samplerSettings) {
+      engine.restoreAllSamplerSettings(project.samplerSettings);
+    }
+    if (project.obsidianSettings) {
+      engine.obsidian.obsidianSettings = { ...project.obsidianSettings };
+    }
+
+    // 6. mixer console
+    if (project.mixerInserts) {
+      engine.restoreMixerInserts(project.mixerInserts);
+    }
+
+    // 7. loop settings & playback mode & BPM
+    if (project.loopSettings) {
+      engine.setLoopSettings(project.loopSettings);
+    }
+    if (project.playbackMode) {
+      engine.setPlaybackMode(project.playbackMode);
+    }
+    if (project.bpm) {
+      engine.setBpm(project.bpm);
+    }
+
+    // 8. sync React state in AudioEngineProvider
+    setEventsState(engine.getEvents());
+    setCanvasClipsState(engine.getCanvasClips());
+    setPatternsState(engine.getPatternsList());
+    setActivePatternIdState(engine.getActivePatternId());
+    setPlaybackModeState(engine.getPlaybackMode());
+    setBpmState(engine.getBpm());
+    const lSettings = engine.getLoopSettings();
+    setLoopSettings({
+      isLooping: lSettings.loopEnabled,
+      loopStart: lSettings.loopStart,
+      loopEnd: lSettings.loopEnd,
+      loopEnabled: lSettings.loopEnabled
+    });
+
+    // 9. warn about missing user samples
+    const loadedIds = engine.getLoadedSampleIds();
+    if (project.sampleIds) {
+      const missing = project.sampleIds.filter(id => !loadedIds.includes(id));
+      const userMissing = missing.filter(id => !id.startsWith("sampler_"));
+      if (userMissing.length > 0) {
+        setMissingSamples(userMissing);
+      } else {
+        setMissingSamples(null);
+      }
+    } else {
+      setMissingSamples(null);
+    }
+
+    console.log("[Project Restoration] Restored project successfully!");
+  }, [engine, pushToHistory]);
+
+  const saveProject = useCallback(() => {
+    const project = collectProjectState();
+    if (!project) return;
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `canvas_project_${new Date().toISOString().slice(0, 10)}.canvas`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [collectProjectState]);
+
+  const loadProject = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".canvas,application/json";
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const project = JSON.parse(event.target?.result as string) as CanvasProject;
+          if (project && project.version && project.channels) {
+            restoreProjectState(project);
+          } else {
+            alert("Invalid project file format.");
+          }
+        } catch (err) {
+          console.error("Failed to parse project file", err);
+          alert("Error loading project: Invalid JSON.");
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }, [restoreProjectState]);
+
+  const restoreAutosave = useCallback(() => {
+    if (autosaveProject) {
+      restoreProjectState(autosaveProject);
+      setAutosaveProject(null);
+    }
+  }, [autosaveProject, restoreProjectState]);
+
+  const dismissAutosave = useCallback(() => {
+    localStorage.removeItem("canvas_autosave");
+    setAutosaveProject(null);
+  }, []);
+
+  const dismissMissingSamples = useCallback(() => {
+    setMissingSamples(null);
+  }, []);
+
+  const lastSavedJsonRef = useRef<string>("");
+
+  // Debounced auto-save effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!desktopStateRef.current) return;
+      const state = collectProjectState();
+      if (!state) return;
+      const json = JSON.stringify(state);
+      if (json !== lastSavedJsonRef.current) {
+        localStorage.setItem("canvas_autosave", json);
+        lastSavedJsonRef.current = json;
+        console.log("[Auto-save] Saved project to localStorage");
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [collectProjectState]);
+
+  // beforeunload guard effect
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "Are you sure you want to exit? Unsaved changes will be lost.";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  // Check for autosave on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("canvas_autosave");
+      if (raw) {
+        const parsed = JSON.parse(raw) as CanvasProject;
+        if (parsed && parsed.version && parsed.channels) {
+          setAutosaveProject(parsed);
+          lastSavedJsonRef.current = raw;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse auto-save state", e);
+    }
+  }, []);
+
+  // Keyboard shortcut listener for global Undo/Redo/Save/Load commands
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.getAttribute("contenteditable") === "true")
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        if (e.key === "z" || e.key === "Z") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+        } else if (e.key === "y" || e.key === "Y") {
+          e.preventDefault();
+          redo();
+        } else if (e.key === "s" || e.key === "S") {
+          e.preventDefault();
+          saveProject();
+        } else if (e.key === "o" || e.key === "O") {
+          e.preventDefault();
+          loadProject();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcuts);
+    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
+  }, [undo, redo, saveProject, loadProject]);
+
   const contextValue: AudioEngineContextType = {
     engine,
     playbackState,
@@ -522,6 +779,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     registerSetChannels,
     sampleCount,
     notifySampleLoaded,
+    saveProject,
+    loadProject,
+    registerDesktopSync,
+    autosaveProject,
+    restoreAutosave,
+    dismissAutosave,
+    missingSamples,
+    dismissMissingSamples,
   };
 
   return (
