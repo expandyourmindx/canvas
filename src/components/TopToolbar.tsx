@@ -208,57 +208,121 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
   const [displayMode, setDisplayMode] = useState<"time" | "beats">("time");
 
   const [isTapped, setIsTapped] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const tapTimesRef = useRef<number[]>([]);
   const tapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lockTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const resetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
-      if (tapTimeoutRef.current) {
-        clearTimeout(tapTimeoutRef.current);
-      }
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      if (lockTimeoutRef.current) clearTimeout(lockTimeoutRef.current);
+      if (resetTimeoutRef.current) clearTimeout(resetTimeoutRef.current);
     };
   }, []);
 
   const handleTap = () => {
     const now = Date.now();
+
+    // Clear active inactivity reset timeout since a new tap occurred
+    if (resetTimeoutRef.current) {
+      clearTimeout(resetTimeoutRef.current);
+    }
+
     const lastTap = tapTimesRef.current[tapTimesRef.current.length - 1];
 
     // Reset tap history if more than 2 seconds pass between taps
     if (lastTap && now - lastTap > 2000) {
       tapTimesRef.current = [];
+      setIsLocked(false);
     }
 
     tapTimesRef.current.push(now);
 
-    // BPM is calculated from the average interval between the last 8 taps
+    // Keep history buffer size at up to 8 taps
     if (tapTimesRef.current.length > 8) {
       tapTimesRef.current.shift();
     }
 
-    // Update BPM live once at least 2 taps are recorded
-    if (tapTimesRef.current.length >= 2) {
-      let totalInterval = 0;
-      const count = tapTimesRef.current.length - 1;
-      for (let i = 0; i < count; i++) {
-        totalInterval += tapTimesRef.current[i + 1] - tapTimesRef.current[i];
-      }
-      const avgIntervalMs = totalInterval / count;
-      const calculatedBpm = 60000 / avgIntervalMs;
-      const roundedBpm = Math.round(calculatedBpm);
+    const N = tapTimesRef.current.length;
+    let stableDetected = false;
+    let targetBpm = bpm;
 
-      if (roundedBpm >= 20 && roundedBpm <= 300) {
-        setBpm(roundedBpm);
+    // Check stability over the last 3 intervals (requires at least 4 taps)
+    if (N >= 4) {
+      const t_a = tapTimesRef.current[N - 4];
+      const t_b = tapTimesRef.current[N - 3];
+      const t_c = tapTimesRef.current[N - 2];
+      const t_d = tapTimesRef.current[N - 1];
+
+      const I1 = t_b - t_a;
+      const I2 = t_c - t_b;
+      const I3 = t_d - t_c;
+
+      const B1 = 60000 / I1;
+      const B2 = 60000 / I2;
+      const B3 = 60000 / I3;
+
+      const maxBpm = Math.max(B1, B2, B3);
+      const minBpm = Math.min(B1, B2, B3);
+
+      // Lock in if the last 3 consecutive intervals produce a value within 5 BPM of each other
+      if (maxBpm - minBpm <= 5) {
+        stableDetected = true;
+        const avgInterval = (I1 + I2 + I3) / 3;
+        targetBpm = Math.round(60000 / avgInterval);
       }
     }
 
-    // Tactile micro-animation visual feedback on tap
-    if (tapTimeoutRef.current) {
-      clearTimeout(tapTimeoutRef.current);
-    }
-    setIsTapped(true);
-    tapTimeoutRef.current = setTimeout(() => {
+    if (stableDetected) {
+      // Commit stable BPM rounded to the nearest whole number
+      if (targetBpm >= 20 && targetBpm <= 300) {
+        setBpm(targetBpm);
+        setBpmInput(targetBpm.toString());
+      }
+
+      // Stability Lock visual feedback (emerald)
+      if (lockTimeoutRef.current) clearTimeout(lockTimeoutRef.current);
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
       setIsTapped(false);
-    }, 120);
+      setIsLocked(true);
+      lockTimeoutRef.current = setTimeout(() => {
+        setIsLocked(false);
+      }, 800);
+    } else {
+      // Not stable yet - show live calculated decimal preview in the input field
+      if (N >= 2) {
+        let totalInterval = 0;
+        const count = N - 1;
+        for (let i = 0; i < count; i++) {
+          totalInterval += tapTimesRef.current[i + 1] - tapTimesRef.current[i];
+        }
+        const avgIntervalMs = totalInterval / count;
+        const calculatedBpm = 60000 / avgIntervalMs;
+
+        if (calculatedBpm >= 20 && calculatedBpm <= 300) {
+          setBpmInput(calculatedBpm.toFixed(1));
+        }
+      }
+
+      // Regular tap flash visual feedback (indigo)
+      if (lockTimeoutRef.current) clearTimeout(lockTimeoutRef.current);
+      if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
+      setIsLocked(false);
+      setIsTapped(true);
+      tapTimeoutRef.current = setTimeout(() => {
+        setIsTapped(false);
+      }, 120);
+    }
+
+    // Reset everything if more than 2 seconds pass between taps
+    resetTimeoutRef.current = setTimeout(() => {
+      tapTimesRef.current = [];
+      setIsLocked(false);
+      setIsTapped(false);
+      setBpmInput(bpm.toString());
+    }, 2000);
   };
 
   const handleWindowClick = (winId: any) => {
@@ -515,11 +579,13 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
           type="button"
           onClick={handleTap}
           className={`h-7 px-2.5 rounded-sm items-center justify-center font-mono text-[9px] font-extrabold uppercase tracking-wider cursor-pointer border transition-all active:scale-95 duration-100 hidden sm:flex ${
-            isTapped
-              ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
-              : "border-neutral-800 bg-[#0d0e10]/40 text-neutral-400 hover:text-neutral-200 hover:bg-[#121316]/60"
+            isLocked
+              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.35)]"
+              : isTapped
+                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
+                : "border-neutral-800 bg-[#0d0e10]/40 text-neutral-400 hover:text-neutral-200 hover:bg-[#121316]/60"
           }`}
-          title="Tap Tempo (Click repeatedly to set BPM)"
+          title="Tap Tempo (Stable tempo locks in automatically)"
         >
           Tap
         </button>
