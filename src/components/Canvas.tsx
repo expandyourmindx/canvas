@@ -337,6 +337,7 @@ export function Canvas({
     };
 
     addCanvasClip(newClip);
+    setSelectedIds([newClip.id]);
   };
 
   const clearArrangement = () => {
@@ -813,6 +814,9 @@ export function Canvas({
                               return updated;
                             });
 
+                            // Select the newly dropped clip exclusively
+                            setSelectedIds([newClip.id]);
+
                             // Load properties into pencil tool for the next placement
                             setSelectedClipType(newClip.type);
                             setSelectedReferenceId(newClip.referenceId);
@@ -907,6 +911,9 @@ export function Canvas({
                           if (placingClipRef.current) {
                             addCanvasClip(placingClipRef.current);
                             pushToHistory(channels);
+
+                            // Select the newly placed clip exclusively
+                            setSelectedIds([placingClipRef.current.id]);
 
                             // Load properties into pencil tool for the next placement
                             setSelectedClipType(placingClipRef.current.type);
