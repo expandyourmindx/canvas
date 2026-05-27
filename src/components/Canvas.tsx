@@ -223,10 +223,10 @@ export function Canvas({
     };
   };
 
-  // Active cursor/stamp tool coordinates and settings
   const [selectedClipType, setSelectedClipType] = useState<"pattern" | "sample" | null>(null);
   const [selectedReferenceId, setSelectedReferenceId] = useState<string>("");
   const [clipDurationBeats, setClipDurationBeats] = useState<number>(1);
+  const [clipCropStart, setClipCropStart] = useState<number>(0);
 
   const [activeTool, setActiveTool] = useState<'pencil' | 'pointer' | 'split'>('pencil');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -274,12 +274,14 @@ export function Canvas({
       setSelectedClipType("pattern");
       setSelectedReferenceId(patterns[0].id);
       setClipDurationBeats(4);
+      setClipCropStart(0);
     } else {
       const loaded = engine?.getLoadedSampleIds() || [];
       if (loaded.length > 0) {
         setSelectedClipType("sample");
         setSelectedReferenceId(loaded[0]);
         setClipDurationBeats(1);
+        setClipCropStart(0);
       }
     }
   }, [patterns, engine, selectedClipType, selectedReferenceId]);
@@ -469,6 +471,7 @@ export function Canvas({
     setSelectedClipType(clip.type);
     setSelectedReferenceId(clip.referenceId);
     setClipDurationBeats(clip.duration);
+    setClipCropStart(clip.cropStart || 0);
     handleClipPointerDown(e, clip);
   };
 
@@ -496,6 +499,7 @@ export function Canvas({
     setSelectedClipType(clip.type);
     setSelectedReferenceId(clip.referenceId);
     setClipDurationBeats(clip.duration);
+    setClipCropStart(clip.cropStart || 0);
     handleResizeDown(e, clip, edge);
   };
 
@@ -505,6 +509,7 @@ export function Canvas({
       const updatedClip = canvasClips.find((c) => c.id === resizingClipIdRef.current);
       if (updatedClip) {
         setClipDurationBeats(updatedClip.duration);
+        setClipCropStart(updatedClip.cropStart || 0);
       }
       resizingClipIdRef.current = null;
     }
@@ -811,6 +816,7 @@ export function Canvas({
                             setSelectedClipType(newClip.type);
                             setSelectedReferenceId(newClip.referenceId);
                             setClipDurationBeats(newClip.duration);
+                            setClipCropStart(newClip.cropStart || 0);
 
                             if (pushToHistory) {
                               pushToHistory(channels);
@@ -836,13 +842,9 @@ export function Canvas({
                           ? Math.round(rawBeat / snap) * snap
                           : rawBeat;
 
-                        let finalDuration = clipDurationBeats;
-                        if (selectedClipType === "sample") {
-                          const buffer = getSampleBuffer(selectedReferenceId);
-                          if (buffer) {
-                            finalDuration = engine.secondsToBeats(buffer.duration);
-                          }
-                        }
+                        // PENCIL PLACEMENT: Bypasses audio buffer duration lookup and waveform-length snap.
+                        // Applies the remembered length and crop start properties as-is from memory.
+                        const finalDuration = clipDurationBeats;
 
                         if (snappedBeat >= 0 && snappedBeat + finalDuration <= totalBeats) {
                           const meta = getClipMetadata(selectedClipType, selectedReferenceId);
@@ -855,7 +857,7 @@ export function Canvas({
                             referenceId: selectedReferenceId,
                             name: meta.name,
                             color: meta.color,
-                            cropStart: 0
+                            cropStart: clipCropStart
                           };
                           updatePlacingClip(tempClip);
                           placingPointerId.current = e.pointerId;
@@ -909,6 +911,7 @@ export function Canvas({
                             setSelectedClipType(placingClipRef.current.type);
                             setSelectedReferenceId(placingClipRef.current.referenceId);
                             setClipDurationBeats(placingClipRef.current.duration);
+                            setClipCropStart(placingClipRef.current.cropStart || 0);
                           }
 
                           updatePlacingClip(null);
