@@ -230,8 +230,8 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
 
     tapTimesRef.current.push(now);
 
-    // BPM is calculated from the average interval between the last 4 taps
-    if (tapTimesRef.current.length > 4) {
+    // BPM is calculated from the average interval between the last 8 taps
+    if (tapTimesRef.current.length > 8) {
       tapTimesRef.current.shift();
     }
 
@@ -244,7 +244,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
       }
       const avgIntervalMs = totalInterval / count;
       const calculatedBpm = 60000 / avgIntervalMs;
-      const roundedBpm = Math.round(calculatedBpm * 10) / 10;
+      const roundedBpm = Math.round(calculatedBpm);
 
       if (roundedBpm >= 20 && roundedBpm <= 300) {
         setBpm(roundedBpm);
