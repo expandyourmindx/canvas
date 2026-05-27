@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings } from "../types";
+import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert } from "../types";
 import { ObsidianEngine } from "./ObsidianEngine";
 import { SamplerEngine } from "./SamplerEngine";
 import { SampleRegistry } from "./SampleRegistry";
-import { MixerInsert, MixerManager } from "./MixerManager";
+import { MixerManager } from "./MixerManager";
 import { TransportState, TransportScheduler } from "./TransportScheduler";
 import { generateDrumSampleWav } from "./sampleGenerator";
+
+export type { DAWEvent, MixerInsert } from "../types";
+export type { TransportState } from "./TransportScheduler";
 
 /**
  * Headless DAW Audio Engine (Version 2.0) - Core Audio Master Engine (AudioEngine.ts)
@@ -31,18 +34,6 @@ import { generateDrumSampleWav } from "./sampleGenerator";
  *    When paused, we freeze the time to sample accuracy, preserving sub-millisecond precision.
  */
 
-export interface DAWEvent {
-  id: string;
-  time: number;       // Position on the timeline (in beats, floating-point)
-  duration: number;   // Length of the note/sample active window (in beats, floating-point)
-  pitch?: number;     // MIDI note number (e.g., 60 = Middle C)
-  velocity: number;   // Event volume/velocity [0.0 - 1.0]
-  sampleId?: string;  // ID of the audio sample in our registry (Optional)
-  channelId?: string; // ID of the channel row that scheduled this event (Optional)
-}
-
-export type { MixerInsert } from "./MixerManager";
-export type { TransportState } from "./TransportScheduler";
 
 export interface AudioEngineOptions {
   bpm?: number;
@@ -206,8 +197,18 @@ export class AudioEngine {
     this.scheduler.setLoop(active, startBeats, endBeats);
   }
 
-  public getLoopSettings() {
-    return this.scheduler.getLoopSettings();
+  public getLoopSettings(): { loopStart: number; loopEnd: number; loopEnabled: boolean; isLooping: boolean } {
+    const s = this.scheduler.getLoopSettings();
+    return {
+      loopStart: s.loopStart,
+      loopEnd: s.loopEnd,
+      loopEnabled: s.isLooping,
+      isLooping: s.isLooping
+    };
+  }
+
+  public setLoopSettings(settings: { loopStart: number; loopEnd: number; loopEnabled: boolean }): void {
+    this.scheduler.setLoop(settings.loopEnabled, settings.loopStart, settings.loopEnd);
   }
 
   public getPlaybackMode(): "pattern" | "song" {
@@ -939,4 +940,19 @@ export class AudioEngine {
     this.canvasClips = this.canvasClips.filter(c => c.id !== id);
   }
 
+  public getAllSamplerSettings(): Record<string, SamplerSettings> {
+    return this.samplerEngine.getAllSamplerSettings();
+  }
+
+  public restoreAllSamplerSettings(settings: Record<string, SamplerSettings>): void {
+    this.samplerEngine.restoreAllSamplerSettings(settings);
+  }
+
+  public getMixerInserts(): MixerInsert[] {
+    return this.mixerManager.getInserts();
+  }
+
+  public restoreMixerInserts(inserts: MixerInsert[]): void {
+    this.mixerManager.restoreMixerInserts(inserts);
+  }
 }

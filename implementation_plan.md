@@ -1,107 +1,114 @@
-# File System Access API — Sample Browser Overhaul
+# Implementation Plan — Project Save & Load (v0.18.1)
 
-Replace the static `public/samples/` + `sample-index.json` architecture with a native folder picker that reads samples directly from any location on disk, like a real DAW (Ableton, FL Studio).
+Implement a robust, complete project save and load solution for the Canvas DAW. The system features:
+1. **Auto-save (localStorage)**: Debounced every 2 seconds, saving state automatically with a premium visual session recovery banner on application startup.
+2. **Manual Save / Load**: Intercepts `Ctrl+S` and `Ctrl+O` with custom browser file-picker actions, allowing users to download and load `.canvas` project JSON files.
+3. **Session Loss Prevention**: Intercepts accidental exits or refreshes (`Ctrl+R` / close tab) with standard browser confirmation prompts.
+4. **Resilient Loading Engine**: Validates, restores, and re-sequences the entire DAW state (tracks, notes, mixer, synthesizers, sampler envelopes, loops), with automatic built-in sample re-seeding and a clean non-blocking warnings banner for missing user samples.
+
+---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Built-in samples**: The 3 synthesized drum presets (kick, snare, hi-hat) generated in [AudioEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/AudioEngine.ts#L828-L845) via `seedDefaultSamples()` are unaffected by this change — they're generated in memory, not loaded from `/public/samples/`. The browser will still show these as "Built-in" samples.
+> **Exit Confirmation Warning**: The browser's native `beforeunload` pop-up will appear on page reload or close to prevent accidental project wipe. The actual message content cannot be custom-styled due to modern browser security policies, but it guarantees session preservation.
+> 
+> **User Sample Access**: Browsers require explicit user permission to read files from disk. If a loaded project contains user samples (linked via the File System Access API), they cannot be read automatically until the user grants access. The engine will display a premium non-blocking alert banner letting the user know which samples are offline, and built-in trap drum samples will re-seed immediately without any user action.
 
-> [!WARNING]
-> **Browser support**: The File System Access API (`showDirectoryPicker`) works in **Chrome, Edge, and Opera** but is **not supported in Firefox or Safari**. If Firefox support matters, we should add a file `<input>` fallback. I'll include a graceful degradation that detects support and shows a file-input fallback if the API is unavailable.
+---
 
 ## Open Questions
 
-1. **Should we keep `sample-index.json` and the `/public/samples/` folder at all?** My plan removes them entirely and replaces the "Kicks/Snares/Hats" folders with a single "Built-in Presets" section that shows the 3 synthesized drums. If you want to keep shipping bundled wav files for a default experience, let me know.
+*No critical open questions exist. The requirements are fully specified.*
 
-2. **Persist across sessions?** The File System Access API lets us store directory handles in IndexedDB so the user doesn't have to re-pick the folder every session. I'll implement this. The user will need to click a "Re-authorize" button once per browser session (browser security requirement — handles persist, but permission must be re-granted per session via a user gesture).
+---
 
 ## Proposed Changes
 
-### New Utility: Sample Library Manager
+### Types & Data System
 
-#### [NEW] [SampleLibraryManager.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/SampleLibraryManager.ts)
-
-A standalone class that manages user sample folders via the File System Access API:
-
-- **`addFolder()`** — Opens `showDirectoryPicker()`, recursively walks the directory tree, and builds a virtual folder/file tree of `.wav`, `.mp3`, `.ogg`, `.flac` files
-- **`getTree()`** — Returns the current folder tree structure for rendering in the browser panel
-- **`getFileHandle(path)`** — Returns a `FileSystemFileHandle` for on-demand audio buffer loading
-- **`loadSampleBuffer(handle, audioContext)`** — Reads a file handle → `ArrayBuffer` → `decodeAudioData` → `AudioBuffer`
-- **`persistHandles()`** / **`restoreHandles()`** — Stores/retrieves `FileSystemDirectoryHandle` references in IndexedDB for session persistence
-- **`removeFolder(handle)`** — Removes a folder from the library
-
-The tree structure will be:
-```ts
-interface SampleFolder {
-  name: string;
-  handle: FileSystemDirectoryHandle;
-  children: SampleNode[];
-}
-
-interface SampleNode {
-  type: 'folder' | 'file';
-  name: string;
-  path: string; // virtual relative path for display
-  handle: FileSystemFileHandle | FileSystemDirectoryHandle;
-  children?: SampleNode[]; // only for folders
-}
-```
+#### [MODIFY] [types.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/types.ts)
+- Define `DAWEvent` and a serializable definition of `MixerInsert` inside `types.ts` to avoid circular dependencies.
+- Define the `CanvasProject` interface exactly as specified.
+- Export all three definitions so that the React components and audio engines can consume them cleanly.
 
 ---
 
-### Sample Browser UI Rewrite
+### Audio & Mixer Engines
 
-#### [MODIFY] [SampleBrowser.tsx](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/components/SampleBrowser.tsx)
+#### [MODIFY] [MixerManager.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/MixerManager.ts)
+- Import the updated `MixerInsert` type from `../types`.
+- Add `restoreMixerInserts(inserts: MixerInsert[]): void` to restore insert volume, panning, mute/solo state, and custom insert names to the active Web Audio nodes.
+- Re-run the global `updateInsertSolo()` hierarchy once restoration completes.
 
-Full rewrite of the sample browser component:
-
-- **Remove**: `fetch("/samples/sample-index.json")` and the static category/sample model
-- **Add "Add Folder" button**: Calls `SampleLibraryManager.addFolder()` → `showDirectoryPicker()`
-- **Render virtual folder tree**: Recursively renders the tree from `SampleLibraryManager.getTree()` with expandable folders and audio file leaves
-- **Lazy loading preserved**: Audio buffers are still only decoded on hover (preview) or drag (load into arranger), using `FileSystemFileHandle.getFile()` → `arrayBuffer()` → `engine.loadSample()`
-- **Built-in presets section**: Shows the 3 synthesized drums at the top under a "Built-in" folder that doesn't require the FSAA
-- **Remove folder**: Right-click context menu or X button on folder roots to remove them from the library
-- **Re-authorize prompt**: On session start, if persisted handles exist but permissions have expired, show a subtle "Click to re-authorize" banner
-- **Fallback**: If `showDirectoryPicker` is not available (Firefox), the "Add Folder" button becomes a standard `<input type="file" webkitdirectory>` fallback that reads files via the traditional File API
-
----
-
-### Integration Touchpoints
-
-#### [MODIFY] [Canvas.tsx](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/components/Canvas.tsx)
-
-- Pass `SampleLibraryManager` instance to `SampleBrowser` (or instantiate it inside SampleBrowser as a local ref — it doesn't need to be in the audio engine context since it's purely a UI/file concern)
-- The existing drag-and-drop `onDrop` handler and `handleAudioFileImport` already work with raw `ArrayBuffer` data, so no changes needed to the arranger integration
-
-#### [NO CHANGE] [AudioEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/AudioEngine.ts)
-
-The `engine.loadSample(id, arrayBuffer)` API is already the correct abstraction. SampleBrowser will call it with the ArrayBuffer from the File System Access API handle instead of from `fetch()`. No engine changes needed.
-
-#### [NO CHANGE] [SampleRegistry.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/SampleRegistry.ts)
-
-Already decoupled and works with raw ArrayBuffers. No changes needed.
-
-#### [DELETE] [sample-index.json](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/public/samples/sample-index.json)
-
-No longer needed — the folder tree is built dynamically from the filesystem.
+#### [MODIFY] [AudioEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/AudioEngine.ts)
+- Import `DAWEvent` and `MixerInsert` from `../types` and remove redundant exports/types to avoid circular references.
+- Implement the requested state facade methods:
+  - `getAllSamplerSettings(): Record<string, SamplerSettings>`
+  - `restoreAllSamplerSettings(settings: Record<string, SamplerSettings>): void`
+  - `getMixerInserts(): MixerInsert[]` (delegates to `MixerManager`)
+  - `restoreMixerInserts(inserts: MixerInsert[]): void` (delegates to `MixerManager`)
+  - `getLoopSettings(): { loopStart: number; loopEnd: number; loopEnabled: boolean }` (converts internal `isLooping` structure to `loopEnabled`)
+  - `setLoopSettings(settings: { loopStart: number; loopEnd: number; loopEnabled: boolean }): void` (delegates to `setLoop`)
 
 ---
 
-### Cleanup
+### React Engine & State Controller
 
-#### [MODIFY] [vite.config.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/vite.config.ts)
+#### [MODIFY] [AudioEngineProvider.tsx](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/audio/AudioEngineProvider.tsx)
+- Implement `collectProjectState(): CanvasProject` to bundle all current track states, events, loops, sampler/obsidian configurations, mixer properties, and registry cache metadata.
+- Implement `restoreProjectState(project: CanvasProject): void` which runs the precise loading lifecycle order:
+  1. Push current state to undo history
+  2. Set engine state: events, pattern listings, and visual canvas clips
+  3. React layer rack sync (via registered setters)
+  4. Channel parameters: loop and synchronize volume/panning/routing
+  5. Apply instrument details (all Sampler settings & Obsidian synth parameters)
+  6. Re-configure the mixer console inserts
+  7. Sync loop markers and tempo BPM
+  8. Flush and update React context hook variables
+  9. Run sample checks to flag missing offline user assets
+- Expose a `registerDesktopSync` callback to retrieve/restore lifted states from `Desktop.tsx` (volume, pan, mixer console routing, track rows).
+- Expose manual `saveProject()` and `loadProject()` triggers.
+- Implement background debounced auto-save checking: runs a `setInterval` every 2 seconds, diffing stringified project states to prevent thrashing.
+- Implement `beforeunload` window listener.
+- Expose `autosaveProject` (recovery banner trigger) and `missingSamples` (warning banner trigger) states.
 
-The `server.watch.ignored` fix from earlier can be kept as defense-in-depth, but the core problem is eliminated since user samples no longer live in `public/`.
+---
+
+### User Interface Overlays & Triggers
+
+#### [MODIFY] [Desktop.tsx](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/components/Desktop.tsx)
+- Wire up the lifted channel, volume, panning, and routing hooks using `registerDesktopSync` inside an effect.
+- Render a premium glassmorphic **Session Recovery Banner** at the top of the desktop area if `autosaveProject` is found on startup, featuring:
+  - High-end dark ambient styling, soft blue glow, dynamic scaling hover effects.
+  - Options: "Restore Session" and "Dismiss".
+- Render a premium glassmorphic **Offline Samples Warning Banner** listing missing user files with an instructions guide to click and locate them.
+
+#### [MODIFY] [TopToolbar.tsx](file:///c:/Users/elija/Desktop/Coding/Canvas%200.18.0/src/components/TopToolbar.tsx)
+- Import `Save` and `Upload` (or `FolderOpen`) icons from `lucide-react`.
+- Render beautiful, compact **Save** and **Load** buttons in the left section next to the "CANVAS" title.
+- Connect buttons to `saveProject` and `loadProject` from the audio engine context.
+- Intercept global `Ctrl+S` (Save) and `Ctrl+O` (Load) shortcuts inside a clean `useEffect` listener that overrides browser defaults.
+
+---
 
 ## Verification Plan
 
+### Automated Verification
+- Run `npx tsc --noEmit` to ensure type checker passes with absolutely zero errors.
+- Validate that standard Vite hot reloading remains stable without memory leaks.
+
 ### Manual Verification
-1. Click "Add Folder" → picker opens → select a folder with wav/mp3 files
-2. Folder tree renders with correct hierarchy
-3. Hover over a sample → preview plays (lazy decode)
-4. Drag sample to arranger → clip appears, plays on transport
-5. Close browser tab → reopen → persisted folders appear with "Re-authorize" prompt
-6. Click re-authorize → folder tree restores
-7. Test with 1000+ file folder — should handle smoothly since no Vite involvement
-8. Test in Firefox — fallback `<input>` should work
+1. **Auto-save & Recovery**:
+   - Add a couple of notes in the Piano Roll or drag a sample onto the timeline.
+   - Wait 2 seconds. Verify console displays `[Auto-save] Saved project to localStorage`.
+   - Refresh the page. Verify the premium **Session Recovery Banner** appears with the correct timestamp.
+   - Click "Restore Session". Confirm all notes, tracks, and clips restore seamlessly.
+2. **Manual Save / Load File Picker**:
+   - Press `Ctrl+S` or click "Save". Verify a `.canvas` JSON file downloads.
+   - Close the page, reopen, and click the "Load" button or press `Ctrl+O`.
+   - Pick the `.canvas` file. Confirm everything restores with a clean undo/redo stack.
+3. **Accidental Refresh Protection**:
+   - Try to reload (`Ctrl+R`) or close the tab. Confirm that browser prompts you with a warning.
+4. **Missing Samples Alert**:
+   - Add a custom user sample, save the project, reload, and verify that the offline sample warning banner triggers if the sample registry hasn't re-loaded that local file.

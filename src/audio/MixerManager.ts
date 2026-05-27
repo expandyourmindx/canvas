@@ -1,20 +1,5 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-export interface MixerInsert {
-  index: number;
-  name: string;
-  volume: number; // 0..100
-  pan: number; // -50..50
-  isMuted: boolean;
-  isSoloed: boolean;
-  gainNode: GainNode;
-  pannerNode: StereoPannerNode | null;
-  analyserNode: AnalyserNode;
-  fxSlots: string[]; // 8 empty FX slots
-}
+import { MixerInsert } from "../types";
+export type { MixerInsert };
 
 /**
  * MixerManager encapsulates the state, node tree routing, volume/pan faders,
@@ -178,5 +163,22 @@ export class MixerManager {
     }
     const rms = Math.sqrt(sum / bufferLength);
     return { rms, peak };
+  }
+
+  public restoreMixerInserts(inserts: MixerInsert[]): void {
+    if (!inserts) return;
+    inserts.forEach((ins) => {
+      const target = this.getOrCreateMixerInsert(ins.index);
+      target.name = ins.name;
+      target.isMuted = ins.isMuted;
+      target.isSoloed = ins.isSoloed;
+      this.updateInsertVolume(ins.index, ins.volume);
+      this.updateInsertPan(ins.index, ins.pan);
+      if (ins.fxSlots) {
+        target.fxSlots = [...ins.fxSlots];
+      }
+    });
+    // Re-evaluate solo mapping hierarchy
+    this.updateInsertSolo(0, false);
   }
 }

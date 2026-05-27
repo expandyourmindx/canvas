@@ -99,4 +99,46 @@ export interface ObsidianSettings {
   masterGain: number;
 }
 
+export interface DAWEvent {
+  id: string;
+  time: number;       // Position on the timeline (in beats, floating-point)
+  duration: number;   // Length of the note/sample active window (in beats, floating-point)
+  pitch?: number;     // MIDI note number (e.g., 60 = Middle C)
+  velocity: number;   // Event volume/velocity [0.0 - 1.0]
+  sampleId?: string;  // ID of the audio sample in our registry (Optional)
+  channelId?: string; // ID of the channel row that scheduled this event (Optional)
+}
+
+export interface MixerInsert {
+  index: number;
+  name: string;
+  volume: number; // 0..100
+  pan: number; // -50..50
+  isMuted: boolean;
+  isSoloed: boolean;
+  gainNode?: GainNode;
+  pannerNode?: StereoPannerNode | null;
+  analyserNode?: AnalyserNode;
+  fxSlots: string[]; // 8 empty FX slots
+}
+
+export interface CanvasProject {
+  version: string;
+  savedAt: string;
+  bpm: number;
+  playbackMode: "pattern" | "song";
+  channels: ChannelRow[];
+  channelVols: Record<string, number>;
+  channelPans: Record<string, number>;
+  channelMixers: Record<string, number>;
+  events: DAWEvent[];
+  canvasClips: CanvasClip[];
+  patterns: PatternData[];
+  samplerSettings: Record<string, SamplerSettings>;
+  obsidianSettings: Record<string, ObsidianSettings>;
+  mixerInserts: MixerInsert[];
+  loopSettings: { loopStart: number; loopEnd: number; loopEnabled: boolean };
+  sampleIds: string[];
+}
+
 

@@ -55,6 +55,14 @@ export class SamplerEngine {
     return this.samplerSettings[channelId];
   }
 
+  public getAllSamplerSettings(): Record<string, SamplerSettings> {
+    return this.samplerSettings;
+  }
+
+  public restoreAllSamplerSettings(settings: Record<string, SamplerSettings>): void {
+    this.samplerSettings = { ...settings };
+  }
+
   /**
    * Triggers a sample instrument key-playback event interactively (MIDI / Keyboard).
    */
