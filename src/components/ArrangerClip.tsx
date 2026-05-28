@@ -63,7 +63,7 @@ export function ArrangerClip({
     const pitchCents = settings.stretchPitch || 0;
     
     if (stretchTime > 0) {
-      if (settings.stretchMode === "resample") {
+      if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
         // RESAMPLE: Pitch changes length. The playbackRate is baseTempoRatio * mul * 2^(cents/1200)
         // Visual width = originalBeats / playbackRate
         // But we know the target duration in beats = stretchTime, so:
@@ -89,7 +89,7 @@ export function ArrangerClip({
       }
     } else {
       // stretchTime is 0 (Auto) — only multiplier and pitch affect length
-      if (settings.stretchMode === "resample") {
+      if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
         const pitchRatio = Math.pow(2, pitchCents / 1200);
         widthPx = clip.duration / (multiplier * pitchRatio) * beatWidth;
       } else {

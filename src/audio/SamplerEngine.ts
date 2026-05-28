@@ -96,7 +96,8 @@ export class SamplerEngine {
     const settings = this.samplerSettings[channelId];
     if (!settings) return 1.0;
     
-    if (settings.stretchMode !== "stretch" && settings.stretchMode !== "resample") return 1.0;
+    const mode = settings.stretchMode?.toUpperCase();
+    if (mode !== "STRETCH" && mode !== "RESAMPLE") return 1.0;
     
     const timeInBeats = settings.stretchTime || 0;
     const multiplier = settings.stretchMul || 1.0;
@@ -122,7 +123,7 @@ export class SamplerEngine {
     if (!pristineBuffer) return;
 
     // In Resample or normal mode, restore playback slot to pristine buffer and bypass worker
-    if (settings.stretchMode !== "stretch") {
+    if (settings.stretchMode?.toUpperCase() !== "STRETCH") {
       this.channelSampleIds[channelId] = originalSampleId;
       if (this.delegate.notifySampleLoaded) {
         this.delegate.notifySampleLoaded();
@@ -254,7 +255,7 @@ export class SamplerEngine {
     // Only apply stretch pitch via playbackRate in RESAMPLE mode.
     // In STRETCH mode the worker already bakes pitch into the buffer.
     let resampleTempoRatio = 1.0;
-    if (settings.stretchMode === "resample") {
+    if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
       const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
       finalTransposition += stretchPitchSemitones;
       resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
@@ -401,7 +402,7 @@ export class SamplerEngine {
     // Only add stretch pitch in RESAMPLE mode — STRETCH mode bakes it into the buffer.
     let totalPitchSemitones = activeSettings.pitch || 0;
     let resampleTempoRatio = 1.0;
-    if (activeSettings.stretchMode === "resample") {
+    if (activeSettings.stretchMode?.toUpperCase() === "RESAMPLE") {
       const stretchPitchSemitones = (activeSettings.stretchPitch || 0) / 100;
       totalPitchSemitones += stretchPitchSemitones;
       resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
@@ -531,7 +532,7 @@ export class SamplerEngine {
     let resampleTempoRatio = 1.0;
     if (channelId) {
       const settings = this.samplerSettings[channelId];
-      if (settings && settings.stretchMode === "resample") {
+      if (settings && settings.stretchMode?.toUpperCase() === "RESAMPLE") {
         const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
         finalTransposition += stretchPitchSemitones;
         resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
@@ -634,7 +635,7 @@ export class SamplerEngine {
     let canvasPitchRate = 1.0;
     if (channelId) {
       const settings = this.samplerSettings[channelId];
-      if (settings && settings.stretchMode === "resample") {
+      if (settings && settings.stretchMode?.toUpperCase() === "RESAMPLE") {
         // Only apply stretch pitch via playbackRate in RESAMPLE mode.
         // In STRETCH mode the worker already bakes pitch into the buffer.
         const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
