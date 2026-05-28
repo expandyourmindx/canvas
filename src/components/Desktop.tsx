@@ -378,10 +378,10 @@ export function Desktop() {
         <div className="absolute top-[20%] left-[30%] w-[500px] h-[500px] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none z-0" />
         <div className="absolute bottom-[20%] right-[25%] w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-[100px] pointer-events-none z-0" />
 
-        {/* 3. Floating window wrapper: Arranger Canvas window */}
+        {/* 3. Floating window wrapper: Arrangement Canvas window */}
         <DraggableWindow
           id="canvas"
-          title="Arranger Canvas (Timeline Timeline v2)"
+          title="Arrangement Canvas"
           isVisible={activeWindows.canvas}
           onClose={() => toggleWindow("canvas")}
           onFocus={() => handleSetFocus("canvas")}
