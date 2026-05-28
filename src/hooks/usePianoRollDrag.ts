@@ -213,6 +213,9 @@ export function usePianoRollDrag({
     e.stopPropagation();
     e.preventDefault();
 
+    // Capture the note's duration into pencil tool memory
+    lastNoteDurationRef.current = noteEvent.duration;
+
     const element = e.currentTarget;
     element.setPointerCapture(e.pointerId);
 
@@ -537,6 +540,9 @@ export function usePianoRollDrag({
     if (activeTool !== 'pointer' && activeTool !== 'pencil') return;
     if (e.button !== 0) return;
     e.stopPropagation();
+
+    // Capture the note's duration into pencil tool memory
+    lastNoteDurationRef.current = noteEvent.duration;
 
     const target = e.target as HTMLElement;
     if (target.closest(".left-resize-zone") || target.closest(".right-resize-zone")) {
