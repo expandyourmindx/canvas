@@ -158,7 +158,6 @@ export function useClipDrag({
       const newStart = Math.max(0, computedStartBeat);
       const newLane = orig.laneIndex + deltaLane;
       return (
-        newStart + targetClip.duration <= totalBeats &&
         newLane >= 0 &&
         newLane < laneCount
       );
@@ -468,7 +467,6 @@ export function useClipDrag({
             const newStart = Math.max(0, computedStartBeat);
             const newLane = orig.laneIndex + deltaLane;
             return (
-              newStart + targetClip.duration <= totalBeats &&
               newLane >= 0 &&
               newLane < laneCount
             );

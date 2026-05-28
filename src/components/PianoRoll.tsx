@@ -67,9 +67,14 @@ export function PianoRoll({
   const [gridSnap, setGridSnap] = useState<"auto" | "1/4" | "1/8" | "1/16">("auto");
   const [zoomX, setZoomX] = useState<number>(1.0);
   const [zoomY, setZoomY] = useState<number>(1.0);
+  const [scrollLeft, setScrollLeft] = useState<number>(0);
 
   const beatWidth = 160 * zoomX;
   const rowHeight = 24 * zoomY;
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollLeft(e.currentTarget.scrollLeft);
+  };
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -95,7 +100,56 @@ export function PianoRoll({
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [timelineRef]);
+
+  // Active channel row lookup
+  const activeChannel = useMemo(() => {
+    return channels.find((c) => c.id === activeChannelId);
+  }, [channels, activeChannelId]);
+
+  // Filter events related to the active channel strictly by channel ID
+  const filteredEvents = useMemo(() => {
+    if (!activeChannel) return [];
+    return events.filter((e) => e.channelId === activeChannel.id);
+  }, [events, activeChannel]);
+
+  const maxNoteBeat = useMemo(() => {
+    if (filteredEvents.length === 0) return 0;
+    return Math.max(...filteredEvents.map(e => e.time + e.duration));
+  }, [filteredEvents]);
+
+  const totalBeats = useMemo(() => {
+    const scrolledBeats = (scrollLeft + viewportWidth) / beatWidth;
+    return Math.max(32, Math.ceil(maxNoteBeat + 16), Math.ceil(scrolledBeats + 16));
+  }, [maxNoteBeat, scrollLeft, viewportWidth, beatWidth]);
+
+  const patternLength = useMemo(() => {
+    if (filteredEvents.length === 0) return 4;
+    let maxBeat = 4;
+    for (const e of filteredEvents) {
+      const endBeat = e.time + e.duration;
+      if (endBeat > maxBeat) {
+        maxBeat = endBeat;
+      }
+    }
+    return Math.max(4, Math.ceil(maxBeat / 4) * 4);
+  }, [filteredEvents]);
+
+  const visibleBeats = useMemo(() => {
+    const start = Math.max(0, Math.floor(scrollLeft / beatWidth) - 8);
+    const end = Math.min(totalBeats, Math.ceil((scrollLeft + viewportWidth) / beatWidth) + 8);
+    const arr = [];
+    for (let i = start; i < end; i++) {
+      arr.push(i);
+    }
+    return arr;
+  }, [scrollLeft, beatWidth, viewportWidth, totalBeats]);
+
+  const minZoomX = useMemo(() => {
+    if (maxNoteBeat === 0 || viewportWidth <= 56) return 0.5;
+    const calc = (viewportWidth - 56) / (160 * (maxNoteBeat + 8));
+    return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
+  }, [maxNoteBeat, viewportWidth]);
 
   // Smoothly center Middle C (MIDI 60) vertically on open and active channel swaps
   useEffect(() => {
@@ -125,7 +179,7 @@ export function PianoRoll({
     if (playbackState === "playing") {
       if (playbackMode === "pattern") {
         active = true;
-        playheadBeat = position.beats % PATTERN_LENGTH_BEATS;
+        playheadBeat = position.beats % patternLength;
       } else {
         const clips = canvasClips || [];
         const activeClip = clips.find(
@@ -138,7 +192,7 @@ export function PianoRoll({
         if (activeClip) {
           active = true;
           playheadBeat = (position.beats - activeClip.startBeat) + (activeClip.cropStart || 0);
-          playheadBeat = Math.min(PATTERN_LENGTH_BEATS, Math.max(0, playheadBeat));
+          playheadBeat = Math.min(activeClip.duration, Math.max(0, playheadBeat));
         }
       }
     }
@@ -149,7 +203,7 @@ export function PianoRoll({
       playheadLineRef.current.style.left = `${leftPx}px`;
       playheadLineRef.current.style.display = active ? "block" : "none";
     }
-  }, [position.beats, playbackState, playbackMode, beatWidth, activePatternId, canvasClips]);
+  }, [position.beats, playbackState, playbackMode, beatWidth, activePatternId, canvasClips, patternLength]);
 
   // ── Piano Roll ruler scrub handlers ──
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -158,14 +212,14 @@ export function PianoRoll({
     isRulerScrubbingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
-    const beat = Math.max(0, Math.min(PATTERN_LENGTH_BEATS, (e.clientX - rect.left) / beatWidth));
+    const beat = Math.max(0, Math.min(totalBeats, (e.clientX - rect.left) / beatWidth));
     setPlayheadPosition(beat);
   };
 
   const handleRulerPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isRulerScrubbingRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const beat = Math.max(0, Math.min(PATTERN_LENGTH_BEATS, (e.clientX - rect.left) / beatWidth));
+    const beat = Math.max(0, Math.min(totalBeats, (e.clientX - rect.left) / beatWidth));
     setPlayheadPosition(beat);
   };
 
@@ -178,28 +232,6 @@ export function PianoRoll({
 
   const [activeTool, setActiveTool] = useState<'pencil' | 'pointer' | 'split'>('pencil');
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
-
-  // Active channel row lookup
-  const activeChannel = useMemo(() => {
-    return channels.find((c) => c.id === activeChannelId);
-  }, [channels, activeChannelId]);
-
-  // Filter events related to the active channel strictly by channel ID
-  const filteredEvents = useMemo(() => {
-    if (!activeChannel) return [];
-    return events.filter((e) => e.channelId === activeChannel.id);
-  }, [events, activeChannel]);
-
-  const maxNoteBeat = useMemo(() => {
-    if (filteredEvents.length === 0) return 0;
-    return Math.max(...filteredEvents.map(e => e.time + e.duration));
-  }, [filteredEvents]);
-
-  const minZoomX = useMemo(() => {
-    if (maxNoteBeat === 0 || viewportWidth <= 56) return 0.5;
-    const calc = (viewportWidth - 56) / (160 * (maxNoteBeat + 8));
-    return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
-  }, [maxNoteBeat, viewportWidth]);
 
   // Keep current zoom level clamped to dynamic minZoomX bounds
   useEffect(() => {
@@ -402,6 +434,7 @@ export function PianoRoll({
     filteredEvents,
     timelineRef,
     gridRef,
+    totalBeats,
   });
 
   // Middle click panning overrides
@@ -629,7 +662,7 @@ export function PianoRoll({
       </div>
 
       {/* SCROLLABLE CANVAS CONTAINER */}
-      <div className="flex-1 overflow-auto min-h-0 relative select-none" ref={timelineRef}>
+      <div className="flex-1 overflow-auto min-h-0 relative select-none" ref={timelineRef} onScroll={handleScroll}>
         <div className="relative flex" style={{ width: "fit-content", minWidth: "100%" }}>
           
           {/* STICKY PIANO KEYBOARD ROW PANEL */}
@@ -640,7 +673,7 @@ export function PianoRoll({
           />
 
           {/* B. DYNAMIC TIMELINE MATRIX PORTAL */}
-          <div className="flex flex-col relative" style={{ width: `${PATTERN_LENGTH_BEATS * beatWidth}px` }}>
+          <div className="flex flex-col relative" style={{ width: `${totalBeats * beatWidth}px` }}>
             
             {/* Horizontal Beats Number Indicator ruler — scrub-able */}
             <div
@@ -651,7 +684,7 @@ export function PianoRoll({
               onContextMenu={(e) => e.preventDefault()}
             >
 
-              {Array.from({ length: PATTERN_LENGTH_BEATS }).map((_, beatIdx) => {
+              {visibleBeats.map((beatIdx) => {
                 const bar = Math.floor(beatIdx / 4) + 1;
                 const beat = (beatIdx % 4) + 1;
                 const isBarStart = beat === 1;

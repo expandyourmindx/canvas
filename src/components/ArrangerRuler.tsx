@@ -19,6 +19,8 @@ interface ArrangerRulerProps {
   zoomX: number;
   setZoomX: React.Dispatch<React.SetStateAction<number>>;
   scrollContainerRef: React.RefObject<HTMLDivElement>;
+  scrollLeft: number;
+  viewportWidth: number;
 }
 
 export function ArrangerRuler({
@@ -31,6 +33,8 @@ export function ArrangerRuler({
   zoomX,
   setZoomX,
   scrollContainerRef,
+  scrollLeft,
+  viewportWidth,
 }: ArrangerRulerProps) {
   // Tracks whether we are actively scrubbing the playhead via left-click drag
   const isScrubbingRef = useRef(false);
@@ -210,7 +214,15 @@ export function ArrangerRuler({
         )}
 
         {/* Beat tick markers */}
-        {Array.from({ length: totalBeats }, (_, i) => i).map((beat) => {
+        {(() => {
+          const start = Math.max(0, Math.floor(scrollLeft / beatWidth) - 8);
+          const end = Math.min(totalBeats, Math.ceil((scrollLeft + viewportWidth) / beatWidth) + 8);
+          const visibleBeats = [];
+          for (let i = start; i < end; i++) {
+            visibleBeats.push(i);
+          }
+          return visibleBeats;
+        })().map((beat) => {
           const isBar = beat % 4 === 0;
           return (
             <div

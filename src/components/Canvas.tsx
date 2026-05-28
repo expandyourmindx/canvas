@@ -79,22 +79,15 @@ export function Canvas({
     setPlacingClip(clip);
   };
 
-  // Grid sizing parameters (Arranger window defaults)
-  const totalBeats = 128;
-  const [zoomX, setZoomX] = useState<number>(1.0);
-  const beatWidth = 48 * zoomX; // width in pixels of each beat
-  const timelineWidth = totalBeats * beatWidth;
+  // Viewport scroll & width tracking
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  // Middle-Click Panning Refs
-  const isMiddleClickPanning = useRef(false);
-  const panStartX = useRef(0);
-  const panStartY = useRef(0);
-  const panScrollLeft = useRef(0);
-  const panScrollTop = useRef(0);
-
+  const [scrollLeft, setScrollLeft] = useState<number>(0);
   const [viewportWidth, setViewportWidth] = useState<number>(0);
-  
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    setScrollLeft(e.currentTarget.scrollLeft);
+  };
+
   // Track viewport width via ResizeObserver
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -109,10 +102,28 @@ export function Canvas({
     return () => observer.disconnect();
   }, []);
 
+  const [zoomX, setZoomX] = useState<number>(1.0);
+  const beatWidth = 48 * zoomX; // width in pixels of each beat
+
   const maxClipBeat = React.useMemo(() => {
     if (canvasClips.length === 0) return 0;
     return Math.max(...canvasClips.map((c) => c.startBeat + c.duration));
   }, [canvasClips]);
+
+  // Dynamic grid length calculation
+  const totalBeats = React.useMemo(() => {
+    const scrolledBeats = (scrollLeft + viewportWidth) / beatWidth;
+    return Math.max(128, Math.ceil(maxClipBeat + 16), Math.ceil(scrolledBeats + 16));
+  }, [maxClipBeat, scrollLeft, viewportWidth, beatWidth]);
+
+  const timelineWidth = totalBeats * beatWidth;
+
+  // Middle-Click Panning Refs
+  const isMiddleClickPanning = useRef(false);
+  const panStartX = useRef(0);
+  const panStartY = useRef(0);
+  const panScrollLeft = useRef(0);
+  const panScrollTop = useRef(0);
 
   const minZoomX = React.useMemo(() => {
     if (maxClipBeat === 0 || viewportWidth <= 130) return 0.5;
@@ -730,7 +741,7 @@ export function Canvas({
         {/* RIGHT COLUMN: ARRANGEMENT TIMELINE */}
         <div className="flex-1 flex flex-col min-w-0 h-full relative">
 
-          <div ref={scrollContainerRef} className="relative select-none border border-neutral-850 bg-[#0a0b0d] p-2 flex-1 overflow-auto scrollbar-thin">
+          <div ref={scrollContainerRef} onScroll={handleScroll} className="relative select-none border border-neutral-850 bg-[#0a0b0d] p-2 flex-1 overflow-auto scrollbar-thin">
             <div className="relative space-y-1" style={{ width: `${130 + timelineWidth}px` }}>
 
               <div
@@ -766,6 +777,8 @@ export function Canvas({
                 zoomX={zoomX}
                 setZoomX={setZoomXClamped}
                 scrollContainerRef={scrollContainerRef}
+                scrollLeft={scrollLeft}
+                viewportWidth={viewportWidth}
               />
 
               {/* STAGE LANES GRID CONTAINER */}

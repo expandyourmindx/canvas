@@ -31,6 +31,7 @@ interface UsePianoRollDragProps {
   filteredEvents: DAWEvent[];
   timelineRef: React.RefObject<HTMLDivElement>;
   gridRef: React.RefObject<HTMLDivElement>;
+  totalBeats: number;
 }
 
 export function usePianoRollDrag({
@@ -50,6 +51,7 @@ export function usePianoRollDrag({
   filteredEvents,
   timelineRef,
   gridRef,
+  totalBeats,
 }: UsePianoRollDragProps) {
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
   const [lassoActive, setLassoActive] = useState(false);
@@ -179,8 +181,8 @@ export function usePianoRollDrag({
 
     const clickBeat = x / beatWidth;
     const snappedBeat = snapIncrement !== null
-      ? Math.max(0, Math.min(PATTERN_LENGTH_BEATS - snapIncrement, Math.round(clickBeat / snapIncrement) * snapIncrement))
-      : Math.max(0, Math.min(PATTERN_LENGTH_BEATS - 0.001, clickBeat));
+      ? Math.max(0, Math.round(clickBeat / snapIncrement) * snapIncrement)
+      : Math.max(0, clickBeat);
     
     const rowIdx = Math.max(0, Math.min(MIDI_NOTES.length - 1, Math.floor(y / rowHeight)));
     const pitch = MIDI_NOTES[rowIdx];
@@ -299,8 +301,8 @@ export function usePianoRollDrag({
 
     const rawBeat = (cursorX / beatWidth) - state.offsetBeats;
     const snappedBeat = snapIncrement !== null
-      ? Math.max(0, Math.min(32 - state.duration, Math.round(rawBeat / snapIncrement) * snapIncrement))
-      : Math.max(0, Math.min(32 - state.duration, rawBeat));
+      ? Math.max(0, Math.round(rawBeat / snapIncrement) * snapIncrement)
+      : Math.max(0, rawBeat);
 
     const rowIdx = Math.max(0, Math.min(MIDI_NOTES.length - 1, Math.floor(cursorY / rowHeight)));
     const pitch = MIDI_NOTES[rowIdx];
@@ -395,7 +397,6 @@ export function usePianoRollDrag({
       const newPitch = orig.pitch + deltaPitch;
       return (
         newTime >= 0 &&
-        newTime + targetNote.duration <= PATTERN_LENGTH_BEATS &&
         MIDI_NOTES.includes(newPitch)
       );
     });
@@ -455,7 +456,7 @@ export function usePianoRollDrag({
     const pitch = MIDI_NOTES[rowIdx];
 
     if (pitch === undefined) return;
-    if (snappedBeat >= PATTERN_LENGTH_BEATS || snappedBeat < 0) return;
+    if (snappedBeat >= totalBeats || snappedBeat < 0) return;
 
     // Check for collision at exact same grid spot to prevent duplicates
     const collisionExist = events.some(
