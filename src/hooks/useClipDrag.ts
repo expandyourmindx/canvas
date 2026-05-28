@@ -189,8 +189,33 @@ export function useClipDrag({
 
     e.currentTarget.setPointerCapture(e.pointerId);
 
+    // Ctrl+Shift+Click selection building
+    if (e.ctrlKey && e.shiftKey) {
+      let nextSelected: string[];
+      if (selectedIds.includes(clip.id)) {
+        nextSelected = selectedIds.filter((id) => id !== clip.id);
+      } else {
+        nextSelected = [...selectedIds, clip.id];
+      }
+      setSelectedIds(nextSelected);
+
+      dragStartRef.current = {
+        startX: clickBeat,
+        startLane: clickLane,
+        originalClips: canvasClips
+          .filter((c) => nextSelected.includes(c.id))
+          .map((c) => ({
+            id: c.id,
+            startBeat: c.startBeat,
+            laneIndex: c.laneIndex,
+          })),
+        clipsAtStart: canvasClips,
+      };
+      return;
+    }
+
     // Shift + Drag duplication
-    if (e.shiftKey) {
+    if (e.shiftKey && !e.ctrlKey) {
       const clipsToDuplicate = selectedIds.includes(clip.id)
         ? canvasClips.filter((c) => selectedIds.includes(c.id))
         : [clip];
