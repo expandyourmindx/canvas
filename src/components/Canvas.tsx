@@ -1010,27 +1010,28 @@ export function Canvas({
                           }
                         }
                       }}
-                      onPointerUp={(e) => {
+                       onPointerUp={(e) => {
                         if (placingPointerId.current === e.pointerId) {
                           e.stopPropagation();
+                          const clipToPlace = placingClipRef.current;
                           try {
                             e.currentTarget.releasePointerCapture(e.pointerId);
                           } catch (err) {
                             console.error("Failed to release pointer capture:", err);
                           }
 
-                          if (placingClipRef.current) {
-                            addCanvasClip(placingClipRef.current);
+                          if (clipToPlace) {
+                            addCanvasClip(clipToPlace);
                             pushToHistory(channels);
 
                             // Select the newly placed clip exclusively
-                            setSelectedIds([placingClipRef.current.id]);
+                            setSelectedIds([clipToPlace.id]);
 
                             // Load properties into pencil tool for the next placement
-                            setSelectedClipType(placingClipRef.current.type);
-                            setSelectedReferenceId(placingClipRef.current.referenceId);
-                            setClipDurationBeats(placingClipRef.current.duration);
-                            setClipCropStart(placingClipRef.current.cropStart || 0);
+                            setSelectedClipType(clipToPlace.type);
+                            setSelectedReferenceId(clipToPlace.referenceId);
+                            setClipDurationBeats(clipToPlace.duration);
+                            setClipCropStart(clipToPlace.cropStart || 0);
                           }
 
                           updatePlacingClip(null);
