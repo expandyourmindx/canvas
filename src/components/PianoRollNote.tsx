@@ -89,11 +89,7 @@ export function PianoRollNote({
           handleNoteSplit(e, noteEvent);
           return;
         }
-        if (activeTool === "pointer" || isSelected || e.shiftKey) {
-          handleNotePointerDownPointerMode(e, noteEvent);
-        } else {
-          handleNotePointerDown(e, noteEvent);
-        }
+        handleNotePointerDownPointerMode(e, noteEvent);
       }}
       onPointerEnter={(e) => {
         if (e.buttons === 2) {
@@ -101,12 +97,8 @@ export function PianoRollNote({
           pushToHistory(channels);
         }
       }}
-      onPointerMove={
-        activeTool === "pointer" ? handleNotePointerMovePointerMode : handleNotePointerMove
-      }
-      onPointerUp={
-        activeTool === "pointer" ? handleNotePointerUpPointerMode : handleNotePointerUp
-      }
+      onPointerMove={handleNotePointerMovePointerMode}
+      onPointerUp={handleNotePointerUpPointerMode}
       style={{
         left: `${leftPx}px`,
         width: `${widthPx}px`,

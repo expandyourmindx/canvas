@@ -534,7 +534,7 @@ export function usePianoRollDrag({
 
   // Relocation in Pointer Mode
   const handleNotePointerDownPointerMode = (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => {
-    if (activeTool !== 'pointer' && !selectedNoteIds.includes(noteEvent.id) && !e.shiftKey && !(e.ctrlKey && e.shiftKey)) return;
+    if (activeTool !== 'pointer' && activeTool !== 'pencil') return;
     if (e.button !== 0) return;
     e.stopPropagation();
 
