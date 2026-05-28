@@ -60,6 +60,199 @@ export function useClipDrag({
     clipsAtStart: CanvasClip[];
   } | null>(null);
 
+  // Continuous viewport scrolling during clip relocation or lasso selection
+  const scrollLoopRef = useRef<number | null>(null);
+  const pointerCoordsRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  const activeUpdateFnRef = useRef<((clientX: number, clientY: number) => void) | null>(null);
+
+  const tickScroll = () => {
+    if (!pointerCoordsRef.current || !scrollContainerRef.current || !activeUpdateFnRef.current) {
+      scrollLoopRef.current = requestAnimationFrame(tickScroll);
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    const rect = container.getBoundingClientRect();
+    const { clientX, clientY } = pointerCoordsRef.current;
+
+    const threshold = 40;
+    const distRight = clientX - (rect.right - threshold);
+    const distLeft = (rect.left + threshold) - clientX;
+    const distBottom = clientY - (rect.bottom - threshold);
+    const distTop = (rect.top + threshold) - clientY;
+
+    let dx = 0;
+    let dy = 0;
+
+    if (distRight > 0) {
+      dx = Math.min(25, distRight * 0.4);
+    } else if (distLeft > 0) {
+      dx = -Math.min(25, distLeft * 0.4);
+    }
+
+    if (distBottom > 0) {
+      dy = Math.min(25, distBottom * 0.4);
+    } else if (distTop > 0) {
+      dy = -Math.min(25, distTop * 0.4);
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      container.scrollLeft += dx;
+      container.scrollTop += dy;
+
+      // Force-update the active gesture's positions using updated scroll boundaries
+      activeUpdateFnRef.current(clientX, clientY);
+    }
+
+    scrollLoopRef.current = requestAnimationFrame(tickScroll);
+  };
+
+  const startScrollLoop = (updateFn: (clientX: number, clientY: number) => void) => {
+    activeUpdateFnRef.current = updateFn;
+    if (!scrollLoopRef.current) {
+      scrollLoopRef.current = requestAnimationFrame(tickScroll);
+    }
+  };
+
+  const stopScrollLoop = () => {
+    if (scrollLoopRef.current) {
+      cancelAnimationFrame(scrollLoopRef.current);
+      scrollLoopRef.current = null;
+    }
+    pointerCoordsRef.current = null;
+    activeUpdateFnRef.current = null;
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scrollLoopRef.current) {
+        cancelAnimationFrame(scrollLoopRef.current);
+      }
+    };
+  }, []);
+
+  // EXTRACTED ACTION UPDATERS
+
+  // 1. Clip relocation update function (updates element positions in real-time)
+  const updateClipRelocation = (clientX: number, clientY: number) => {
+    const drag = dragStartRef.current;
+    if (!drag || !tracksContainerRef.current) return;
+
+    const rect = tracksContainerRef.current.getBoundingClientRect();
+    const trackX = clientX - rect.left - 130;
+    const clickBeat = trackX / beatWidth;
+    const clickLane = Math.floor((clientY - rect.top) / LANE_HEIGHT_PX);
+
+    const deltaBeat = clickBeat - drag.startX;
+    const deltaLane = clickLane - drag.startLane;
+
+    const snap = snapResolution;
+    const snappedDeltaBeat = snap !== null
+      ? Math.round(deltaBeat / snap) * snap
+      : deltaBeat;
+
+    const canMoveAll = drag.originalClips.every((orig) => {
+      const targetClip = drag.clipsAtStart.find((c) => c.id === orig.id);
+      if (!targetClip) return false;
+      const computedStartBeat = orig.startBeat + snappedDeltaBeat;
+      const newStart = Math.max(0, computedStartBeat);
+      const newLane = orig.laneIndex + deltaLane;
+      return (
+        newStart + targetClip.duration <= totalBeats &&
+        newLane >= 0 &&
+        newLane < laneCount
+      );
+    });
+
+    if (canMoveAll) {
+      drag.originalClips.forEach((orig) => {
+        const el = document.querySelector(`[data-clip-id="${orig.id}"]`) as HTMLDivElement;
+        if (el) {
+          const computedStartBeat = orig.startBeat + snappedDeltaBeat;
+          const newStart = Math.max(0, computedStartBeat);
+          const newLane = orig.laneIndex + deltaLane;
+          el.style.left = `${newStart * beatWidth}px`;
+          el.style.top = `${newLane * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX}px`;
+        }
+      });
+    }
+  };
+
+  // 2. Lasso selection update function
+  const updateLassoSelection = (clientX: number, clientY: number) => {
+    if (!lassoActiveRef.current || !tracksContainerRef.current) return;
+
+    const rect = tracksContainerRef.current.getBoundingClientRect();
+    const trackX = clientX - rect.left - 130;
+    const trackY = clientY - rect.top;
+
+    lastTrackXRef.current = trackX;
+    lastTrackYRef.current = trackY;
+
+    const startX = lassoStartXRef.current;
+    const startY = lassoStartYRef.current;
+    const currentX = lastTrackXRef.current;
+    const currentY = lastTrackYRef.current;
+
+    const left = Math.min(startX, currentX) + 130;
+    const top = Math.min(startY, currentY);
+    const width = Math.max(1, Math.abs(startX - currentX));
+    const height = Math.max(1, Math.abs(startY - currentY));
+
+    if (lassoDivRef.current) {
+      lassoDivRef.current.style.left = `${left}px`;
+      lassoDivRef.current.style.top = `${top}px`;
+      lassoDivRef.current.style.width = `${width}px`;
+      lassoDivRef.current.style.height = `${height}px`;
+    }
+
+    const lassoLeft = Math.min(startX, currentX);
+    const lassoRight = Math.max(startX, currentX);
+    const lassoTop = Math.min(startY, currentY);
+    const lassoBottom = Math.max(startY, currentY);
+
+    const newlySelected = canvasClips
+      .filter((clip) => {
+        const clipLeft = clip.startBeat * beatWidth;
+        const clipRight = (clip.startBeat + clip.duration) * beatWidth;
+        const clipTop = clip.laneIndex * LANE_HEIGHT_PX;
+        const clipBottom = clipTop + (LANE_HEIGHT_PX - 4);
+
+        return !(
+          clipRight < lassoLeft ||
+          clipLeft > lassoRight ||
+          clipBottom < lassoTop ||
+          clipTop > lassoBottom
+        );
+      })
+      .map((clip) => clip.id);
+
+    let nextSelected = newlySelected;
+    if (lassoIsAdditiveRef.current) {
+      const union = new Set([...lassoStartSelectionRef.current, ...newlySelected]);
+      nextSelected = Array.from(union);
+    }
+
+    const hasSelectionChanged =
+      nextSelected.length !== selectedIdsRef.current.length ||
+      nextSelected.some((id, idx) => id !== selectedIdsRef.current[idx]);
+
+    if (hasSelectionChanged) {
+      setSelectedIds(nextSelected);
+    }
+  };
+
+  // Synchronize active update function ref on every render to prevent stale closures
+  if (dragStartRef.current) {
+    activeUpdateFnRef.current = updateClipRelocation;
+  } else if (lassoActiveRef.current) {
+    activeUpdateFnRef.current = updateLassoSelection;
+  } else {
+    activeUpdateFnRef.current = null;
+  }
+
+  // EVENT HANDLERS
+
   const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (activeTool !== 'pointer' && !e.ctrlKey) return;
     if (e.button !== 0) return;
@@ -104,78 +297,14 @@ export function useClipDrag({
     }
 
     e.currentTarget.setPointerCapture(e.pointerId);
+    pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+    startScrollLoop(updateLassoSelection);
   };
 
   const handleGridPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!lassoActiveRef.current) return;
-
-    if (!tracksContainerRef.current) return;
-    const rect = tracksContainerRef.current.getBoundingClientRect();
-    const trackX = e.clientX - rect.left - 130;
-    const trackY = e.clientY - rect.top;
-
-    lastTrackXRef.current = trackX;
-    lastTrackYRef.current = trackY;
-
-    if (!rafActiveRef.current) {
-      rafActiveRef.current = true;
-      requestAnimationFrame(() => {
-        rafActiveRef.current = false;
-        if (!lassoActiveRef.current) return;
-
-        const startX = lassoStartXRef.current;
-        const startY = lassoStartYRef.current;
-        const currentX = lastTrackXRef.current;
-        const currentY = lastTrackYRef.current;
-
-        const left = Math.min(startX, currentX) + 130;
-        const top = Math.min(startY, currentY);
-        const width = Math.max(1, Math.abs(startX - currentX));
-        const height = Math.max(1, Math.abs(startY - currentY));
-
-        if (lassoDivRef.current) {
-          lassoDivRef.current.style.left = `${left}px`;
-          lassoDivRef.current.style.top = `${top}px`;
-          lassoDivRef.current.style.width = `${width}px`;
-          lassoDivRef.current.style.height = `${height}px`;
-        }
-
-        const lassoLeft = Math.min(startX, currentX);
-        const lassoRight = Math.max(startX, currentX);
-        const lassoTop = Math.min(startY, currentY);
-        const lassoBottom = Math.max(startY, currentY);
-
-        const newlySelected = canvasClips
-          .filter((clip) => {
-            const clipLeft = clip.startBeat * beatWidth;
-            const clipRight = (clip.startBeat + clip.duration) * beatWidth;
-            const clipTop = clip.laneIndex * LANE_HEIGHT_PX;
-            const clipBottom = clipTop + (LANE_HEIGHT_PX - 4);
-
-            return !(
-              clipRight < lassoLeft ||
-              clipLeft > lassoRight ||
-              clipBottom < lassoTop ||
-              clipTop > lassoBottom
-            );
-          })
-          .map((clip) => clip.id);
-
-        let nextSelected = newlySelected;
-        if (lassoIsAdditiveRef.current) {
-          const union = new Set([...lassoStartSelectionRef.current, ...newlySelected]);
-          nextSelected = Array.from(union);
-        }
-
-        const hasSelectionChanged =
-          nextSelected.length !== selectedIdsRef.current.length ||
-          nextSelected.some((id, idx) => id !== selectedIdsRef.current[idx]);
-
-        if (hasSelectionChanged) {
-          setSelectedIds(nextSelected);
-        }
-      });
-    }
+    pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+    updateLassoSelection(e.clientX, e.clientY);
   };
 
   const handleGridPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -187,6 +316,7 @@ export function useClipDrag({
       if (lassoDivRef.current) {
         lassoDivRef.current.style.display = "none";
       }
+      stopScrollLoop();
     }
   };
 
@@ -229,6 +359,8 @@ export function useClipDrag({
           })),
         clipsAtStart: canvasClips,
       };
+      pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+      startScrollLoop(updateClipRelocation);
       return;
     }
 
@@ -260,6 +392,8 @@ export function useClipDrag({
         })),
         clipsAtStart,
       };
+      pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+      startScrollLoop(updateClipRelocation);
       return;
     }
 
@@ -272,6 +406,8 @@ export function useClipDrag({
         originalClips: [{ id: clip.id, startBeat: clip.startBeat, laneIndex: clip.laneIndex }],
         clipsAtStart: canvasClips,
       };
+      pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+      startScrollLoop(updateClipRelocation);
       return;
     }
 
@@ -294,71 +430,15 @@ export function useClipDrag({
         })),
       clipsAtStart: canvasClips,
     };
+    pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+    startScrollLoop(updateClipRelocation);
   };
 
   const handleClipPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((activeTool !== 'pointer' && activeTool !== 'pencil') || !dragStartRef.current) return;
     e.stopPropagation();
-
-    const container = scrollContainerRef.current;
-    if (container) {
-      const containerRect = container.getBoundingClientRect();
-      const threshold = 40;
-      const scrollSpeed = 10;
-
-      if (e.clientX > containerRect.right - threshold) {
-        container.scrollLeft += scrollSpeed;
-      } else if (e.clientX < containerRect.left + threshold) {
-        container.scrollLeft -= scrollSpeed;
-      }
-
-      if (e.clientY > containerRect.bottom - threshold) {
-        container.scrollTop += scrollSpeed;
-      } else if (e.clientY < containerRect.top + threshold) {
-        container.scrollTop -= scrollSpeed;
-      }
-    }
-
-    if (!tracksContainerRef.current) return;
-    const rect = tracksContainerRef.current.getBoundingClientRect();
-    const trackX = e.clientX - rect.left - 130;
-    const clickBeat = trackX / beatWidth;
-    const clickLane = Math.floor((e.clientY - rect.top) / LANE_HEIGHT_PX);
-
-    const drag = dragStartRef.current;
-    const deltaBeat = clickBeat - drag.startX;
-    const deltaLane = clickLane - drag.startLane;
-
-    const snap = snapResolution;
-    const snappedDeltaBeat = snap !== null
-      ? Math.round(deltaBeat / snap) * snap
-      : deltaBeat;
-
-    const canMoveAll = drag.originalClips.every((orig) => {
-      const targetClip = drag.clipsAtStart.find((c) => c.id === orig.id);
-      if (!targetClip) return false;
-      const computedStartBeat = orig.startBeat + snappedDeltaBeat;
-      const newStart = Math.max(0, computedStartBeat);
-      const newLane = orig.laneIndex + deltaLane;
-      return (
-        newStart + targetClip.duration <= totalBeats &&
-        newLane >= 0 &&
-        newLane < laneCount
-      );
-    });
-
-    if (canMoveAll) {
-      drag.originalClips.forEach((orig) => {
-        const el = document.querySelector(`[data-clip-id="${orig.id}"]`) as HTMLDivElement;
-        if (el) {
-          const computedStartBeat = orig.startBeat + snappedDeltaBeat;
-          const newStart = Math.max(0, computedStartBeat);
-          const newLane = orig.laneIndex + deltaLane;
-          el.style.left = `${newStart * beatWidth}px`;
-          el.style.top = `${newLane * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX}px`;
-        }
-      });
-    }
+    pointerCoordsRef.current = { clientX: e.clientX, clientY: e.clientY };
+    updateClipRelocation(e.clientX, e.clientY);
   };
 
   const handleClipPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -413,6 +493,7 @@ export function useClipDrag({
       }
 
       dragStartRef.current = null;
+      stopScrollLoop();
       pushToHistory(channels);
     }
   };
