@@ -211,6 +211,7 @@ export class SamplerEngine {
    * Triggers a sample instrument key-playback event interactively (MIDI / Keyboard).
    */
   public noteOn(channelId: string, midiNote: number, velocity: number = 80, time?: number) {
+    console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
     const now = time !== undefined ? time : this.audioContext.currentTime;
 
     const activeSampleId = this.channelSampleIds[channelId];
@@ -457,6 +458,10 @@ export class SamplerEngine {
       (key) => this.channelSampleIds[key] === event.sampleId
     );
 
+    if (channelId) {
+      console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
+    }
+
     const activeSampleId = channelId ? (this.channelSampleIds[channelId] || event.sampleId) : event.sampleId;
 
     const buffer = this.sampleRegistry.getSampleBuffer(activeSampleId);
@@ -583,6 +588,10 @@ export class SamplerEngine {
         (key) => this.channelSampleIds[key] === clip.referenceId
       )
     );
+
+    if (channelId) {
+      console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
+    }
 
     const sampleId = channelId ? (this.channelSampleIds[channelId] || clip.referenceId) : clip.referenceId;
     const buffer = this.sampleRegistry.getSampleBuffer(sampleId);
