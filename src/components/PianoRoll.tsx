@@ -81,7 +81,7 @@ export function PianoRoll({
   const panScrollLeft = useRef(0);
   const panScrollTop = useRef(0);
 
-  // Wheel horizontal zoom effect via Ctrl+Wheel
+  // Wheel horizontal zoom effect via Ctrl+Wheel (centered on cursor)
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
@@ -89,8 +89,22 @@ export function PianoRoll({
     const handleCtrlWheel = (e: WheelEvent) => {
       if (e.ctrlKey) {
         e.preventDefault();
+
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const scrollOffset = mouseX + el.scrollLeft;
+
         const dir = e.deltaY > 0 ? -1 : 1;
-        setZoomX(prev => Math.max(0.5, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2)))));
+
+        setZoomX(prev => {
+          const newZoom = Math.max(0.5, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2))));
+          const scaleRatio = newZoom / prev;
+          // Schedule scroll update after state flush
+          requestAnimationFrame(() => {
+            el.scrollLeft = scrollOffset * scaleRatio - mouseX;
+          });
+          return newZoom;
+        });
       }
     };
 
