@@ -1,4 +1,6 @@
-import { MixerInsert } from "../types";
+import { MixerInsert, EQBandSettings, ParametricEQSettings } from "../types";
+import { ParametricEQ } from "./effects/ParametricEQ";
+import { Reverb } from "./effects/Reverb";
 export type { MixerInsert };
 
 /**
@@ -36,6 +38,8 @@ export class MixerManager {
     // Default 80 volume corresponds to 0.8 gain
     gainNode.gain.setValueAtTime(0.8, this.audioContext.currentTime);
 
+    const inputNode = this.audioContext.createGain();
+
     const pannerNode = this.audioContext.createStereoPanner ? this.audioContext.createStereoPanner() : null;
     const analyserNode = this.audioContext.createAnalyser();
     analyserNode.fftSize = 1024;
@@ -53,11 +57,11 @@ export class MixerManager {
     } else {
       const masterInsert = this.inserts[0];
       if (masterInsert) {
-        analyserNode.connect(masterInsert.gainNode);
+        analyserNode.connect(masterInsert.inputNode || masterInsert.gainNode);
       }
     }
 
-    return {
+    const insert: MixerInsert = {
       index,
       name,
       volume: 80,
@@ -65,10 +69,20 @@ export class MixerManager {
       isMuted: false,
       isSoloed: false,
       gainNode,
+      inputNode,
       pannerNode,
       analyserNode,
-      fxSlots: Array(8).fill("")
+      fxSlots: Array(8).fill(""),
+      fxBypass: Array(8).fill(false),
+      eqSettings: {}
     };
+
+    (insert as any).fxInstances = Array(8).fill(null);
+
+    // Connect inputNode to gainNode by default
+    inputNode.connect(gainNode);
+
+    return insert;
   }
 
   public getOrCreateMixerInsert(index: number): MixerInsert {
@@ -165,6 +179,110 @@ export class MixerManager {
     return { rms, peak };
   }
 
+  public rebuildFXChain(index: number) {
+    const insert = this.inserts[index];
+    if (!insert) return;
+
+    const inputNode = insert.inputNode;
+    const gainNode = insert.gainNode;
+    if (!inputNode || !gainNode) return;
+
+    // Disconnect inputNode
+    try {
+      inputNode.disconnect();
+    } catch (e) {}
+
+    const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
+    const fxBypass = insert.fxBypass || Array(8).fill(false);
+
+    for (let i = 0; i < 8; i++) {
+      const effect = fxInstances[i];
+      if (effect && typeof effect.disconnect === "function") {
+        try {
+          effect.disconnect();
+        } catch (e) {}
+      }
+    }
+
+    // Reconnect chain in series
+    let lastNode: AudioNode = inputNode;
+    for (let i = 0; i < 8; i++) {
+      const slotName = insert.fxSlots[i];
+      const effect = fxInstances[i];
+      const isBypassed = fxBypass[i];
+
+      if (slotName && effect && !isBypassed) {
+        try {
+          lastNode.connect(effect.input);
+          if (typeof effect.updateConnections === "function") {
+            effect.updateConnections();
+          }
+          lastNode = effect.output;
+        } catch (e) {
+          console.error("Failed to connect FX slot " + i, e);
+        }
+      }
+    }
+
+    // Connect the end of FX chain to the fader (gainNode)
+    lastNode.connect(gainNode);
+  }
+
+  public setInsertFXSlot(insertIndex: number, slotIndex: number, fxName: string) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
+    const oldInstance = fxInstances[slotIndex];
+    if (oldInstance && typeof oldInstance.disconnect === "function") {
+      try { oldInstance.disconnect(); } catch (e) {}
+    }
+
+    insert.fxSlots[slotIndex] = fxName;
+
+    if (fxName === "EQ") {
+      const eq = new ParametricEQ(this.audioContext);
+      fxInstances[slotIndex] = eq;
+      if (!insert.eqSettings) insert.eqSettings = {};
+      if (!insert.eqSettings[slotIndex]) {
+        insert.eqSettings[slotIndex] = eq.serialize();
+      } else {
+        eq.deserialize(insert.eqSettings[slotIndex]);
+      }
+    } else if (fxName === "Reverb") {
+      const reverb = new Reverb(this.audioContext);
+      fxInstances[slotIndex] = reverb;
+    } else {
+      fxInstances[slotIndex] = null;
+    }
+
+    (insert as any).fxInstances = fxInstances;
+    this.rebuildFXChain(insertIndex);
+  }
+
+  public setInsertFXBypass(insertIndex: number, slotIndex: number, bypass: boolean) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    if (!insert.fxBypass) insert.fxBypass = Array(8).fill(false);
+    insert.fxBypass[slotIndex] = bypass;
+
+    this.rebuildFXChain(insertIndex);
+  }
+
+  public updateInsertEQBand(insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    const fxInstances = (insert as any).fxInstances || [];
+    const eq = fxInstances[slotIndex];
+    if (eq && eq instanceof ParametricEQ) {
+      eq.updateBand(bandIndex, settings);
+      if (!insert.eqSettings) insert.eqSettings = {};
+      insert.eqSettings[slotIndex] = eq.serialize();
+    }
+  }
+
   public restoreMixerInserts(inserts: MixerInsert[]): void {
     if (!inserts) return;
     inserts.forEach((ins) => {
@@ -174,9 +292,41 @@ export class MixerManager {
       target.isSoloed = ins.isSoloed;
       this.updateInsertVolume(ins.index, ins.volume);
       this.updateInsertPan(ins.index, ins.pan);
+      
       if (ins.fxSlots) {
         target.fxSlots = [...ins.fxSlots];
+      } else {
+        target.fxSlots = Array(8).fill("");
       }
+
+      if (ins.fxBypass) {
+        target.fxBypass = [...ins.fxBypass];
+      } else {
+        target.fxBypass = Array(8).fill(false);
+      }
+
+      if (ins.eqSettings) {
+        target.eqSettings = structuredClone(ins.eqSettings);
+      } else {
+        target.eqSettings = {};
+      }
+
+      const fxInstances = Array(8).fill(null);
+      for (let i = 0; i < 8; i++) {
+        const fxName = target.fxSlots[i];
+        if (fxName === "EQ") {
+          const eq = new ParametricEQ(this.audioContext);
+          if (target.eqSettings && target.eqSettings[i]) {
+            eq.deserialize(target.eqSettings[i]);
+          }
+          fxInstances[i] = eq;
+        } else if (fxName === "Reverb") {
+          const reverb = new Reverb(this.audioContext);
+          fxInstances[i] = reverb;
+        }
+      }
+      (target as any).fxInstances = fxInstances;
+      this.rebuildFXChain(ins.index);
     });
     // Re-evaluate solo mapping hierarchy
     this.updateInsertSolo(0, false);

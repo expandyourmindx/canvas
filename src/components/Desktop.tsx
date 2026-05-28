@@ -15,6 +15,7 @@ import { Obsidian } from "../plugins/Obsidian";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { ExportWindow } from "./ExportWindow";
 import { SampleBrowser } from "./SampleBrowser";
+import { ParametricEQPanel } from "./effects/ParametricEQPanel";
 import { ChannelRow, SamplerSettings } from "../types";
 import {
   FileAudio,
@@ -49,11 +50,23 @@ export function Desktop() {
     mixer: true, // Mixer window initially open
     obsidian: false, // Obsidian window initially closed
     export: false, // Export window initially closed
+    eqpanel: false, // EQ Panel window initially closed
   });
 
   // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
-  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export";
-  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export"]);
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel"]);
+
+  const [eqPanelIndex, setEqPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
+    insertIndex: 0,
+    slotIndex: 0
+  });
+
+  const handleOpenEQPanel = (insertIndex: number, slotIndex: number) => {
+    setEqPanelIndex({ insertIndex, slotIndex });
+    setActiveWindows((prev) => ({ ...prev, eqpanel: true }));
+    handleSetFocus("eqpanel");
+  };
 
   // 3. Lifted sequencer and sampler states for true visual sync and responsive knobs
   const [channels, setChannels] = useState<ChannelRow[]>([
@@ -509,6 +522,7 @@ export function Desktop() {
           <Mixer
             channels={channels}
             channelMixers={channelMixers}
+            onOpenEQPanel={handleOpenEQPanel}
           />
         </DraggableWindow>
 
@@ -549,6 +563,30 @@ export function Desktop() {
             <ExportWindow
               onClose={() => toggleWindow("export")}
               focused={winOrder[winOrder.length - 1] === "export"}
+            />
+          </DraggableWindow>
+        )}
+
+        {/* 3. Floating window wrapper: Parametric EQ Panel */}
+        {activeWindows.eqpanel && (
+          <DraggableWindow
+            id="eqpanel"
+            title={`Parametric EQ — Insert ${eqPanelIndex.insertIndex === 0 ? "Master" : eqPanelIndex.insertIndex} (Slot ${eqPanelIndex.slotIndex + 1})`}
+            isVisible={activeWindows.eqpanel}
+            onClose={() => toggleWindow("eqpanel")}
+            onFocus={() => handleSetFocus("eqpanel")}
+            zIndex={getZIndex("eqpanel")}
+            defaultX={220}
+            defaultY={100}
+            defaultWidth={620}
+            defaultHeight={336}
+            minWidth={550}
+            minHeight={330}
+          >
+            <ParametricEQPanel
+              insertIndex={eqPanelIndex.insertIndex}
+              slotIndex={eqPanelIndex.slotIndex}
+              onClose={() => toggleWindow("eqpanel")}
             />
           </DraggableWindow>
         )}

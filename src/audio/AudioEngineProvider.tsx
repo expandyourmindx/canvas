@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
-import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings } from "../types";
+import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings } from "../types";
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 
 export interface AudioEngineContextType {
@@ -92,6 +92,10 @@ export interface AudioEngineContextType {
   // Sample loading reactivity
   sampleCount: number;
   notifySampleLoaded: () => void;
+
+  setInsertFXSlot: (insertIndex: number, slotIndex: number, fxName: string) => void;
+  setInsertFXBypass: (insertIndex: number, slotIndex: number, bypass: boolean) => void;
+  updateInsertEQBand: (insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => void;
 
   // Project Save & Load Actions
   saveProject: () => void;
@@ -443,6 +447,21 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const notifySampleLoaded = useCallback(() => {
     setSampleCount((prev) => prev + 1);
   }, []);
+
+  const setInsertFXSlot = useCallback((insertIndex: number, slotIndex: number, fxName: string) => {
+    engine.setInsertFXSlot(insertIndex, slotIndex, fxName);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const setInsertFXBypass = useCallback((insertIndex: number, slotIndex: number, bypass: boolean) => {
+    engine.setInsertFXBypass(insertIndex, slotIndex, bypass);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const updateInsertEQBand = useCallback((insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => {
+    engine.updateInsertEQBand(insertIndex, slotIndex, bandIndex, settings);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
 
   const previewChannel = useCallback((channelId: string, sampleId?: string, volume?: number, pan?: number, settings?: any) => {
     engine.previewChannel(channelId, sampleId, volume, pan, settings);
@@ -900,6 +919,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     registerSetChannels,
     sampleCount,
     notifySampleLoaded,
+    setInsertFXSlot,
+    setInsertFXBypass,
+    updateInsertEQBand,
     saveProject,
     loadProject,
     isDirty,

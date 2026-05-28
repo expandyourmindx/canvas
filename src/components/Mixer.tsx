@@ -8,6 +8,7 @@ import { MixerInsert } from "../audio/MixerManager";
 interface MixerProps {
   channels?: ChannelRow[];
   channelMixers?: Record<string, number>;
+  onOpenEQPanel?: (insertIndex: number, slotIndex: number) => void;
 }
 
 // The LevelMeter component uses requestAnimationFrame and direct DOM updates for high performance
@@ -123,13 +124,30 @@ function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: bo
 export function Mixer({
   channels = [],
   channelMixers = {},
+  onOpenEQPanel,
 }: MixerProps) {
-  const { engine } = useAudioEngine();
+  const { engine, setInsertFXSlot, setInsertFXBypass } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   
   // Mixer strips state - locally tracked for rapid visual response, synced to engine on mutations
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [activePickerSlotIdx, setActivePickerSlotIdx] = useState<number | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // Close picker when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setActivePickerSlotIdx(null);
+      }
+    };
+    if (activePickerSlotIdx !== null) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activePickerSlotIdx]);
 
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -494,28 +512,96 @@ export function Mixer({
 
           {/* 8 Empty Visual FX Slots with high-contrast hardware look */}
           <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-0.5 scrollbar-thin">
-            {selectedInsert.fxSlots.map((slotName: string, slotIdx: number) => (
-              <div 
-                key={slotIdx}
-                className="group h-8.5 bg-black/55 hover:bg-black/85 border border-dashed border-neutral-800 hover:border-cyan-500/30 flex items-center justify-between px-2.5 transition-all relative rounded-none hover:shadow-[0_0_6px_rgba(34,211,238,0.03)] cursor-pointer"
-              >
-                {/* Left slot indicator badge */}
-                <div className="flex items-center gap-2">
-                  <span className="text-[8px] text-zinc-[600] font-black group-hover:text-cyan-500/70">{slotIdx + 1}</span>
-                  <span className="text-[8.5px] font-black uppercase text-zinc-550 group-hover:text-zinc-400 tracking-wider">
-                    {slotName || "EMPTY SLOT"}
-                  </span>
-                </div>
+            {selectedInsert.fxSlots.map((slotName: string, slotIdx: number) => {
+              const isBypassed = selectedInsert.fxBypass?.[slotIdx] ?? false;
 
-                {/* Virtual Slot Activation Status Button */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[6.5px] text-zinc-650 group-hover:text-zinc-500 uppercase tracking-tighter">BYPASS</span>
-                  <div className="w-2.5 h-2.5 rounded-full bg-zinc-900 border border-neutral-850 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#1e1f26]" />
+              return (
+                <div 
+                  key={slotIdx}
+                  onClick={() => {
+                    if (!slotName) {
+                      setActivePickerSlotIdx(slotIdx);
+                    } else if (slotName === "EQ") {
+                      onOpenEQPanel?.(selectedInsert.index, slotIdx);
+                    }
+                  }}
+                  className="group h-8.5 bg-black/55 hover:bg-black/85 border border-dashed border-neutral-800 hover:border-cyan-500/30 flex items-center justify-between px-2.5 transition-all relative rounded-none hover:shadow-[0_0_6px_rgba(34,211,238,0.03)] cursor-pointer"
+                >
+                  {/* Left slot indicator badge */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] text-zinc-[600] font-black group-hover:text-cyan-500/70">{slotIdx + 1}</span>
+                    <span className={`text-[8.5px] font-black uppercase tracking-wider ${
+                      slotName 
+                        ? isBypassed ? "text-zinc-600 line-through" : "text-cyan-400" 
+                        : "text-zinc-550 group-hover:text-zinc-400"
+                    }`}>
+                      {slotName || "EMPTY SLOT"}
+                    </span>
                   </div>
+
+                  {/* Slot Activation Status / Bypass Toggle */}
+                  {slotName && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setInsertFXBypass(selectedInsert.index, slotIdx, !isBypassed);
+                      }}
+                      className="flex items-center gap-1.5 cursor-pointer group/bypass"
+                      title={isBypassed ? "Activate Effect" : "Bypass Effect"}
+                    >
+                      <span className="text-[6.5px] text-zinc-650 group-hover/bypass:text-zinc-450 uppercase tracking-tighter">BYPASS</span>
+                      <div className="w-2.5 h-2.5 rounded-full bg-zinc-950 border border-neutral-850 flex items-center justify-center">
+                        <div className={`w-1.5 h-1.5 rounded-full transition-all duration-150 ${
+                          isBypassed 
+                            ? "bg-neutral-800" 
+                            : "bg-emerald-400 shadow-[0_0_6px_#34d399]"
+                        }`} />
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Popover Effect Picker Dropdown */}
+                  {activePickerSlotIdx === slotIdx && (
+                    <div 
+                      ref={pickerRef}
+                      className="absolute left-0 right-0 top-full mt-1 bg-[#141519]/95 backdrop-blur-md border border-neutral-800 rounded-xs shadow-2xl py-1.5 z-[100] font-mono text-[9px] uppercase"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="px-2.5 py-0.5 text-[7.5px] text-zinc-550 border-b border-neutral-900 mb-1.5 font-black tracking-wider">Select Effect</div>
+                      <button
+                        onClick={() => {
+                          setInsertFXSlot(selectedInsert.index, slotIdx, "EQ");
+                          setActivePickerSlotIdx(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+                      >
+                        EQ (Parametric)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setInsertFXSlot(selectedInsert.index, slotIdx, "Reverb");
+                          setActivePickerSlotIdx(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+                      >
+                        Reverb (Stub)
+                      </button>
+                      <div className="border-t border-neutral-900 mt-1.5 pt-1.5">
+                        <button
+                          onClick={() => {
+                            setInsertFXSlot(selectedInsert.index, slotIdx, "");
+                            setActivePickerSlotIdx(null);
+                          }}
+                          className="w-full text-left px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-950/20 cursor-pointer font-bold transition-colors"
+                        >
+                          Clear Slot
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Bottom Diagnostics / Signal Flow Card */}

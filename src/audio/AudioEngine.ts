@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert } from "../types";
+import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert, EQBandSettings } from "../types";
 import { ObsidianEngine } from "./ObsidianEngine";
 import { SamplerEngine } from "./SamplerEngine";
 import { SampleRegistry } from "./SampleRegistry";
@@ -11,7 +11,7 @@ import { MixerManager } from "./MixerManager";
 import { TransportState, TransportScheduler } from "./TransportScheduler";
 import { generateDrumSampleWav } from "./sampleGenerator";
 
-export type { DAWEvent, MixerInsert } from "../types";
+export type { DAWEvent, MixerInsert, EQBandSettings } from "../types";
 export type { TransportState } from "./TransportScheduler";
 
 /**
@@ -95,7 +95,7 @@ export class AudioEngine {
       this.sampleRegistry,
       {
         getChannelNodes: (channelId) => this.getOrCreateChannelNodes(channelId),
-        getMixerInsertGainNode: (index) => this.getOrCreateMixerInsert(index).gainNode,
+        getMixerInsertGainNode: (index) => this.getOrCreateMixerInsert(index).inputNode || this.getOrCreateMixerInsert(index).gainNode,
         getChannelVolume: (channelId) => this.channelVols[channelId] ?? 80,
         getChannelPan: (channelId) => this.channelPans[channelId] ?? 0,
         getChannelMixerTarget: (channelId) => this.channelMixerTargets[channelId] ?? 1,
@@ -464,10 +464,10 @@ export class AudioEngine {
     if (nodes && oldTarget !== target) {
       if (nodes.panner) {
         nodes.panner.disconnect();
-        nodes.panner.connect(insert.gainNode);
+        nodes.panner.connect(insert.inputNode || insert.gainNode);
       } else {
         nodes.gain.disconnect();
-        nodes.gain.connect(insert.gainNode);
+        nodes.gain.connect(insert.inputNode || insert.gainNode);
       }
     }
   }
@@ -486,9 +486,9 @@ export class AudioEngine {
 
       if (panner) {
         gain.connect(panner);
-        panner.connect(insert.gainNode);
+        panner.connect(insert.inputNode || insert.gainNode);
       } else {
-        gain.connect(insert.gainNode);
+        gain.connect(insert.inputNode || insert.gainNode);
       }
 
       nodes = { gain, panner };
@@ -513,7 +513,8 @@ export class AudioEngine {
 
     if (isObsidian) {
       const nodes = this.getOrCreateChannelNodes(targetChannelId);
-      const destinationNode = nodes ? nodes.gain : this.getOrCreateMixerInsert(this.channelMixerTargets[targetChannelId] ?? 1).gainNode;
+      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[targetChannelId] ?? 1);
+      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
       this.obsidian.noteOn(targetChannelId, midiNote, velocity, now, destinationNode);
     } else {
       this.samplerEngine.noteOn(targetChannelId, midiNote, velocity, now);
@@ -557,7 +558,8 @@ export class AudioEngine {
 
       const now = this.audioContext.currentTime;
       const nodes = this.getOrCreateChannelNodes(channelId);
-      const destinationNode = nodes ? nodes.gain : this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1).gainNode;
+      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1);
+      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
       const pctVolume = volume ?? this.channelVols[channelId] ?? 80;
       const finalVel = Math.round((pctVolume / 100) * 127);
 
@@ -599,7 +601,8 @@ export class AudioEngine {
       destination = nodes.gain;
     } else {
       const mixerTarget = this.channelMixerTargets[channelId] ?? 1;
-      destination = this.getOrCreateMixerInsert(mixerTarget).gainNode;
+      const targetInsert = this.getOrCreateMixerInsert(mixerTarget);
+      destination = targetInsert.inputNode || targetInsert.gainNode;
     }
 
     gainNode.gain.setValueAtTime(0.2 * multiplier, now);
@@ -637,7 +640,8 @@ export class AudioEngine {
     if (isObsidian && channelId) {
       const durationSeconds = this.beatsToSeconds(event.duration);
       const nodes = this.getOrCreateChannelNodes(channelId);
-      const destinationNode = nodes ? nodes.gain : this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1).gainNode;
+      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1);
+      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
       this.obsidian.triggerVoice(event, absoluteContextTime, durationSeconds, destinationNode);
       return;
     }
@@ -667,7 +671,7 @@ export class AudioEngine {
     const insert = this.getOrCreateMixerInsert(mixerTarget);
 
     osc.connect(gainNode);
-    gainNode.connect(insert.gainNode);
+    gainNode.connect(insert.inputNode || insert.gainNode);
 
     // Instruct audio engine hardware thread to fire/terminate waveforms
     osc.start(absoluteContextTime);
@@ -698,7 +702,8 @@ export class AudioEngine {
     gainNode.gain.exponentialRampToValueAtTime(0.0001, absoluteContextTime + 0.08);
 
     osc.connect(gainNode);
-    gainNode.connect(this.getOrCreateMixerInsert(0).gainNode);
+    const masterInsert = this.getOrCreateMixerInsert(0);
+    gainNode.connect(masterInsert.inputNode || masterInsert.gainNode);
 
     osc.start(absoluteContextTime);
     osc.stop(absoluteContextTime + 0.09);
@@ -926,6 +931,18 @@ export class AudioEngine {
 
   public getInsertLevels(index: number): { rms: number; peak: number } {
     return this.mixerManager.getInsertLevels(index);
+  }
+
+  public setInsertFXSlot(insertIndex: number, slotIndex: number, fxName: string) {
+    this.mixerManager.setInsertFXSlot(insertIndex, slotIndex, fxName);
+  }
+
+  public setInsertFXBypass(insertIndex: number, slotIndex: number, bypass: boolean) {
+    this.mixerManager.setInsertFXBypass(insertIndex, slotIndex, bypass);
+  }
+
+  public updateInsertEQBand(insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) {
+    this.mixerManager.updateInsertEQBand(insertIndex, slotIndex, bandIndex, settings);
   }
 
   /**

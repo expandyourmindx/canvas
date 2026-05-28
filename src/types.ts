@@ -109,6 +109,18 @@ export interface DAWEvent {
   channelId?: string; // ID of the channel row that scheduled this event (Optional)
 }
 
+export interface EQBandSettings {
+  frequency: number;
+  gain: number;
+  q: number;
+  type: "lowcut" | "lowshelf" | "peaking" | "highshelf" | "highcut" | "notch" | "bandpass";
+  bypass: boolean;
+}
+
+export interface ParametricEQSettings {
+  bands: EQBandSettings[];
+}
+
 export interface MixerInsert {
   index: number;
   name: string;
@@ -117,9 +129,12 @@ export interface MixerInsert {
   isMuted: boolean;
   isSoloed: boolean;
   gainNode?: GainNode;
+  inputNode?: GainNode;
   pannerNode?: StereoPannerNode | null;
   analyserNode?: AnalyserNode;
   fxSlots: string[]; // 8 empty FX slots
+  fxBypass?: boolean[]; // 8 FX bypass flags
+  eqSettings?: Record<number, ParametricEQSettings>; // EQ settings indexed by slot index (0-7)
 }
 
 export interface CanvasProject {
