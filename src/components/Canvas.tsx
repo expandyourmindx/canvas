@@ -224,6 +224,11 @@ export function Canvas({
       }
     }
 
+    // Add alternating bar shading layer on the very bottom (every 4 bars / 16 beats)
+    // The first group of 4 bars is slightly lighter, the second group is transparent/darker, alternating
+    gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.02) 50%, transparent 50%)');
+    sizes.push(`${beatWidth * 32}px 100%`);
+
     return {
       backgroundImage: gradients.join(', '),
       backgroundSize: sizes.join(', ')
