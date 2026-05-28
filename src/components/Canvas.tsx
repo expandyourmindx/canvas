@@ -748,7 +748,7 @@ export function Canvas({
 
               <div
                 ref={playheadRef}
-                className="absolute top-[30px] bottom-0 w-[1.5px] bg-indigo-500 z-30 pointer-events-none shadow-[0_0_12px_rgba(99,102,241,0.6)] overflow-visible"
+                className="absolute top-[30px] bottom-0 w-[1.5px] bg-indigo-500 z-20 pointer-events-none shadow-[0_0_12px_rgba(99,102,241,0.6)] overflow-visible"
                 style={{
                   left: "130px",
                 }}
@@ -798,7 +798,7 @@ export function Canvas({
                     className="flex h-11 relative group items-center hover:bg-[#121316]/40 border-b border-[#14151a]"
                   >
                     {/* Visual Lane Header Label */}
-                    <div className="w-[130px] shrink-0 text-left pl-2 flex flex-col justify-center border-r border-[#17181c] h-full z-10 bg-[#0a0b0d] sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                    <div className="w-[130px] shrink-0 text-left pl-2 flex flex-col justify-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest group-hover:text-neutral-200">
                         Lane {laneIdx + 1}
                       </span>
@@ -1141,7 +1141,7 @@ export function Canvas({
 
                 {/* Sticky Add Lane row */}
                 <div className="flex h-11 relative items-center">
-                  <div className="w-[130px] shrink-0 text-left pl-2 flex items-center border-r border-[#17181c] h-full z-10 bg-[#0a0b0d] sticky left-0">
+                  <div className="w-[130px] shrink-0 text-left pl-2 flex items-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0">
                     <button
                       onClick={() => setLaneCount((prev) => prev + 1)}
                       className="w-full mr-2 py-1.5 px-1 border border-dashed border-neutral-800 bg-black/40 hover:bg-[#181d26] text-[9.5px] font-black uppercase tracking-wider text-zinc-400 hover:text-cyan-400 transition-all cursor-pointer select-none rounded-none text-center"
