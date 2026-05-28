@@ -790,12 +790,12 @@ export function Canvas({
                 onPointerMove={handleGridPointerMove}
                 onPointerUp={handleGridPointerUp}
                 onContextMenu={(e) => e.preventDefault()}
-                className="space-y-1 pt-0.5 relative select-none"
+                className="relative select-none"
               >
                 {listLanes.map((laneIdx) => (
                   <div
                     key={laneIdx}
-                    className="flex h-11 relative group items-center hover:bg-[#121316]/40 border-b border-[#14151a]"
+                    className="flex h-12 relative group items-center hover:bg-[#121316]/40 border-b border-[#14151a]"
                   >
                     {/* Visual Lane Header Label */}
                     <div className="w-[130px] shrink-0 text-left pl-2 flex flex-col justify-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
@@ -1140,7 +1140,7 @@ export function Canvas({
                 </div>
 
                 {/* Sticky Add Lane row */}
-                <div className="flex h-11 relative items-center">
+                <div className="flex h-12 relative items-center">
                   <div className="w-[130px] shrink-0 text-left pl-2 flex items-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0">
                     <button
                       onClick={() => setLaneCount((prev) => prev + 1)}
