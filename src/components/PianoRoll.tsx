@@ -289,8 +289,8 @@ export function PianoRoll({
   // Helper to construct dynamic grid line CSS background styles
   const getGridStyle = () => {
     const gradients = [
-      'linear-gradient(to right, #1c1d24 2px, transparent 2px)', // Bar lines (always drawn)
-      'linear-gradient(to right, rgba(19, 20, 24, 0.6) 1px, transparent 1px)' // Beat lines (always drawn)
+      'linear-gradient(to right, rgba(255, 255, 255, 0.18) 2px, transparent 2px)', // Bar lines (always drawn)
+      'linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px)' // Beat lines (always drawn)
     ];
     const sizes = [
       `${beatWidth * 4}px 100%`,
@@ -300,15 +300,15 @@ export function PianoRoll({
     const res = activeSnapResolution;
     if (res !== null) {
       if (res <= 0.5) {
-        gradients.push('linear-gradient(to right, rgba(19, 20, 24, 0.35) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.5}px 100%`);
       }
       if (res <= 0.25) {
-        gradients.push('linear-gradient(to right, rgba(19, 20, 24, 0.2) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.25}px 100%`);
       }
       if (res <= 0.125) {
-        gradients.push('linear-gradient(to right, rgba(19, 20, 24, 0.1) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.125}px 100%`);
       }
     }
