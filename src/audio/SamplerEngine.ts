@@ -249,11 +249,14 @@ export class SamplerEngine {
     };
 
     const notePitchOffset = midiNote - 60;
-    const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
-    const finalTransposition = notePitchOffset + (settings.pitch || 0) + stretchPitchSemitones;
+    let finalTransposition = notePitchOffset + (settings.pitch || 0);
     
+    // Only apply stretch pitch via playbackRate in RESAMPLE mode.
+    // In STRETCH mode the worker already bakes pitch into the buffer.
     let resampleTempoRatio = 1.0;
     if (settings.stretchMode === "resample") {
+      const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
+      finalTransposition += stretchPitchSemitones;
       resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
     }
     
@@ -395,10 +398,12 @@ export class SamplerEngine {
     source.connect(nodes.gain);
 
     // Apply Pitch Transpose (playbackRate ratio = 2^(pitch/12))
-    const stretchPitchSemitones = (activeSettings.stretchPitch || 0) / 100;
-    const totalPitchSemitones = (activeSettings.pitch || 0) + stretchPitchSemitones;
+    // Only add stretch pitch in RESAMPLE mode — STRETCH mode bakes it into the buffer.
+    let totalPitchSemitones = activeSettings.pitch || 0;
     let resampleTempoRatio = 1.0;
     if (activeSettings.stretchMode === "resample") {
+      const stretchPitchSemitones = (activeSettings.stretchPitch || 0) / 100;
+      totalPitchSemitones += stretchPitchSemitones;
       resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
     }
     source.playbackRate.setValueAtTime(Math.pow(2, totalPitchSemitones / 12) * resampleTempoRatio, now);
@@ -519,17 +524,16 @@ export class SamplerEngine {
     if (event.pitch !== undefined) {
       notePitchOffset = event.pitch - 60; // relative to Middle C (60)
     }
-    let stretchPitchSemitones = 0;
-    if (channelId) {
-      const settings = this.samplerSettings[channelId];
-      stretchPitchSemitones = (settings?.stretchPitch || 0) / 100;
-    }
-    const finalTransposition = notePitchOffset + channelSettingsPitch + stretchPitchSemitones;
+    let finalTransposition = notePitchOffset + channelSettingsPitch;
     
+    // Only apply stretch pitch via playbackRate in RESAMPLE mode.
+    // In STRETCH mode the worker already bakes pitch into the buffer.
     let resampleTempoRatio = 1.0;
     if (channelId) {
       const settings = this.samplerSettings[channelId];
       if (settings && settings.stretchMode === "resample") {
+        const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
+        finalTransposition += stretchPitchSemitones;
         resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
       }
     }
@@ -630,12 +634,12 @@ export class SamplerEngine {
     let canvasPitchRate = 1.0;
     if (channelId) {
       const settings = this.samplerSettings[channelId];
-      if (settings) {
+      if (settings && settings.stretchMode === "resample") {
+        // Only apply stretch pitch via playbackRate in RESAMPLE mode.
+        // In STRETCH mode the worker already bakes pitch into the buffer.
         const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
         canvasPitchRate = Math.pow(2, stretchPitchSemitones / 12);
-        if (settings.stretchMode === "resample") {
-          resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
-        }
+        resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
       }
     }
     source.playbackRate.setValueAtTime(canvasPitchRate * resampleTempoRatio, absoluteContextTime);
