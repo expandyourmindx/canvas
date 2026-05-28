@@ -6,6 +6,8 @@
 import { DAWEvent } from "./AudioEngine";
 import { SampleRegistry } from "./SampleRegistry";
 import { CanvasClip, SamplerSettings } from "../types";
+// @ts-expect-error Vite worker import query suffix is not declared in TS
+import StretchWorker from "../workers/soundstretch.worker.ts?worker";
 
 export interface SamplerEngineDelegate {
   getChannelNodes: (channelId: string) => { gain: GainNode; panner: StereoPannerNode | null };
@@ -46,10 +48,8 @@ export class SamplerEngine {
 
   private getOrCreateWorker(): Worker {
     if (!this.stretchWorker) {
-      this.stretchWorker = new Worker(
-        new URL("../workers/soundstretch.worker.ts", import.meta.url),
-        { type: "module" }
-      );
+      // Instantiate using Vite's classic worker constructor
+      this.stretchWorker = new StretchWorker();
       
       this.stretchWorker.onmessage = (e) => {
         console.log("Received stretched audio from worker for channel:", e.data.channelId);
