@@ -71,6 +71,7 @@ export class AudioEngine {
   private channelNodes: Map<string, { gain: GainNode; panner: StereoPannerNode | null }> = new Map();
   private channelMixerTargets: Record<string, number> = {};
   public mixerManager: MixerManager;
+  public onSampleLoadedCallback: (() => void) | null = null;
 
   constructor(options: AudioEngineOptions = {}) {
     const bpm = options.bpm ?? 120;
@@ -99,7 +100,13 @@ export class AudioEngine {
         getChannelVolume: (channelId) => this.channelVols[channelId] ?? 80,
         getChannelPan: (channelId) => this.channelPans[channelId] ?? 0,
         getChannelMixerTarget: (channelId) => this.channelMixerTargets[channelId] ?? 1,
-        beatsToSeconds: (beats) => this.beatsToSeconds(beats)
+        beatsToSeconds: (beats) => this.beatsToSeconds(beats),
+        getBPM: () => this.getBpm(),
+        notifySampleLoaded: () => {
+          if (this.onSampleLoadedCallback) {
+            this.onSampleLoadedCallback();
+          }
+        }
       }
     );
 
@@ -435,6 +442,10 @@ export class AudioEngine {
 
   public updateChannelSamplerSettings(channelId: string, settings: SamplerSettings) {
     this.samplerEngine.updateChannelSamplerSettings(channelId, settings);
+  }
+
+  public getChannelSamplerSettings(channelId: string): SamplerSettings | undefined {
+    return this.samplerEngine.getChannelSamplerSettings(channelId);
   }
 
   public updateChannelSampleId(channelId: string, sampleId: string) {

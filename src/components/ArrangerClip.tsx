@@ -50,7 +50,16 @@ export function ArrangerClip({
 }: ArrangerClipProps) {
   const { engine } = useAudioEngine();
   const leftPx = clip.startBeat * beatWidth;
-  const widthPx = clip.duration * beatWidth;
+  
+  // Real-time Visual Scaling (The FL Effect):
+  // Check if this channel has stretch settings set and immediately scale visual width
+  const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
+  
+  let widthPx = clip.duration * beatWidth;
+  if (settings && settings.stretchTime && settings.stretchTime > 0) {
+    widthPx = settings.stretchTime * (settings.stretchMul || 1.0) * beatWidth;
+  }
+  
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
 

@@ -14,6 +14,8 @@ export interface SamplerEngineDelegate {
   getChannelPan: (channelId: string) => number;
   getChannelMixerTarget: (channelId: string) => number;
   beatsToSeconds: (beats: number) => number;
+  getBPM?: () => number;
+  notifySampleLoaded?: () => void;
 }
 
 export class SamplerEngine {
@@ -26,6 +28,9 @@ export class SamplerEngine {
   private activeSamplerVoices: Map<string, any[]> = new Map();
   private samplerSettings: Record<string, SamplerSettings> = {};
   private channelSampleIds: Record<string, string> = {};
+  private originalChannelSampleIds: Record<string, string> = {};
+  private stretchWorker: Worker | null = null;
+  private stretchDebounceTimers: Record<string, any> = {};
 
   constructor(
     audioContext: AudioContext,
@@ -39,12 +44,148 @@ export class SamplerEngine {
     this.delegate = delegate;
   }
 
+  private getOrCreateWorker(): Worker {
+    if (!this.stretchWorker) {
+      this.stretchWorker = new Worker(
+        new URL("../workers/soundstretch.worker.ts", import.meta.url),
+        { type: "module" }
+      );
+      
+      this.stretchWorker.onmessage = (e) => {
+        const { stretchedAudio, channels, totalFrames, error, channelId } = e.data;
+        if (error) {
+          console.error("SoundStretch Web Worker error:", error);
+          return;
+        }
+        
+        // Construct new AudioBuffer in the Web Audio context
+        const buffer = this.audioContext.createBuffer(
+          channels,
+          totalFrames,
+          this.audioContext.sampleRate
+        );
+        
+        // De-interleave flat Float32Array PCM back into individual channel buffers
+        for (let c = 0; c < channels; c++) {
+          const channelData = buffer.getChannelData(c);
+          for (let i = 0; i < totalFrames; i++) {
+            channelData[i] = stretchedAudio[i * channels + c];
+          }
+        }
+        
+        // Store in SampleRegistry under a stretched ID
+        const stretchedId = `${channelId}_stretched`;
+        this.sampleRegistry.loadSample(stretchedId, new ArrayBuffer(0)).catch(() => {});
+        (this.sampleRegistry as any).sampleBuffers.set(stretchedId, buffer);
+        
+        // Update active slot
+        this.channelSampleIds[channelId] = stretchedId;
+        
+        console.log(`Stretched buffer registered for channel ${channelId}: duration=${buffer.duration.toFixed(2)}s`);
+        
+        // Trigger UI redraw
+        if (this.delegate.notifySampleLoaded) {
+          this.delegate.notifySampleLoaded();
+        }
+      };
+    }
+    return this.stretchWorker;
+  }
+
+  public calculateTempoRatio(channelId: string, originalDuration: number): number {
+    const settings = this.samplerSettings[channelId];
+    if (!settings) return 1.0;
+    
+    if (settings.stretchMode !== "stretch" && settings.stretchMode !== "resample") return 1.0;
+    
+    const timeInBeats = settings.stretchTime || 0;
+    const multiplier = settings.stretchMul || 1.0;
+    
+    if (timeInBeats > 0) {
+      const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
+      const targetDurationSeconds = (timeInBeats / bpm) * 60;
+      return originalDuration / (targetDurationSeconds * multiplier);
+    } else {
+      return 1.0 / multiplier;
+    }
+  }
+
+  public processSampleStretch(channelId: string) {
+    const settings = this.samplerSettings[channelId];
+    if (!settings) return;
+
+    const originalSampleId = this.originalChannelSampleIds[channelId] || this.channelSampleIds[channelId];
+    if (!originalSampleId) return;
+
+    const pristineBuffer = this.sampleRegistry.getSampleBuffer(originalSampleId);
+    if (!pristineBuffer) return;
+
+    // In Resample or normal mode, restore playback slot to pristine buffer and bypass worker
+    if (settings.stretchMode !== "stretch") {
+      this.channelSampleIds[channelId] = originalSampleId;
+      if (this.delegate.notifySampleLoaded) {
+        this.delegate.notifySampleLoaded();
+      }
+      return;
+    }
+
+    const worker = this.getOrCreateWorker();
+    
+    // Interleave Pristine AudioBuffer channels into flat Float32Array
+    const channels = pristineBuffer.numberOfChannels;
+    const numFrames = pristineBuffer.length;
+    const interleavedData = new Float32Array(numFrames * channels);
+    
+    for (let i = 0; i < numFrames; i++) {
+      for (let c = 0; c < channels; c++) {
+        interleavedData[i * channels + c] = pristineBuffer.getChannelData(c)[i];
+      }
+    }
+    
+    const pitchCents = settings.stretchPitch || 0;
+    const timeInBeats = settings.stretchTime || 0;
+    const multiplier = settings.stretchMul || 1.0;
+    const sampleRate = pristineBuffer.sampleRate;
+    
+    // Calculate tempoRatio
+    let tempoRatio = 1.0;
+    if (timeInBeats > 0) {
+      const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
+      const targetDurationSeconds = (timeInBeats / bpm) * 60;
+      tempoRatio = pristineBuffer.duration / (targetDurationSeconds * multiplier);
+    } else {
+      tempoRatio = 1.0 / multiplier;
+    }
+
+    worker.postMessage({
+      audioData: interleavedData,
+      channels: channels,
+      pitchCents: pitchCents,
+      tempoRatio: tempoRatio,
+      sampleRate: sampleRate,
+      channelId: channelId
+    }, [interleavedData.buffer]);
+  }
+
   public updateChannelSamplerSettings(channelId: string, settings: SamplerSettings) {
     this.samplerSettings[channelId] = settings;
+    
+    // Debounce the worker processing to prevent stuttering mid-drag
+    if (this.stretchDebounceTimers[channelId]) {
+      clearTimeout(this.stretchDebounceTimers[channelId]);
+    }
+    
+    this.stretchDebounceTimers[channelId] = setTimeout(() => {
+      this.processSampleStretch(channelId);
+      delete this.stretchDebounceTimers[channelId];
+    }, 180);
   }
 
   public updateChannelSampleId(channelId: string, sampleId: string) {
     this.channelSampleIds[channelId] = sampleId;
+    if (!sampleId.endsWith("_stretched")) {
+      this.originalChannelSampleIds[channelId] = sampleId;
+    }
   }
 
   public getChannelSampleId(channelId: string): string | undefined {
@@ -106,7 +247,13 @@ export class SamplerEngine {
 
     const notePitchOffset = midiNote - 60;
     const finalTransposition = notePitchOffset + (settings.pitch || 0);
-    source.playbackRate.setValueAtTime(Math.pow(2, finalTransposition / 12), now);
+    
+    let resampleTempoRatio = 1.0;
+    if (settings.stretchMode === "resample") {
+      resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+    }
+    
+    source.playbackRate.setValueAtTime(Math.pow(2, finalTransposition / 12) * resampleTempoRatio, now);
 
     const velFactor = velocity / 127;
 
@@ -244,7 +391,11 @@ export class SamplerEngine {
     source.connect(nodes.gain);
 
     // Apply Pitch Transpose (playbackRate ratio = 2^(pitch/12))
-    source.playbackRate.setValueAtTime(Math.pow(2, activeSettings.pitch / 12), now);
+    let resampleTempoRatio = 1.0;
+    if (activeSettings.stretchMode === "resample") {
+      resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+    }
+    source.playbackRate.setValueAtTime(Math.pow(2, activeSettings.pitch / 12) * resampleTempoRatio, now);
 
     // Apply Pan to our StereoPannerNode
     const mappedPan = activePan / 50; // map [-50, 50] to [-1, 1]
@@ -355,7 +506,16 @@ export class SamplerEngine {
       notePitchOffset = event.pitch - 60; // relative to Middle C (60)
     }
     const finalTransposition = notePitchOffset + channelSettingsPitch;
-    source.playbackRate.setValueAtTime(Math.pow(2, finalTransposition / 12), absoluteContextTime);
+    
+    let resampleTempoRatio = 1.0;
+    if (channelId) {
+      const settings = this.samplerSettings[channelId];
+      if (settings && settings.stretchMode === "resample") {
+        resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+      }
+    }
+    
+    source.playbackRate.setValueAtTime(Math.pow(2, finalTransposition / 12) * resampleTempoRatio, absoluteContextTime);
 
     if (durationSecondsRemaining > 0) {
       if (envelopeOn) {
@@ -437,6 +597,15 @@ export class SamplerEngine {
 
     // Dynamic gain based on scale or visual volume overrides
     gainNode.gain.setValueAtTime(0.8, absoluteContextTime);
+
+    let resampleTempoRatio = 1.0;
+    if (channelId) {
+      const settings = this.samplerSettings[channelId];
+      if (settings && settings.stretchMode === "resample") {
+        resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+      }
+    }
+    source.playbackRate.setValueAtTime(resampleTempoRatio, absoluteContextTime);
 
     // Track active length
     const clipDurationSeconds = this.delegate.beatsToSeconds(clip.duration);

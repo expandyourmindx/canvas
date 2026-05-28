@@ -199,6 +199,8 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     engine.focusedChannelId = focusedChannelId;
   }, [engine, focusedChannelId]);
 
+
+
   // 4. Undo/Redo State Serialization stack
   const pushToHistory = useCallback((channels: ChannelRow[]) => {
     latestChannelsRef.current = channels;
@@ -447,6 +449,16 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const notifySampleLoaded = useCallback(() => {
     setSampleCount((prev) => prev + 1);
   }, []);
+
+  // Synchronize Web Worker buffer updates to React state to redraw waveforms
+  useEffect(() => {
+    engine.onSampleLoadedCallback = () => {
+      notifySampleLoaded();
+    };
+    return () => {
+      engine.onSampleLoadedCallback = null;
+    };
+  }, [engine, notifySampleLoaded]);
 
   const setInsertFXSlot = useCallback((insertIndex: number, slotIndex: number, fxName: string) => {
     engine.setInsertFXSlot(insertIndex, slotIndex, fxName);
