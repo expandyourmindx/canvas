@@ -52,6 +52,7 @@ export class SamplerEngine {
       );
       
       this.stretchWorker.onmessage = (e) => {
+        console.log("Received stretched audio from worker for channel:", e.data.channelId);
         const { stretchedAudio, channels, totalFrames, error, channelId } = e.data;
         if (error) {
           console.error("SoundStretch Web Worker error:", error);
@@ -111,6 +112,7 @@ export class SamplerEngine {
   }
 
   public processSampleStretch(channelId: string) {
+    console.log("Triggering stretch worker for channel:", channelId);
     const settings = this.samplerSettings[channelId];
     if (!settings) return;
 
@@ -447,9 +449,18 @@ export class SamplerEngine {
   public triggerSample(event: DAWEvent, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
     if (!event.sampleId) return;
 
-    const buffer = this.sampleRegistry.getSampleBuffer(event.sampleId);
+    // Determine the playing channel by matching registered sample IDs or channel ID prefix
+    const channelId = event.channelId ?? Object.keys(this.originalChannelSampleIds).find(
+      (key) => this.originalChannelSampleIds[key] === event.sampleId
+    ) ?? Object.keys(this.channelSampleIds).find(
+      (key) => this.channelSampleIds[key] === event.sampleId
+    );
+
+    const activeSampleId = channelId ? (this.channelSampleIds[channelId] || event.sampleId) : event.sampleId;
+
+    const buffer = this.sampleRegistry.getSampleBuffer(activeSampleId);
     if (!buffer) {
-      console.warn(`Sample buffer with ID "${event.sampleId}" was not loaded yet.`);
+      console.warn(`Sample buffer with ID "${activeSampleId}" was not loaded yet.`);
       return;
     }
 
@@ -457,11 +468,6 @@ export class SamplerEngine {
     source.buffer = buffer;
 
     const gainNode = this.audioContext.createGain();
-
-    // Determine the playing channel
-    const channelId = event.channelId ?? Object.keys(this.channelSampleIds).find(
-      (key) => this.channelSampleIds[key] === event.sampleId
-    );
 
     const nodes = channelId ? this.delegate.getChannelNodes(channelId) : null;
 
@@ -567,7 +573,17 @@ export class SamplerEngine {
    */
   public triggerCanvasSample(clip: CanvasClip, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
     const isChannelId = clip.referenceId.startsWith("sampler_");
-    const sampleId = isChannelId ? (this.channelSampleIds[clip.referenceId] || clip.referenceId) : clip.referenceId;
+    
+    // Determine the playing channel by matching registered sample IDs or channel ID prefix
+    const channelId = isChannelId ? clip.referenceId : (
+      Object.keys(this.originalChannelSampleIds).find(
+        (key) => this.originalChannelSampleIds[key] === clip.referenceId
+      ) ?? Object.keys(this.channelSampleIds).find(
+        (key) => this.channelSampleIds[key] === clip.referenceId
+      )
+    );
+
+    const sampleId = channelId ? (this.channelSampleIds[channelId] || clip.referenceId) : clip.referenceId;
     const buffer = this.sampleRegistry.getSampleBuffer(sampleId);
     if (!buffer) {
       console.warn(`Sample buffer with ID "${sampleId}" was not loaded yet.`);
@@ -579,11 +595,6 @@ export class SamplerEngine {
 
     const gainNode = this.audioContext.createGain();
     source.connect(gainNode);
-
-    // Determine the playing channel by matching registered sample IDs
-    const channelId = isChannelId ? clip.referenceId : Object.keys(this.channelSampleIds).find(
-      (key) => this.channelSampleIds[key] === clip.referenceId
-    );
 
     const nodes = channelId ? this.delegate.getChannelNodes(channelId) : null;
 
