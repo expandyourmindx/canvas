@@ -56,7 +56,7 @@ export function ArrangerClip({
   // RESAMPLE mode: pitch changes length (linked). STRETCH mode: pitch is independent.
   const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
   
-  let widthPx = clip.duration * beatWidth;
+  let effectiveBeats = clip.duration;
   if (settings && (settings.stretchTime || settings.stretchMul !== undefined || settings.stretchPitch)) {
     const stretchTime = settings.stretchTime || 0;
     const multiplier = settings.stretchMul ?? 1.0;
@@ -76,28 +76,27 @@ export function ArrangerClip({
         // audibleDuration = origDur / playbackRate = targetDur / (mul * 2^(cents/1200))
         // audibleBeats = stretchTime / (mul * 2^(cents/1200))
         const pitchRatio = Math.pow(2, pitchCents / 1200);
-        const audibleBeats = stretchTime / (multiplier * pitchRatio);
-        widthPx = audibleBeats * beatWidth;
+        effectiveBeats = stretchTime / (multiplier * pitchRatio);
       } else {
         // STRETCH: Pitch has ZERO effect on length. Time and multiplier are independent of pitch.
         // The worker produces a buffer of length = originalFrames / tempoRatio
         // tempoRatio = baseTempoRatio * multiplier = (origDur / targetDur) * multiplier
         // outputDuration = origDur / tempoRatio = targetDur / multiplier
         // outputBeats = stretchTime / multiplier
-        const audibleBeats = stretchTime / multiplier;
-        widthPx = audibleBeats * beatWidth;
+        effectiveBeats = stretchTime / multiplier;
       }
     } else {
       // stretchTime is 0 (Auto) — only multiplier and pitch affect length
       if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
         const pitchRatio = Math.pow(2, pitchCents / 1200);
-        widthPx = clip.duration / (multiplier * pitchRatio) * beatWidth;
+        effectiveBeats = clip.duration / (multiplier * pitchRatio);
       } else {
         // STRETCH with auto time: multiplier scales the tempo, pitch is independent
-        widthPx = clip.duration / multiplier * beatWidth;
+        effectiveBeats = clip.duration / multiplier;
       }
     }
   }
+  const widthPx = effectiveBeats * beatWidth;
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
@@ -193,7 +192,10 @@ export function ArrangerClip({
       const { mins, maxs } = cache;
       const N = mins.length;
 
-      const clipDurationSeconds = engine.beatsToSeconds(clip.duration);
+      const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+      const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
+
+      const clipDurationSeconds = engine.beatsToSeconds(targetBeats);
       const cropStartSeconds = engine.beatsToSeconds(clip.cropStart || 0);
       const sampleDurationSeconds = buffer.duration;
 
@@ -245,7 +247,7 @@ export function ArrangerClip({
         ctx.stroke();
       }
     }
-  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, clip.cropStart, engine]);
+  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, effectiveBeats, clip.cropStart, engine]);
 
   return (
     <div

@@ -646,7 +646,36 @@ export class SamplerEngine {
     source.playbackRate.setValueAtTime(canvasPitchRate * resampleTempoRatio, absoluteContextTime);
 
     // Track active length
-    const clipDurationSeconds = this.delegate.beatsToSeconds(clip.duration);
+    let effectiveBeats = clip.duration;
+    if (channelId) {
+      const settings = this.samplerSettings[channelId];
+      if (settings && (settings.stretchTime || settings.stretchMul !== undefined || settings.stretchPitch)) {
+        const stretchTime = settings.stretchTime || 0;
+        const multiplier = settings.stretchMul ?? 1.0;
+        const pitchCents = settings.stretchPitch || 0;
+        
+        if (stretchTime > 0) {
+          if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
+            const pitchRatio = Math.pow(2, pitchCents / 1200);
+            effectiveBeats = stretchTime / (multiplier * pitchRatio);
+          } else {
+            effectiveBeats = stretchTime / multiplier;
+          }
+        } else {
+          if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
+            const pitchRatio = Math.pow(2, pitchCents / 1200);
+            effectiveBeats = clip.duration / (multiplier * pitchRatio);
+          } else {
+            effectiveBeats = clip.duration / multiplier;
+          }
+        }
+      }
+    }
+
+    const settings = channelId ? this.samplerSettings[channelId] : null;
+    const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+    const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
+    const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats);
     const delay = sampleOffsetSeconds < 0 ? -sampleOffsetSeconds : 0;
     const offset = sampleOffsetSeconds < 0 ? 0 : sampleOffsetSeconds;
     const playStartTime = absoluteContextTime + delay;
