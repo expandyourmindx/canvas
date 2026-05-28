@@ -63,6 +63,14 @@ export function usePianoRollDrag({
   // Persistent property memory: keeps track of the last edited note duration
   const lastNoteDurationRef = useRef<number>(1.0);
 
+  const lassoIsAdditiveRef = useRef(false);
+  const lassoStartSelectionRef = useRef<string[]>([]);
+  const selectedNoteIdsRef = useRef<string[]>([]);
+
+  React.useEffect(() => {
+    selectedNoteIdsRef.current = selectedNoteIds;
+  }, [selectedNoteIds]);
+
   // Tracks the active fluid placement operation
   const dragPlacementRef = useRef<{
     eventId: string;
@@ -135,6 +143,7 @@ export function usePianoRollDrag({
     };
 
     setEvents([...events, nextEvent]);
+    setSelectedNoteIds([nextEvent.id]);
     handleKeyAudition(pitch);
 
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -233,36 +242,70 @@ export function usePianoRollDrag({
 
     const deltaX = e.clientX - state.startX;
     const deltaBeats = deltaX / beatWidth;
+    const minDuration = snapIncrement !== null ? snapIncrement : 0.001;
 
     if (state.edge === "right") {
+      const draggedOrig = state.resizingNotes.find((rn) => rn.id === state.eventId);
+      if (!draggedOrig) return;
+
+      const rawDur = draggedOrig.initialDuration + deltaBeats;
+      const snappedDur = snapIncrement !== null
+        ? Math.round(rawDur / snapIncrement) * snapIncrement
+        : rawDur;
+
+      let snappedDelta = snappedDur - draggedOrig.initialDuration;
+
+      // Minimum length constraint: clamp the delta to ensure no note goes below minDuration
+      state.resizingNotes.forEach((orig) => {
+        const minDelta = minDuration - orig.initialDuration;
+        if (snappedDelta < minDelta) {
+          snappedDelta = minDelta;
+        }
+      });
+
       const updated = events.map((ev) => {
         const orig = state.resizingNotes.find((rn) => rn.id === ev.id);
         if (orig) {
-          const rawDur = Math.max(snapIncrement !== null ? snapIncrement : 0.001, orig.initialDuration + deltaBeats);
-          const snappedDur = snapIncrement !== null
-            ? Math.round(rawDur / snapIncrement) * snapIncrement
-            : rawDur;
+          const finalDuration = orig.initialDuration + snappedDelta;
           if (ev.id === state.eventId) {
-            lastNoteDurationRef.current = snappedDur;
+            lastNoteDurationRef.current = finalDuration;
           }
-          return { ...ev, duration: snappedDur };
+          return { ...ev, duration: finalDuration };
         }
         return ev;
       });
       setEvents(updated);
     } else {
+      const draggedOrig = state.resizingNotes.find((rn) => rn.id === state.eventId);
+      if (!draggedOrig) return;
+
+      const rawTime = draggedOrig.initialTime + deltaBeats;
+      const snappedTime = snapIncrement !== null
+        ? Math.round(rawTime / snapIncrement) * snapIncrement
+        : rawTime;
+
+      let snappedDelta = snappedTime - draggedOrig.initialTime;
+
+      // Apply constraints across all notes in the selection:
+      // 1. Prevent time from going negative (snappedDelta >= -initialTime)
+      // 2. Prevent duration from falling below minDuration (snappedDelta <= initialDuration - minDuration)
+      state.resizingNotes.forEach((orig) => {
+        const minDeltaTime = -orig.initialTime;
+        const maxDeltaDur = orig.initialDuration - minDuration;
+
+        if (snappedDelta < minDeltaTime) {
+          snappedDelta = minDeltaTime;
+        }
+        if (snappedDelta > maxDeltaDur) {
+          snappedDelta = maxDeltaDur;
+        }
+      });
+
       const updated = events.map((ev) => {
         const orig = state.resizingNotes.find((rn) => rn.id === ev.id);
         if (orig) {
-          const rightAnchor = orig.initialTime + orig.initialDuration;
-          const rawTime = orig.initialTime + deltaBeats;
-          const snappedTime = snapIncrement !== null
-            ? Math.round(rawTime / snapIncrement) * snapIncrement
-            : rawTime;
-
-          const maxSnappedTime = rightAnchor - (snapIncrement !== null ? snapIncrement : 0.001);
-          const finalTime = Math.max(0, Math.min(maxSnappedTime, snappedTime));
-          const finalDuration = rightAnchor - finalTime;
+          const finalTime = orig.initialTime + snappedDelta;
+          const finalDuration = orig.initialDuration - snappedDelta;
 
           if (ev.id === state.eventId) {
             lastNoteDurationRef.current = finalDuration;
@@ -415,7 +458,15 @@ export function usePianoRollDrag({
     const trackX = e.clientX - rect.left;
     const trackY = e.clientY - rect.top;
 
-    setSelectedNoteIds([]);
+    const isAdditive = e.ctrlKey && e.shiftKey;
+    lassoIsAdditiveRef.current = isAdditive;
+
+    if (isAdditive) {
+      lassoStartSelectionRef.current = [...selectedNoteIdsRef.current];
+    } else {
+      setSelectedNoteIds([]);
+      lassoStartSelectionRef.current = [];
+    }
 
     setLassoActive(true);
     setLassoBox({
@@ -462,7 +513,13 @@ export function usePianoRollDrag({
       })
       .map((note) => note.id);
 
-    setSelectedNoteIds(newlySelected);
+    let nextSelected = newlySelected;
+    if (lassoIsAdditiveRef.current) {
+      const union = new Set([...lassoStartSelectionRef.current, ...newlySelected]);
+      nextSelected = Array.from(union);
+    }
+
+    setSelectedNoteIds(nextSelected);
   };
 
   const handleGridPointerUpPointerMode = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -470,12 +527,14 @@ export function usePianoRollDrag({
       e.currentTarget.releasePointerCapture(e.pointerId);
       setLassoActive(false);
       setLassoBox(null);
+      lassoIsAdditiveRef.current = false;
+      lassoStartSelectionRef.current = [];
     }
   };
 
   // Relocation in Pointer Mode
   const handleNotePointerDownPointerMode = (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => {
-    if (activeTool !== 'pointer' && !selectedNoteIds.includes(noteEvent.id) && !e.shiftKey) return;
+    if (activeTool !== 'pointer' && !selectedNoteIds.includes(noteEvent.id) && !e.shiftKey && !(e.ctrlKey && e.shiftKey)) return;
     if (e.button !== 0) return;
     e.stopPropagation();
 
@@ -495,13 +554,37 @@ export function usePianoRollDrag({
 
     e.currentTarget.setPointerCapture(e.pointerId);
 
+    // Ctrl+Shift+Click selection building
+    if (e.ctrlKey && e.shiftKey) {
+      let nextSelected: string[];
+      if (selectedNoteIds.includes(noteEvent.id)) {
+        nextSelected = selectedNoteIds.filter((id) => id !== noteEvent.id);
+      } else {
+        nextSelected = [...selectedNoteIds, noteEvent.id];
+      }
+      setSelectedNoteIds(nextSelected);
+
+      setGroupDragStart({
+        startX: clickBeat,
+        startPitch: clickPitch || 60,
+        originalNotes: events
+          .filter((ev) => nextSelected.includes(ev.id))
+          .map((ev) => ({
+            id: ev.id,
+            time: ev.time,
+            pitch: ev.pitch || 60,
+          })),
+      });
+      return;
+    }
+
     let newSelectedIds = selectedNoteIds;
     if (!selectedNoteIds.includes(noteEvent.id)) {
       newSelectedIds = [noteEvent.id];
       setSelectedNoteIds(newSelectedIds);
     }
 
-    if (e.shiftKey) {
+    if (e.shiftKey && !e.ctrlKey) {
       const notesToDuplicate = events.filter((n) => newSelectedIds.includes(n.id) || n.id === noteEvent.id);
       const clonedNotes = notesToDuplicate.map((n) => ({
         ...n,
