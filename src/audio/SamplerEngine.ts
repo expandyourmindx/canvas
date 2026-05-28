@@ -102,13 +102,13 @@ export class SamplerEngine {
     const timeInBeats = settings.stretchTime || 0;
     const multiplier = settings.stretchMul || 1.0;
     
+    let baseTempoRatio = 1.0;
     if (timeInBeats > 0) {
       const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
       const targetDurationSeconds = (timeInBeats / bpm) * 60;
-      return originalDuration / (targetDurationSeconds * multiplier);
-    } else {
-      return 1.0 / multiplier;
+      baseTempoRatio = originalDuration / targetDurationSeconds;
     }
+    return baseTempoRatio * multiplier;
   }
 
   public processSampleStretch(channelId: string) {
@@ -150,14 +150,15 @@ export class SamplerEngine {
     const sampleRate = pristineBuffer.sampleRate;
     
     // Calculate tempoRatio
-    let tempoRatio = 1.0;
+    let baseTempoRatio = 1.0;
     if (timeInBeats > 0) {
       const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
       const targetDurationSeconds = (timeInBeats / bpm) * 60;
-      tempoRatio = pristineBuffer.duration / (targetDurationSeconds * multiplier);
-    } else {
-      tempoRatio = 1.0 / multiplier;
+      baseTempoRatio = pristineBuffer.duration / targetDurationSeconds;
     }
+    const tempoRatio = baseTempoRatio * multiplier;
+
+    console.log("Sending to worker: pitchCents =", pitchCents, "tempoRatio =", tempoRatio);
 
     worker.postMessage({
       audioData: interleavedData,

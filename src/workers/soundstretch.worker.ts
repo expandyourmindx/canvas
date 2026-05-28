@@ -19,6 +19,7 @@ interface SoundStretchWorkerMessage {
   pitchCents: number;
   tempoRatio: number;
   sampleRate: number;
+  channelId: string;
 }
 
 let soundtouchModule: any = null;
@@ -30,7 +31,7 @@ Module.then((loadedModule: any) => {
 });
 
 self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
-  const { audioData, channels, pitchCents, tempoRatio, sampleRate } = e.data;
+  const { audioData, channels, pitchCents, tempoRatio, sampleRate, channelId } = e.data;
 
   if (!soundtouchModule) {
     // Wait for the Module initialization promise to complete
@@ -122,7 +123,8 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
       self.postMessage({
         stretchedAudio: outputData,
         channels: channels,
-        totalFrames: totalFramesReceived
+        totalFrames: totalFramesReceived,
+        channelId: channelId
       }, [outputData.buffer]);
 
     } catch (err: any) {
