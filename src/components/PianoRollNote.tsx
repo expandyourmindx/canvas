@@ -108,9 +108,9 @@ export function PianoRollNote({
       }}
       className={`absolute note-block-body border z-10 transition-colors select-none touch-none ${
         isDragging
-          ? "bg-[#F2E1C1] border-[#C6B698] cursor-grabbing shadow-md"
+          ? "bg-[#E8956D] border-[#CD7E57] cursor-grabbing shadow-md"
           : isSelected
-          ? "bg-[#E5D2AE] border-[#B5A587]"
+          ? "bg-[#E8956D] border-[#CD7E57] cursor-grab active:cursor-grabbing"
           : "bg-[#C8B89A] border-[#9E8E70] cursor-grab active:cursor-grabbing hover:bg-[#D0BF9F] hover:border-[#A49475]"
       }`}
       title={`MIDI: ${noteEvent.pitch} (${noteLabel}), Beat: ${noteEvent.time.toFixed(
@@ -130,7 +130,9 @@ export function PianoRollNote({
 
       {/* Note Label in Upper Left */}
       {widthPx > 28 && (
-        <span className="absolute left-1 top-0.5 text-[8.5px] font-black text-[#544633] select-none pointer-events-none tracking-tight leading-none uppercase">
+        <span className={`absolute left-1 top-0.5 text-[8.5px] font-black select-none pointer-events-none tracking-tight leading-none uppercase ${
+          isSelected ? "text-[#3B1F13]" : "text-[#544633]"
+        }`}>
           {noteLabel}
         </span>
       )}
