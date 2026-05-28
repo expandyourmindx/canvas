@@ -8,7 +8,7 @@ export const AVAILABLE_SAMPLES = [
 ];
 
 export const LANE_HEIGHT_PX = 48;
-export const CLIP_HEIGHT_PX = 48;
-export const CLIP_TOP_OFFSET_PX = 0;
+export const CLIP_HEIGHT_PX = 40;
+export const CLIP_TOP_OFFSET_PX = 2;
 export const PATTERN_LENGTH_BEATS = 32;
 
