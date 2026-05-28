@@ -45,6 +45,8 @@ export function useClipDrag({
   const lastTrackYRef = useRef(0);
   const rafActiveRef = useRef(false);
   const lassoDivRef = useRef<HTMLDivElement>(null);
+  const lassoIsAdditiveRef = useRef(false);
+  const lassoStartSelectionRef = useRef<string[]>([]);
 
   const selectedIdsRef = useRef<string[]>([]);
   useEffect(() => {
@@ -77,7 +79,15 @@ export function useClipDrag({
     const trackX = e.clientX - rect.left - 130;
     const trackY = e.clientY - rect.top;
 
-    setSelectedIds([]);
+    const isAdditive = e.ctrlKey && e.shiftKey;
+    lassoIsAdditiveRef.current = isAdditive;
+
+    if (isAdditive) {
+      lassoStartSelectionRef.current = [...selectedIdsRef.current];
+    } else {
+      setSelectedIds([]);
+      lassoStartSelectionRef.current = [];
+    }
 
     lassoActiveRef.current = true;
     lassoStartXRef.current = trackX;
@@ -151,12 +161,18 @@ export function useClipDrag({
           })
           .map((clip) => clip.id);
 
+        let nextSelected = newlySelected;
+        if (lassoIsAdditiveRef.current) {
+          const union = new Set([...lassoStartSelectionRef.current, ...newlySelected]);
+          nextSelected = Array.from(union);
+        }
+
         const hasSelectionChanged =
-          newlySelected.length !== selectedIdsRef.current.length ||
-          newlySelected.some((id, idx) => id !== selectedIdsRef.current[idx]);
+          nextSelected.length !== selectedIdsRef.current.length ||
+          nextSelected.some((id, idx) => id !== selectedIdsRef.current[idx]);
 
         if (hasSelectionChanged) {
-          setSelectedIds(newlySelected);
+          setSelectedIds(nextSelected);
         }
       });
     }
@@ -166,6 +182,8 @@ export function useClipDrag({
     if (lassoActiveRef.current) {
       e.currentTarget.releasePointerCapture(e.pointerId);
       lassoActiveRef.current = false;
+      lassoIsAdditiveRef.current = false;
+      lassoStartSelectionRef.current = [];
       if (lassoDivRef.current) {
         lassoDivRef.current.style.display = "none";
       }
