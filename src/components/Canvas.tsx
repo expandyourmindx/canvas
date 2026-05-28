@@ -116,7 +116,7 @@ export function Canvas({
 
   const minZoomX = React.useMemo(() => {
     if (maxClipBeat === 0 || viewportWidth <= 130) return 0.5;
-    const calc = (viewportWidth - 130) / (48 * maxClipBeat);
+    const calc = (viewportWidth - 130) / (48 * (maxClipBeat + 8));
     return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
   }, [maxClipBeat, viewportWidth]);
 

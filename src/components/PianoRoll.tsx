@@ -197,7 +197,7 @@ export function PianoRoll({
 
   const minZoomX = useMemo(() => {
     if (maxNoteBeat === 0 || viewportWidth <= 56) return 0.5;
-    const calc = (viewportWidth - 56) / (160 * maxNoteBeat);
+    const calc = (viewportWidth - 56) / (160 * (maxNoteBeat + 8));
     return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
   }, [maxNoteBeat, viewportWidth]);
 
