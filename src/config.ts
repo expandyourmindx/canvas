@@ -1,4 +1,4 @@
-export const CANVAS_VERSION = "0.18.1";
+export const CANVAS_VERSION = "0.19.0";
 export const CANVAS_BUILD_DATE = "May 2026";
 
 export const AVAILABLE_SAMPLES = [
@@ -11,4 +11,4 @@ export const LANE_HEIGHT_PX = 48;
 export const CLIP_HEIGHT_PX = 48;
 export const CLIP_TOP_OFFSET_PX = 0;
 export const PATTERN_LENGTH_BEATS = 32;
-
+
