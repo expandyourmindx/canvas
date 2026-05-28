@@ -29,6 +29,10 @@ const DEFAULT_SETTINGS: SamplerSettings = {
   decay: 30,
   sustain: 70,
   release: 40,
+  stretchMode: "resample",
+  stretchPitch: 0,
+  stretchMul: 1.0,
+  stretchTime: 0,
 };
 
 export function Sampler({
@@ -49,6 +53,20 @@ export function Sampler({
   const [loadedBuffer, setLoadedBuffer] = useState<AudioBuffer | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isPreviewActive, setIsPreviewActive] = useState(false);
+
+  const [timeMenuOpen, setTimeMenuOpen] = useState(false);
+
+  const handleTimeKnobContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeMenuOpen(true);
+  };
+
+  const toggleTimeMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeMenuOpen((prev) => !prev);
+  };
 
   // Find current channel metadata
   const channel = channels.find((c) => c.id === channelId);
@@ -345,7 +363,7 @@ export function Sampler({
       </div>
 
       {/* 2. DENSE HARDWARE CONTROL CONTROLS PANEL */}
-      <div className="grid grid-cols-2 gap-3.5 mb-1.5 select-none relative z-10">
+      <div className="grid grid-cols-3 gap-2.5 mb-1.5 select-none relative z-10">
         
         {/* A. SAMPLE CORE CONFIG MODULES */}
         <div className="bg-[#101114] border border-neutral-900/80 p-2.5 flex flex-col justify-between">
@@ -469,8 +487,121 @@ export function Sampler({
           {/* ADSR mini visual timeline graph indicator */}
           <div className="mt-3.5 h-3 flex items-center relative gap-[1.5px] select-none">
             <div className="flex-1 bg-black/45 border border-zinc-950/20 px-1.5 py-1 text-[7.5px] text-zinc-500 font-bold flex justify-between leading-none uppercase tracking-tighter">
-              <span>{settings.envelopeOn ? `A:${settings.attack} D:${settings.decay} S:${settings.sustain} R:${settings.release}` : "ENVELOPE IS BYPASSED"}</span>
+              <span>{settings.envelopeOn ? `A:${settings.attack} D:${settings.decay} S:${settings.sustain} R:${settings.release}` : "ENV BYPASSED"}</span>
             </div>
+          </div>
+        </div>
+
+        {/* C. TIME STRETCHING MODULE */}
+        <div className="bg-[#101114] border border-neutral-900/80 p-2.5 flex flex-col justify-between relative">
+          {/* Preset Dismiss Backdrop Overlay */}
+          {timeMenuOpen && (
+            <div 
+              className="fixed inset-0 z-[45] bg-transparent cursor-default" 
+              onClick={(e) => {
+                e.stopPropagation();
+                setTimeMenuOpen(false);
+              }}
+            />
+          )}
+
+          <div className="flex items-center justify-between border-b border-neutral-850 pb-1 mb-2.5 select-none text-[8px] text-zinc-500 font-black tracking-widest font-mono">
+            <div className="flex items-center gap-1">
+              <span className={`w-1 h-1 rounded-full ${settings.stretchMode === "stretch" ? "bg-cyan-400" : "bg-neutral-850"}`} />
+              TIME STRETCH
+            </div>
+            
+            {/* Mode dropdown selector */}
+            <select
+              value={settings.stretchMode || "resample"}
+              onChange={(e) => updateSetting("stretchMode", e.target.value as "resample" | "stretch")}
+              className="bg-black text-zinc-400 border border-neutral-850 hover:border-zinc-800 text-[8px] font-bold px-1 py-0.5 rounded-sm focus:outline-none focus:border-cyan-500 cursor-pointer transition-colors font-mono"
+              title="Time stretching algorithm mode"
+            >
+              <option value="resample">RESAMPLE</option>
+              <option value="stretch">STRETCH</option>
+            </select>
+          </div>
+
+          <div className="flex items-center justify-around gap-1 pt-1 select-none">
+            <Knob
+              label="PITCH"
+              value={settings.stretchPitch !== undefined ? settings.stretchPitch : 0}
+              min={-1200}
+              max={1200}
+              color="cyan"
+              defaultValue={0}
+              onChange={(v) => updateSetting("stretchPitch", v)}
+              title="Fine pitch transpose in cents (-1200 to +1200)"
+            />
+            <Knob
+              label="MUL"
+              value={settings.stretchMul !== undefined ? Math.round(settings.stretchMul * 100) : 100}
+              min={50}
+              max={200}
+              color="amber"
+              defaultValue={100}
+              onChange={(v) => updateSetting("stretchMul", v / 100)}
+              title="Time stretch duration multiplier (0.5x to 2.0x)"
+            />
+            <div className="relative z-50" onContextMenu={handleTimeKnobContextMenu}>
+              <Knob
+                label="TIME"
+                value={settings.stretchTime !== undefined ? settings.stretchTime : 0}
+                min={0}
+                max={64}
+                color="cyan"
+                defaultValue={0}
+                onChange={(v) => updateSetting("stretchTime", v)}
+                title="Target length in project beats (0 = Auto; Right-click or use arrow for presets)"
+              />
+              <button
+                type="button"
+                onClick={toggleTimeMenu}
+                className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[6px] text-zinc-650 hover:text-cyan-400 cursor-pointer leading-none px-1 py-0.5 select-none"
+                title="Quick presets menu"
+              >
+                ▼
+              </button>
+              
+              {/* Context/Presets Popover Menu */}
+              {timeMenuOpen && (
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[50] w-28 bg-[#0a0b0d] border border-neutral-800 shadow-[0_4px_12px_rgba(0,0,0,0.85)] p-1 flex flex-col font-mono text-[8.5px] uppercase select-none">
+                  {[
+                    { label: "AUTO (0)", value: 0 },
+                    { label: "1 BEAT", value: 1 },
+                    { label: "2 BEATS", value: 2 },
+                    { label: "1 BAR (4 BT)", value: 4 },
+                    { label: "2 BARS (8 BT)", value: 8 },
+                    { label: "4 BARS (16 BT)", value: 16 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateSetting("stretchTime", preset.value);
+                        setTimeMenuOpen(false);
+                      }}
+                      className={`w-full text-left px-2 py-1 hover:bg-cyan-500/10 hover:text-cyan-400 transition-colors cursor-pointer ${
+                        (settings.stretchTime === preset.value || (preset.value === 0 && !settings.stretchTime))
+                          ? "text-cyan-400 font-bold bg-cyan-950/20"
+                          : "text-zinc-400 font-medium"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Digital status readout */}
+          <div className="mt-3.5 bg-black/45 border border-zinc-950/20 px-1.5 py-1 text-[7.5px] text-zinc-500 font-bold flex justify-between leading-none uppercase tracking-tighter">
+            <span>PTCH: {settings.stretchPitch !== undefined ? (settings.stretchPitch > 0 ? `+${settings.stretchPitch}` : settings.stretchPitch) : 0}c</span>
+            <span>MUL: {settings.stretchMul !== undefined ? settings.stretchMul.toFixed(2) : "1.00"}x</span>
+            <span>TIME: {settings.stretchTime ? `${settings.stretchTime} BT` : "AUTO"}</span>
           </div>
         </div>
 

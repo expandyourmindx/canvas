@@ -98,6 +98,10 @@ export class SamplerEngine {
       decay: 30,
       sustain: 70,
       release: 40,
+      stretchMode: "resample" as const,
+      stretchPitch: 0,
+      stretchMul: 1.0,
+      stretchTime: 0,
     };
 
     const notePitchOffset = midiNote - 60;
@@ -215,6 +219,10 @@ export class SamplerEngine {
       decay: 30,
       sustain: 70,
       release: 40,
+      stretchMode: "resample" as const,
+      stretchPitch: 0,
+      stretchMul: 1.0,
+      stretchTime: 0,
     };
 
     // Keep settings cache updated

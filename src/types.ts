@@ -51,6 +51,12 @@ export interface SamplerSettings {
   decay: number;          // 0% to 100%
   sustain: number;        // 0% to 100%
   release: number;        // 0% to 100%
+
+  // Time Stretching Settings
+  stretchMode?: "resample" | "stretch";
+  stretchPitch?: number;  // cents, -1200 to +1200
+  stretchMul?: number;    // factor, 0.5 to 2.0
+  stretchTime?: number;   // length in beats, 0 represents Auto
 }
 
 export interface OscillatorSettings {
