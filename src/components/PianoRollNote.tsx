@@ -104,13 +104,14 @@ export function PianoRollNote({
         width: `${widthPx}px`,
         top: `${topPx + 2}px`,
         height: `${rowHeight - 4}px`,
+        borderRadius: "2px",
       }}
-      className={`absolute note-block-body border rounded-none shadow-[0_0_8px_rgba(34,211,238,0.35)] flex items-center justify-between z-10 transition-colors group select-none touch-none ${
+      className={`absolute note-block-body border z-10 transition-colors select-none touch-none ${
         isDragging
-          ? "bg-cyan-400 cursor-grabbing border-cyan-350"
+          ? "bg-[#F2E1C1] border-[#C6B698] cursor-grabbing shadow-md"
           : isSelected
-          ? "bg-[#0bc5ea] border-white ring-2 ring-white scale-[0.98]"
-          : "bg-cyan-500 hover:bg-cyan-400 border-cyan-300/35 cursor-grab active:cursor-grabbing"
+          ? "bg-[#E5D2AE] border-[#B5A587]"
+          : "bg-[#C8B89A] border-[#9E8E70] cursor-grab active:cursor-grabbing hover:bg-[#D0BF9F] hover:border-[#A49475]"
       }`}
       title={`MIDI: ${noteEvent.pitch} (${noteLabel}), Beat: ${noteEvent.time.toFixed(
         2
@@ -123,26 +124,25 @@ export function PianoRollNote({
         onPointerDown={(e) => handleResizeDown(e, noteEvent, "left")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/20 flex items-center justify-center select-none z-30 transition-colors rounded-none group/left left-resize-zone"
+        className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-gradient-to-r hover:from-white/12 hover:to-transparent select-none z-30 transition-colors rounded-none left-resize-zone"
         title="Drag left edge to adjust start time"
-      >
-        <div className="w-[1.5px] h-3 bg-cyan-900/45 group-hover/left:bg-white/60" />
-      </div>
+      />
 
-      <span className="text-[7.5px] font-black text-cyan-950 font-mono tracking-tighter truncate select-none pointer-events-none mx-auto text-center px-1">
-        {noteLabel}
-      </span>
+      {/* Note Label in Upper Left */}
+      {widthPx > 28 && (
+        <span className="absolute left-1 top-0.5 text-[8.5px] font-black text-[#544633] select-none pointer-events-none tracking-tight leading-none uppercase">
+          {noteLabel}
+        </span>
+      )}
 
       {/* RIGHT RESIZE ZONE */}
       <div
         onPointerDown={(e) => handleResizeDown(e, noteEvent, "right")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/20 flex items-center justify-center select-none z-30 transition-colors rounded-none group/right right-resize-zone"
+        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-gradient-to-l hover:from-white/12 hover:to-transparent select-none z-30 transition-colors rounded-none right-resize-zone"
         title="Drag right edge to adjust duration"
-      >
-        <div className="w-[1.5px] h-3 bg-cyan-900/45 group-hover/right:bg-white/60" />
-      </div>
+      />
     </div>
   );
 }
