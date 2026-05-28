@@ -74,10 +74,9 @@ export class SamplerEngine {
           }
         }
         
-        // Store in SampleRegistry under a stretched ID
+        // Store in SampleRegistry under a stretched ID using the public API
         const stretchedId = `${channelId}_stretched`;
-        this.sampleRegistry.loadSample(stretchedId, new ArrayBuffer(0)).catch(() => {});
-        (this.sampleRegistry as any).sampleBuffers.set(stretchedId, buffer);
+        this.sampleRegistry.setSampleBuffer(stretchedId, buffer);
         
         // Update active slot
         this.channelSampleIds[channelId] = stretchedId;
@@ -250,7 +249,8 @@ export class SamplerEngine {
     };
 
     const notePitchOffset = midiNote - 60;
-    const finalTransposition = notePitchOffset + (settings.pitch || 0);
+    const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
+    const finalTransposition = notePitchOffset + (settings.pitch || 0) + stretchPitchSemitones;
     
     let resampleTempoRatio = 1.0;
     if (settings.stretchMode === "resample") {
@@ -395,11 +395,13 @@ export class SamplerEngine {
     source.connect(nodes.gain);
 
     // Apply Pitch Transpose (playbackRate ratio = 2^(pitch/12))
+    const stretchPitchSemitones = (activeSettings.stretchPitch || 0) / 100;
+    const totalPitchSemitones = (activeSettings.pitch || 0) + stretchPitchSemitones;
     let resampleTempoRatio = 1.0;
     if (activeSettings.stretchMode === "resample") {
       resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
     }
-    source.playbackRate.setValueAtTime(Math.pow(2, activeSettings.pitch / 12) * resampleTempoRatio, now);
+    source.playbackRate.setValueAtTime(Math.pow(2, totalPitchSemitones / 12) * resampleTempoRatio, now);
 
     // Apply Pan to our StereoPannerNode
     const mappedPan = activePan / 50; // map [-50, 50] to [-1, 1]
@@ -517,7 +519,12 @@ export class SamplerEngine {
     if (event.pitch !== undefined) {
       notePitchOffset = event.pitch - 60; // relative to Middle C (60)
     }
-    const finalTransposition = notePitchOffset + channelSettingsPitch;
+    let stretchPitchSemitones = 0;
+    if (channelId) {
+      const settings = this.samplerSettings[channelId];
+      stretchPitchSemitones = (settings?.stretchPitch || 0) / 100;
+    }
+    const finalTransposition = notePitchOffset + channelSettingsPitch + stretchPitchSemitones;
     
     let resampleTempoRatio = 1.0;
     if (channelId) {
@@ -620,13 +627,18 @@ export class SamplerEngine {
     gainNode.gain.setValueAtTime(0.8, absoluteContextTime);
 
     let resampleTempoRatio = 1.0;
+    let canvasPitchRate = 1.0;
     if (channelId) {
       const settings = this.samplerSettings[channelId];
-      if (settings && settings.stretchMode === "resample") {
-        resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+      if (settings) {
+        const stretchPitchSemitones = (settings.stretchPitch || 0) / 100;
+        canvasPitchRate = Math.pow(2, stretchPitchSemitones / 12);
+        if (settings.stretchMode === "resample") {
+          resampleTempoRatio = this.calculateTempoRatio(channelId, buffer.duration);
+        }
       }
     }
-    source.playbackRate.setValueAtTime(resampleTempoRatio, absoluteContextTime);
+    source.playbackRate.setValueAtTime(canvasPitchRate * resampleTempoRatio, absoluteContextTime);
 
     // Track active length
     const clipDurationSeconds = this.delegate.beatsToSeconds(clip.duration);

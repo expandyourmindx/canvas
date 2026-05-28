@@ -50,6 +50,17 @@ export class SampleRegistry {
     return Array.from(this.sampleBuffers.keys());
   }
 
+  /**
+   * Directly register a pre-decoded AudioBuffer into the cache.
+   * Used by the stretch worker pipeline to store processed buffers
+   * without going through decodeAudioData.
+   */
+  public setSampleBuffer(id: string, buffer: AudioBuffer): void {
+    this.sampleBuffers.set(id, buffer);
+    this.touchAccessOrder(id);
+    this.evictIfNeeded();
+  }
+
   public removeSample(id: string): void {
     this.sampleBuffers.delete(id);
     this.accessOrder = this.accessOrder.filter(k => k !== id);
