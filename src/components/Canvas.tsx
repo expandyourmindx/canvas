@@ -331,7 +331,8 @@ export function Canvas({
       } else if (selectedClipType === "sample") {
         const loadedSamples = engine?.getLoadedSampleIds() || [];
         const sampleExists = loadedSamples.includes(selectedReferenceId);
-        if (sampleExists) return;
+        const channelExists = (channels || []).some(c => c.id === selectedReferenceId || c.sampleId === selectedReferenceId);
+        if (sampleExists || channelExists) return;
       }
     }
 
@@ -349,7 +350,7 @@ export function Canvas({
         setClipCropStart(0);
       }
     }
-  }, [patterns, engine, selectedClipType, selectedReferenceId]);
+  }, [patterns, engine, selectedClipType, selectedReferenceId, channels]);
 
 
 
