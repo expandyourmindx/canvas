@@ -63,6 +63,13 @@ export function Canvas({
     notifySampleLoaded,
   } = useAudioEngine();
 
+  // Safe wrapper to resolve channel reference ID (e.g. sampler_...) to its actual sampleId
+  const getSampleBufferWrapper = React.useCallback((id: string) => {
+    const chan = channels.find(c => c.id === id || c.sampleId === id);
+    const actualId = chan ? (chan.sampleId || id) : id;
+    return getSampleBuffer(actualId);
+  }, [channels, getSampleBuffer]);
+
   const [placingClip, setPlacingClip] = useState<CanvasClip | null>(null);
   const placingClipRef = useRef<CanvasClip | null>(null);
   const placingPointerId = useRef<number | null>(null);
@@ -996,7 +1003,7 @@ export function Canvas({
                         isSelected={isSelected}
                         activeTool={activeTool}
                         patterns={patterns}
-                        getSampleBuffer={getSampleBuffer}
+                        getSampleBuffer={getSampleBufferWrapper}
                         removeCanvasClip={removeCanvasClip}
                         handleClipSplit={handleClipSplit}
                         handleClipPointerDown={handleClipPointerDownWrapper}
@@ -1019,7 +1026,7 @@ export function Canvas({
                         isSelected={false}
                         activeTool="pencil"
                         patterns={patterns}
-                        getSampleBuffer={getSampleBuffer}
+                        getSampleBuffer={getSampleBufferWrapper}
                         removeCanvasClip={() => {}}
                         handleClipSplit={() => {}}
                         handleClipPointerDown={() => {}}

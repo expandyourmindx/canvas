@@ -398,9 +398,11 @@ export class SamplerEngine {
    * Plays a registered sample event with a hardware-accurate timeline target and optional offset.
    */
   public triggerCanvasSample(clip: CanvasClip, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
-    const buffer = this.sampleRegistry.getSampleBuffer(clip.referenceId);
+    const isChannelId = clip.referenceId.startsWith("sampler_");
+    const sampleId = isChannelId ? (this.channelSampleIds[clip.referenceId] || clip.referenceId) : clip.referenceId;
+    const buffer = this.sampleRegistry.getSampleBuffer(sampleId);
     if (!buffer) {
-      console.warn(`Sample buffer with ID "${clip.referenceId}" was not loaded yet.`);
+      console.warn(`Sample buffer with ID "${sampleId}" was not loaded yet.`);
       return;
     }
 
@@ -411,7 +413,7 @@ export class SamplerEngine {
     source.connect(gainNode);
 
     // Determine the playing channel by matching registered sample IDs
-    const channelId = Object.keys(this.channelSampleIds).find(
+    const channelId = isChannelId ? clip.referenceId : Object.keys(this.channelSampleIds).find(
       (key) => this.channelSampleIds[key] === clip.referenceId
     );
 

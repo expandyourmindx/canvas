@@ -412,7 +412,14 @@ export class AudioEngine {
    * Retrieves specific loaded sample buffer.
    */
   public getSampleBuffer(id: string): AudioBuffer | undefined {
-    return this.sampleRegistry.getSampleBuffer(id);
+    let sampleId = id;
+    if (id.startsWith("sampler_")) {
+      const chanSampleId = this.samplerEngine.getChannelSampleId(id);
+      if (chanSampleId) {
+        sampleId = chanSampleId;
+      }
+    }
+    return this.sampleRegistry.getSampleBuffer(sampleId);
   }
 
   /**
