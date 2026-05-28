@@ -8,8 +8,6 @@ import { useAudioEngine } from "../audio/useAudioEngine";
 import { CanvasClip, ChannelRow } from "../types";
 import { AVAILABLE_SAMPLES, LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX } from "../config";
 import {
-  Layers,
-  Trash2,
   Pencil,
   MousePointer,
 } from "lucide-react";
@@ -628,10 +626,22 @@ export function Canvas({
       {/* HEADER STRIP */}
       <div className="flex items-center justify-between border-b border-[#1b1c20] pb-2">
         <div className="flex items-center gap-2">
-          <Layers className="h-4 w-4 text-indigo-400" />
-          <h3 className="text-xs font-black tracking-wide text-neutral-100 uppercase mr-1">
-            Arrangement Canvas
-          </h3>
+          {selectedClipType ? (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-black/40 border border-neutral-850/50 text-[9px] font-mono text-orange-400 rounded-none shadow-[inset_0_0_4px_rgba(249,115,22,0.1)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0 animate-pulse shadow-[0_0_4px_rgba(249,115,22,0.6)]" />
+              <span className="font-bold text-[8px] uppercase tracking-wider text-zinc-550 mr-0.5">STAMP:</span>
+              <span className="text-orange-300 font-bold uppercase truncate max-w-[150px] leading-none mt-0.5">
+                {selectedClipType === "pattern" 
+                  ? (patterns.find(p => p.id === selectedReferenceId)?.name || "MIDI Pattern")
+                  : getSampleName(selectedReferenceId)}
+              </span>
+              <span className="text-[7.5px] font-mono text-zinc-555 bg-neutral-900 px-1 py-0.5 rounded-none ml-1 uppercase leading-none">
+                {selectedClipType === "pattern" ? "Pattern" : "Sample"}
+              </span>
+            </div>
+          ) : (
+            <div className="text-[9px] font-mono text-zinc-650 uppercase tracking-widest pl-1 font-bold">No Stamp</div>
+          )}
         </div>
         <div className="flex items-center gap-2.5">
           {/* Tool Selector Toggle Group */}
@@ -704,17 +714,8 @@ export function Canvas({
               <option value="0.125" className="bg-[#121315] text-zinc-300">1/32 (0.125 Beats)</option>
             </select>
           </div>
-
-          <button
-            onClick={clearArrangement}
-            className="px-2.5 py-1 bg-[#121316] hover:bg-red-950/20 text-red-400 hover:text-red-300 border border-neutral-850 hover:border-red-900/60 text-[9px] font-black uppercase transition-colors rounded-none cursor-pointer flex items-center justify-center gap-1 select-none"
-            title="Clear all clips from timeline"
-          >
-            <Trash2 className="h-3 w-3" />
-            <span>Wipe Arrangement</span>
-          </button>
+          </div>
         </div>
-      </div>
 
       {/* TWO COLUMN BENTO LAYOUT */}
       <div className="flex gap-3.5 flex-1 min-h-0">
@@ -819,7 +820,7 @@ export function Canvas({
                         const dataStr = e.dataTransfer.getData("application/json");
                         if (dataStr) {
                           try {
-                            const { id, path, name } = JSON.parse(dataStr);
+                            const droppedObj = JSON.parse(dataStr);
                             const rect = e.currentTarget.getBoundingClientRect();
                             const offsetX = e.clientX - rect.left;
                             const rawBeat = (offsetX / rect.width) * totalBeats;
@@ -828,6 +829,41 @@ export function Canvas({
                               ? Math.round(rawBeat / snap) * snap
                               : rawBeat;
 
+                            if (droppedObj.type === "pattern") {
+                              const patternId = droppedObj.id;
+                              const patternName = droppedObj.name;
+                              const durationBeats = 4; // Patterns default to 4 beats
+
+                              const newClip = {
+                                id: `clip_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                                laneIndex: laneIdx,
+                                startBeat: Math.max(0, Math.min(totalBeats - durationBeats, snappedBeat)),
+                                duration: durationBeats,
+                                type: "pattern" as const,
+                                referenceId: patternId,
+                                name: patternName,
+                                color: "from-cyan-555/15 to-cyan-500/5 text-cyan-400 border-cyan-500/30",
+                                cropStart: 0,
+                              };
+
+                              setCanvasClips(prev => [...prev, newClip]);
+                              setSelectedIds([newClip.id]);
+
+                              // Load properties into pencil tool for the next placement
+                              setSelectedClipType("pattern");
+                              setSelectedReferenceId(patternId);
+                              setClipDurationBeats(4);
+                              setClipCropStart(0);
+
+                              if (pushToHistory) {
+                                pushToHistory(channels);
+                              }
+                              return;
+                            }
+
+                            // Sample drop logic
+                            const id = droppedObj.id;
+                            const path = droppedObj.path;
                             let durationBeats = 4;
                             let buffer = getSampleBuffer(id);
                             
@@ -939,7 +975,7 @@ export function Canvas({
                               pushToHistory(updatedChannels);
                             }
                           } catch (err) {
-                            console.error("Error setting canvas clip from sample browser drop", err);
+                            console.error("Error setting canvas clip from sample drop", err);
                           }
                         }
                       }}
