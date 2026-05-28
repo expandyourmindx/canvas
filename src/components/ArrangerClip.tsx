@@ -52,12 +52,51 @@ export function ArrangerClip({
   const leftPx = clip.startBeat * beatWidth;
   
   // Real-time Visual Scaling (The FL Effect):
-  // Check if this channel has stretch settings set and immediately scale visual width
+  // Calculate visual width that precisely matches the actual audio playback duration.
+  // RESAMPLE mode: pitch changes length (linked). STRETCH mode: pitch is independent.
   const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
   
   let widthPx = clip.duration * beatWidth;
-  if (settings && settings.stretchTime && settings.stretchTime > 0) {
-    widthPx = settings.stretchTime * (settings.stretchMul || 1.0) * beatWidth;
+  if (settings && (settings.stretchTime || settings.stretchMul !== undefined || settings.stretchPitch)) {
+    const stretchTime = settings.stretchTime || 0;
+    const multiplier = settings.stretchMul ?? 1.0;
+    const pitchCents = settings.stretchPitch || 0;
+    
+    if (stretchTime > 0) {
+      if (settings.stretchMode === "resample") {
+        // RESAMPLE: Pitch changes length. The playbackRate is baseTempoRatio * mul * 2^(cents/1200)
+        // Visual width = originalBeats / playbackRate
+        // But we know the target duration in beats = stretchTime, so:
+        // baseTempoRatio = originalDuration / targetDuration
+        // effectiveRate = baseTempoRatio * multiplier * pitchRatio
+        // visualBeats = originalBeatsLength / effectiveRate
+        // Simpler: targetBeats = stretchTime, then adjusted for mul and pitch:
+        // visualBeats = stretchTime / (multiplier * pitchRatio)  ... but that's not quite right.
+        // Actually: playbackRate = (origDur / targetDur) * mul * 2^(cents/1200)
+        // audibleDuration = origDur / playbackRate = targetDur / (mul * 2^(cents/1200))
+        // audibleBeats = stretchTime / (mul * 2^(cents/1200))
+        const pitchRatio = Math.pow(2, pitchCents / 1200);
+        const audibleBeats = stretchTime / (multiplier * pitchRatio);
+        widthPx = audibleBeats * beatWidth;
+      } else {
+        // STRETCH: Pitch has ZERO effect on length. Time and multiplier are independent of pitch.
+        // The worker produces a buffer of length = originalFrames / tempoRatio
+        // tempoRatio = baseTempoRatio * multiplier = (origDur / targetDur) * multiplier
+        // outputDuration = origDur / tempoRatio = targetDur / multiplier
+        // outputBeats = stretchTime / multiplier
+        const audibleBeats = stretchTime / multiplier;
+        widthPx = audibleBeats * beatWidth;
+      }
+    } else {
+      // stretchTime is 0 (Auto) — only multiplier and pitch affect length
+      if (settings.stretchMode === "resample") {
+        const pitchRatio = Math.pow(2, pitchCents / 1200);
+        widthPx = clip.duration / (multiplier * pitchRatio) * beatWidth;
+      } else {
+        // STRETCH with auto time: multiplier scales the tempo, pitch is independent
+        widthPx = clip.duration / multiplier * beatWidth;
+      }
+    }
   }
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;

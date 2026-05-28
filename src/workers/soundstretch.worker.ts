@@ -108,24 +108,38 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
         totalFramesReceived += framesReceived;
       }
 
-      // 5. Package output data into JS-native typed array
-      const processedFloats = totalFramesReceived * channels;
-      const outputData = new Float32Array(processedFloats);
-      const heapOffset = outputBufferPtr / bytesPerSample;
-      
-      outputData.set(soundtouchModule.HEAPF32.subarray(heapOffset, heapOffset + processedFloats));
+      // 5. Calculate exact target frame count to prevent OLA windowing residue drift
+      const exactTargetFrames = Math.floor(numFrames / tempoRatio);
 
-      // 6. Deallocate WASM heap memory buffers and destroy SoundTouch C++ handle
+      // 6. Package output data into JS-native typed array, force-trimmed or zero-padded
+      //    to match the exact expected duration so audio aligns with the visual grid
+      const finalFrames = exactTargetFrames > 0 ? exactTargetFrames : totalFramesReceived;
+      const finalFloats = finalFrames * channels;
+      const outputData = new Float32Array(finalFloats);
+      const heapOffset = outputBufferPtr / bytesPerSample;
+
+      if (totalFramesReceived >= finalFrames) {
+        // Trim: take only the exact number of frames we need
+        outputData.set(soundtouchModule.HEAPF32.subarray(heapOffset, heapOffset + finalFloats));
+      } else {
+        // Zero-pad: copy what we have, rest is already zeroed by Float32Array constructor
+        const availableFloats = totalFramesReceived * channels;
+        outputData.set(soundtouchModule.HEAPF32.subarray(heapOffset, heapOffset + availableFloats));
+      }
+
+      console.log(`SoundTouch buffer trimming: received=${totalFramesReceived} target=${finalFrames} (ratio=${tempoRatio.toFixed(4)})`);
+
+      // 7. Deallocate WASM heap memory buffers and destroy SoundTouch C++ handle
       free(inputBufferPtr);
       free(outputBufferPtr);
       free(batchBufferPtr);
       soundtouch_destroy(handle);
 
-      // 7. Post message back to the main thread with transferable array to avoid copies
+      // 8. Post message back to the main thread with transferable array to avoid copies
       self.postMessage({
         stretchedAudio: outputData,
         channels: channels,
-        totalFrames: totalFramesReceived,
+        totalFrames: finalFrames,
         channelId: channelId
       }, [outputData.buffer]);
 
