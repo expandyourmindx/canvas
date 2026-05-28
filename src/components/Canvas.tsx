@@ -743,18 +743,18 @@ export function Canvas({
         {/* RIGHT COLUMN: ARRANGEMENT TIMELINE */}
         <div className="flex-1 flex flex-col min-w-0 h-full relative">
 
-          <div ref={scrollContainerRef} onScroll={handleScroll} className="relative select-none border border-neutral-850 bg-[#0a0b0d] p-2 flex-1 overflow-auto scrollbar-thin">
-            <div className="relative space-y-1" style={{ width: `${130 + timelineWidth}px` }}>
+          <div ref={scrollContainerRef} onScroll={handleScroll} className="relative select-none border border-neutral-850 bg-[#0a0b0d] p-0 flex-1 overflow-auto scrollbar-thin">
+            <div className="relative space-y-0" style={{ width: `${130 + timelineWidth}px` }}>
 
               <div
                 ref={playheadRef}
-                className="absolute top-[30px] bottom-0 w-[1.5px] bg-indigo-500 z-20 pointer-events-none shadow-[0_0_12px_rgba(99,102,241,0.6)] overflow-visible"
+                className="absolute top-0 bottom-0 w-[1.5px] bg-indigo-500 z-[25] pointer-events-none shadow-[0_0_12px_rgba(99,102,241,0.6)] overflow-visible"
                 style={{
                   left: "130px",
                 }}
               >
                 {/* ── PLAYHEAD ARROW CARET ── */}
-                <div className="absolute top-0 -translate-y-full -translate-x-1/2 left-1/2">
+                <div className="absolute top-[30px] -translate-y-full -translate-x-1/2 left-1/2">
                   <svg
                     width="10"
                     height="6"

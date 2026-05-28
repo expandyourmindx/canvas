@@ -186,7 +186,7 @@ export function ArrangerRuler({
       {/* Sticky lane label column */}
       <div
         onPointerDown={(e) => e.stopPropagation()}
-        className="w-[130px] shrink-0 flex items-center pl-2 text-zinc-500 font-bold uppercase text-[8.5px] font-mono border-r border-[#17181c] h-full sticky left-0 bg-[#0a0b0d] z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] cursor-default"
+        className="w-[130px] shrink-0 flex items-center pl-2 text-zinc-500 font-bold uppercase text-[8.5px] font-mono border-r border-[#17181c] h-full sticky left-0 bg-[#0a0b0d] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] cursor-default"
       >
         Arranger Lanes
       </div>
