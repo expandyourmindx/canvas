@@ -19,6 +19,7 @@ interface DraggableWindowProps {
   defaultHeight: number;
   minWidth?: number;
   minHeight?: number;
+  defaultMaximized?: boolean;
   children: React.ReactNode;
 }
 
@@ -35,12 +36,13 @@ export function DraggableWindow({
   defaultHeight,
   minWidth = 350,
   minHeight = 250,
+  defaultMaximized = false,
   children,
 }: DraggableWindowProps) {
   // Positioning and dimensions states
   const [position, setPosition] = useState({ x: defaultX, y: defaultY });
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
-  const [isMaximized, setIsMaximized] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(defaultMaximized);
 
   // Drag and resize active states
   const dragStart = useRef<{ posX: number; posY: number; winX: number; winY: number } | null>(null);

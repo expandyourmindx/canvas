@@ -47,7 +47,7 @@ export function Desktop() {
     sequencer: true,
     sampler: false, // Sampler window initially closed
     pianoroll: false, // Piano Roll window initially closed
-    mixer: true, // Mixer window initially open
+    mixer: false, // Mixer window initially closed by default
     obsidian: false, // Obsidian window initially closed
     export: false, // Export window initially closed
     eqpanel: false, // EQ Panel window initially closed
@@ -392,6 +392,7 @@ export function Desktop() {
           defaultHeight={460}
           minWidth={550}
           minHeight={300}
+          defaultMaximized={true}
         >
           <Canvas
             channels={channels}
@@ -420,8 +421,8 @@ export function Desktop() {
           onClose={() => toggleWindow("sequencer")}
           onFocus={() => handleSetFocus("sequencer")}
           zIndex={getZIndex("sequencer")}
-          defaultX={90}
-          defaultY={170}
+          defaultX={200}
+          defaultY={130}
           defaultWidth={850}
           defaultHeight={420}
           minWidth={600}

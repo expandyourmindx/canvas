@@ -123,7 +123,7 @@ export function ArrangerSourcePicker({
 }: ArrangerSourcePickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(true); // Collapsed by default
+  const [isCollapsed, setIsCollapsed] = useState(false); // Collapsed by default
   const [activeTab, setActiveTab] = useState<"patterns" | "samples" | "automation">("patterns");
 
   const handleDragOver = (e: React.DragEvent) => {
