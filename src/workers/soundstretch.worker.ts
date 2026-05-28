@@ -72,6 +72,8 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
       const pitchSemitones = pitchCents / 100;
       soundtouch_set_pitch_semi_tones(handle, pitchSemitones);
 
+      console.log("SoundTouch Engine executing with Tempo:", tempoRatio, "and Pitch Semitones:", pitchSemitones);
+
       const numFrames = audioData.length / channels;
 
       // 3. Allocate Float32 PCM memory buffer inside WASM Heap

@@ -90,7 +90,7 @@ var Module = (function() {
       // Combined WSOLA/OLA stretching & resampling
       // pitch change without changing tempo: resample by pitchRatio, then stretch by 1 / pitchRatio
       // tempo change without changing pitch: stretch by tempoRatio
-      var stretchTempo = tempoRatio * pitchRatio;
+      var stretchTempo = tempoRatio / pitchRatio;
       var resampleRatio = pitchRatio;
       
       var stretchedData = this.stretch(input, stretchTempo);
@@ -108,9 +108,9 @@ var Module = (function() {
       var output = new Float32Array(outputFrames * channels);
       
       var windowSize = 512;
-      var hopSizeIn = 128;
-      var hopSizeOut = Math.round(hopSizeIn * tempo);
-      if (hopSizeOut < 1) hopSizeOut = 1;
+      var hopSizeOut = 128; // fixed synthesis hop
+      var hopSizeIn = Math.round(hopSizeOut * tempo);
+      if (hopSizeIn < 1) hopSizeIn = 1;
       
       var inIdx = 0;
       var outIdx = 0;
@@ -124,7 +124,7 @@ var Module = (function() {
             
             // Hann windowing function
             var windowValue = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (windowSize - 1)));
-            output[outPos] += input[inPos] * windowValue * (hopSizeIn / windowSize);
+            output[outPos] += input[inPos] * windowValue * (hopSizeOut / windowSize);
           }
         }
         inIdx += hopSizeIn;
