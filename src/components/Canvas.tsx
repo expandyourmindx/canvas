@@ -93,6 +93,48 @@ export function Canvas({
   const panScrollLeft = useRef(0);
   const panScrollTop = useRef(0);
 
+  const [viewportWidth, setViewportWidth] = useState<number>(0);
+  
+  // Track viewport width via ResizeObserver
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setViewportWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const maxClipBeat = React.useMemo(() => {
+    if (canvasClips.length === 0) return 0;
+    return Math.max(...canvasClips.map((c) => c.startBeat + c.duration));
+  }, [canvasClips]);
+
+  const minZoomX = React.useMemo(() => {
+    if (maxClipBeat === 0 || viewportWidth <= 130) return 0.5;
+    const calc = (viewportWidth - 130) / (48 * maxClipBeat);
+    return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
+  }, [maxClipBeat, viewportWidth]);
+
+  // Keep the current zoom level clamped to the dynamic minZoomX bounds
+  useEffect(() => {
+    if (zoomX < minZoomX) {
+      setZoomX(minZoomX);
+    }
+  }, [minZoomX, zoomX]);
+
+  // Enforce minZoomX boundary on manual Alt / middle-click zooming from ArrangerRuler
+  const setZoomXClamped = React.useCallback((value: React.SetStateAction<number>) => {
+    setZoomX(prev => {
+      const next = typeof value === "function" ? (value as Function)(prev) : value;
+      return Math.max(minZoomX, Math.min(4.0, next));
+    });
+  }, [minZoomX]);
+
   // Ctrl + Wheel Zoom Effect
   useEffect(() => {
     const el = scrollContainerRef.current;
@@ -112,7 +154,7 @@ export function Canvas({
       const dir = e.deltaY > 0 ? -1 : 1;
 
       setZoomX(prev => {
-        const newZoom = Math.max(0.5, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2))));
+        const newZoom = Math.max(minZoomX, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2))));
         const scaleRatio = newZoom / prev;
         // Schedule scroll update after state flush
         requestAnimationFrame(() => {
@@ -126,7 +168,7 @@ export function Canvas({
     return () => {
       el.removeEventListener("wheel", handleCtrlWheel);
     };
-  }, []);
+  }, [minZoomX]);
 
   const handleAudioFileImport = async (file: File) => {
     if (!engine || !setChannels) return;
@@ -722,7 +764,7 @@ export function Canvas({
                 setPlayheadPosition={setPlayheadPosition}
                 setLoop={setLoop}
                 zoomX={zoomX}
-                setZoomX={setZoomX}
+                setZoomX={setZoomXClamped}
                 scrollContainerRef={scrollContainerRef}
               />
 

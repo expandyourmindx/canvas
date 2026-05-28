@@ -81,37 +81,20 @@ export function PianoRoll({
   const panScrollLeft = useRef(0);
   const panScrollTop = useRef(0);
 
-  // Wheel horizontal zoom effect via Ctrl+Wheel (centered on cursor)
+  const [viewportWidth, setViewportWidth] = useState<number>(0);
+
+  // Track viewport width via ResizeObserver
   useEffect(() => {
     const el = timelineRef.current;
     if (!el) return;
 
-    const handleCtrlWheel = (e: WheelEvent) => {
-      if (e.ctrlKey) {
-        e.preventDefault();
-
-        const rect = el.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const scrollOffset = mouseX + el.scrollLeft;
-
-        const dir = e.deltaY > 0 ? -1 : 1;
-
-        setZoomX(prev => {
-          const newZoom = Math.max(0.5, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2))));
-          const scaleRatio = newZoom / prev;
-          // Schedule scroll update after state flush
-          requestAnimationFrame(() => {
-            el.scrollLeft = scrollOffset * scaleRatio - mouseX;
-          });
-          return newZoom;
-        });
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setViewportWidth(entry.contentRect.width);
       }
-    };
-
-    el.addEventListener("wheel", handleCtrlWheel, { passive: false });
-    return () => {
-      el.removeEventListener("wheel", handleCtrlWheel);
-    };
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Smoothly center Middle C (MIDI 60) vertically on open and active channel swaps
@@ -206,6 +189,57 @@ export function PianoRoll({
     if (!activeChannel) return [];
     return events.filter((e) => e.channelId === activeChannel.id);
   }, [events, activeChannel]);
+
+  const maxNoteBeat = useMemo(() => {
+    if (filteredEvents.length === 0) return 0;
+    return Math.max(...filteredEvents.map(e => e.time + e.duration));
+  }, [filteredEvents]);
+
+  const minZoomX = useMemo(() => {
+    if (maxNoteBeat === 0 || viewportWidth <= 56) return 0.5;
+    const calc = (viewportWidth - 56) / (160 * maxNoteBeat);
+    return Math.max(0.05, Math.min(0.5, Number(calc.toFixed(3))));
+  }, [maxNoteBeat, viewportWidth]);
+
+  // Keep current zoom level clamped to dynamic minZoomX bounds
+  useEffect(() => {
+    if (zoomX < minZoomX) {
+      setZoomX(minZoomX);
+    }
+  }, [minZoomX, zoomX]);
+
+  // Wheel horizontal zoom effect via Ctrl+Wheel (centered on cursor)
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+
+    const handleCtrlWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+
+        const rect = el.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const scrollOffset = mouseX + el.scrollLeft;
+
+        const dir = e.deltaY > 0 ? -1 : 1;
+
+        setZoomX(prev => {
+          const newZoom = Math.max(minZoomX, Math.min(4.0, Number((prev + dir * 0.1).toFixed(2))));
+          const scaleRatio = newZoom / prev;
+          // Schedule scroll update after state flush
+          requestAnimationFrame(() => {
+            el.scrollLeft = scrollOffset * scaleRatio - mouseX;
+          });
+          return newZoom;
+        });
+      }
+    };
+
+    el.addEventListener("wheel", handleCtrlWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleCtrlWheel);
+    };
+  }, [minZoomX]);
 
   // Derive the active snap resolution based on mode and zoomX
   const activeSnapResolution = useMemo(() => {
