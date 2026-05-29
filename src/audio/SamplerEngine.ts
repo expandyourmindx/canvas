@@ -6,8 +6,6 @@
 import { DAWEvent } from "./AudioEngine";
 import { SampleRegistry } from "./SampleRegistry";
 import { CanvasClip, SamplerSettings } from "../types";
-// @ts-expect-error Vite worker import query suffix is not declared in TS
-import StretchWorker from "../workers/soundstretch.worker.ts?worker&type=classic";
 
 export interface SamplerEngineDelegate {
   getChannelNodes: (channelId: string) => { gain: GainNode; panner: StereoPannerNode | null };
@@ -31,7 +29,6 @@ export class SamplerEngine {
   private samplerSettings: Record<string, SamplerSettings> = {};
   private channelSampleIds: Record<string, string> = {};
   private originalChannelSampleIds: Record<string, string> = {};
-  private stretchWorker: Worker | null = null;
   private stretchDebounceTimers: Record<string, any> = {};
 
   constructor(
@@ -46,51 +43,6 @@ export class SamplerEngine {
     this.delegate = delegate;
   }
 
-  private getOrCreateWorker(): Worker {
-    if (!this.stretchWorker) {
-      // Instantiate using Vite's classic worker constructor
-      this.stretchWorker = new StretchWorker();
-
-      this.stretchWorker.onmessage = (e) => {
-        console.log("Received stretched audio from worker for channel:", e.data.channelId);
-        const { stretchedAudio, channels, totalFrames, error, channelId } = e.data;
-        if (error) {
-          console.error("SoundStretch Web Worker error:", error);
-          return;
-        }
-
-        // Construct new AudioBuffer in the Web Audio context
-        const buffer = this.audioContext.createBuffer(
-          channels,
-          totalFrames,
-          this.audioContext.sampleRate
-        );
-
-        // De-interleave flat Float32Array PCM back into individual channel buffers
-        for (let c = 0; c < channels; c++) {
-          const channelData = buffer.getChannelData(c);
-          for (let i = 0; i < totalFrames; i++) {
-            channelData[i] = stretchedAudio[i * channels + c];
-          }
-        }
-
-        // Store in SampleRegistry under a stretched ID using the public API
-        const stretchedId = `${channelId}_stretched`;
-        this.sampleRegistry.setSampleBuffer(stretchedId, buffer);
-
-        // Update active slot
-        this.channelSampleIds[channelId] = stretchedId;
-
-        console.log(`Stretched buffer registered for channel ${channelId}: duration=${buffer.duration.toFixed(2)}s`);
-
-        // Trigger UI redraw
-        if (this.delegate.notifySampleLoaded) {
-          this.delegate.notifySampleLoaded();
-        }
-      };
-    }
-    return this.stretchWorker;
-  }
 
   public calculateTempoRatio(channelId: string, originalDuration: number): number {
     const settings = this.samplerSettings[channelId];
@@ -112,62 +64,17 @@ export class SamplerEngine {
   }
 
   public processSampleStretch(channelId: string) {
-    console.log("Triggering stretch worker for channel:", channelId);
     const settings = this.samplerSettings[channelId];
     if (!settings) return;
 
     const originalSampleId = this.originalChannelSampleIds[channelId] || this.channelSampleIds[channelId];
     if (!originalSampleId) return;
 
-    const pristineBuffer = this.sampleRegistry.getSampleBuffer(originalSampleId);
-    if (!pristineBuffer) return;
-
-    // In Resample or normal mode, restore playback slot to pristine buffer and bypass worker
-    if (settings.stretchMode?.toUpperCase() !== "STRETCH") {
-      this.channelSampleIds[channelId] = originalSampleId;
-      if (this.delegate.notifySampleLoaded) {
-        this.delegate.notifySampleLoaded();
-      }
-      return;
+    // Restore playback slot to pristine buffer
+    this.channelSampleIds[channelId] = originalSampleId;
+    if (this.delegate.notifySampleLoaded) {
+      this.delegate.notifySampleLoaded();
     }
-
-    const worker = this.getOrCreateWorker();
-
-    // Interleave Pristine AudioBuffer channels into flat Float32Array
-    const channels = pristineBuffer.numberOfChannels;
-    const numFrames = pristineBuffer.length;
-    const interleavedData = new Float32Array(numFrames * channels);
-
-    for (let i = 0; i < numFrames; i++) {
-      for (let c = 0; c < channels; c++) {
-        interleavedData[i * channels + c] = pristineBuffer.getChannelData(c)[i];
-      }
-    }
-
-    const pitchCents = settings.stretchPitch || 0;
-    const timeInBeats = settings.stretchTime || 0;
-    const multiplier = settings.stretchMul || 1.0;
-    const sampleRate = pristineBuffer.sampleRate;
-
-    // Calculate tempoRatio
-    let baseTempoRatio = 1.0;
-    if (timeInBeats > 0) {
-      const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
-      const targetDurationSeconds = (timeInBeats / bpm) * 60;
-      baseTempoRatio = pristineBuffer.duration / targetDurationSeconds;
-    }
-    const tempoRatio = baseTempoRatio * multiplier;
-
-    console.log("Sending to worker: pitchCents =", pitchCents, "tempoRatio =", tempoRatio);
-
-    worker.postMessage({
-      audioData: interleavedData,
-      channels: channels,
-      pitchCents: pitchCents,
-      tempoRatio: tempoRatio,
-      sampleRate: sampleRate,
-      channelId: channelId
-    }, [interleavedData.buffer]);
   }
 
   public updateChannelSamplerSettings(channelId: string, settings: SamplerSettings) {
@@ -671,10 +578,7 @@ export class SamplerEngine {
         }
       }
     }
-
-    const settings = channelId ? this.samplerSettings[channelId] : null;
-    const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
-    const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
+    const targetBeats = clip.duration;
     const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats);
     const delay = sampleOffsetSeconds < 0 ? -sampleOffsetSeconds : 0;
     const offset = sampleOffsetSeconds < 0 ? 0 : sampleOffsetSeconds;
