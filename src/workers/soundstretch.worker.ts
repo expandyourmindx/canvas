@@ -5,19 +5,8 @@
 
 // Declare standard worker scope for compiler happiness
 declare const self: any;
-
-const response = await fetch('/soundtouch.js');
-const code = await response.text();
-try {
-  eval(code);
-} catch (e) {
-  // Support ES modules in eval context by stripping export statements and import.meta
-  const cleanCode = code
-    .replace('export default createSoundTouchModule;', '')
-    .replaceAll('import.meta.url', '"/soundtouch.js"');
-  eval(cleanCode);
-}
-const soundtouchModule = await (self as any).createSoundTouchModule();
+const { default: createSoundTouchModule } = await import('./soundtouch.js');
+const soundtouchModule = await createSoundTouchModule();
 console.log("SoundTouch WebAssembly module successfully loaded in Worker.");
 
 interface SoundStretchWorkerMessage {

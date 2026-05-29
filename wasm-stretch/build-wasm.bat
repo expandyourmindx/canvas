@@ -24,6 +24,8 @@ call emcc -O3 -s WASM=1 ^
   -o %OUT_JS%
 if %ERRORLEVEL% EQU 0 (
     echo Compilation successful! Generated %OUT_JS% and %OUT_WASM%.
+    copy /Y %OUT_JS% ..\src\workers\
+    copy /Y %OUT_WASM% ..\public\
 ) else (
     echo Compilation failed with exit code %ERRORLEVEL%.
 )
