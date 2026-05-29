@@ -792,6 +792,16 @@ export class SamplerEngine {
       );
     };
 
+    if (isStretchActive) {
+      console.log(
+        `[SamplerEngine STRETCH Playback Diagnostic]\n` +
+        `- AudioBuffer duration: ${buffer.duration.toFixed(6)}s, channels: ${buffer.numberOfChannels}\n` +
+        `- Scheduled start time: ${playStartTime.toFixed(6)}s (Context time: ${this.audioContext.currentTime.toFixed(6)}s, Delta: ${(playStartTime - this.audioContext.currentTime).toFixed(6)}s)\n` +
+        `- Node Reuse: A NEW AudioBufferSourceNode is created for this playback event (Web Audio standard one-shot node)\n` +
+        `- Playback rate: ${source.playbackRate.value.toFixed(6)} (Target: ${(canvasPitchRate * resampleTempoRatio).toFixed(6)} - pre-baked check: ${canvasPitchRate * resampleTempoRatio === 1.0 ? 'CORRECT (1.0)' : 'INCORRECT (not 1.0)'})`
+      );
+    }
+
     if (durationSecondsRemaining > 0) {
       source.start(playStartTime, offset);
 
