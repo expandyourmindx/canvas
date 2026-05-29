@@ -136,11 +136,33 @@ export class Reverb {
     this.applyParams();
   }
 
+  public updateConnections() {
+    try {
+      this.input.disconnect();
+    } catch (e) {}
+    try {
+      this.convolver.disconnect();
+    } catch (e) {}
+    try {
+      this.dryGainNode.disconnect();
+    } catch (e) {}
+    try {
+      this.wetGainNode.disconnect();
+    } catch (e) {}
+
+    // Reconnect dry path: Input -> dryGainNode -> Output
+    this.input.connect(this.dryGainNode);
+    this.dryGainNode.connect(this.output);
+
+    // Reconnect wet path: Input -> convolver -> wetGainNode -> Output
+    this.input.connect(this.convolver);
+    this.convolver.connect(this.wetGainNode);
+    this.wetGainNode.connect(this.output);
+  }
+
   public disconnect() {
-    this.input.disconnect();
-    this.convolver.disconnect();
-    this.dryGainNode.disconnect();
-    this.wetGainNode.disconnect();
-    this.output.disconnect();
+    try {
+      this.output.disconnect();
+    } catch (e) {}
   }
 }
