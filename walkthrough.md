@@ -138,18 +138,34 @@ We saved progress in the repository with a clean commit:
 
 ---
 
-# Walkthrough - STRETCH Playback Diagnostics
+# Walkthrough - STRETCH Playback Diagnostics & Channel Resolution Fix
 
-I have added comprehensive diagnostic logging inside `SamplerEngine.triggerCanvasSample` for clips played back with `STRETCH` mode active.
+I have resolved the channel ID resolution bug inside `SamplerEngine.triggerCanvasSample` and added comprehensive diagnostic logging.
+
+## The Bug & Fix
+
+* **The Issue**: In `triggerCanvasSample`, `isChannelId` was checked via `clip.referenceId.startsWith("sampler_")`. However, sample IDs (e.g. `"sampler_kick_sample"`) ALSO start with `"sampler_"`. This caused sample IDs to be treated as channel IDs directly, which bypassed the reverse-lookup logic (`originalChannelSampleIds` and `channelSampleIds` mapping). Because `"sampler_kick_sample"` is not a valid channel key in `samplerSettings`, lookup failed, and the playback system fell back to unstretched mode (bypassing the STRETCH playback buffer).
+* **The Fix**: Refactored `isChannelId` to be extremely robust:
+  ```typescript
+  const isChannelId = (clip.referenceId.startsWith("sampler_") && !clip.referenceId.endsWith("_sample")) ||
+                      (clip.referenceId in this.samplerSettings) ||
+                      (clip.referenceId in this.channelSampleIds);
+  ```
+  This correctly identifies that `"sampler_kick_sample"` is a sample ID, triggering the reverse-lookup block to resolve the actual channel (`"sampler_kick"`), ensuring the stretch settings and pre-stretched cache are correctly located and loaded.
+
+---
 
 ## Changes Made
 
 ### SamplerEngine.ts
-* **[SamplerEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/SamplerEngine.ts)**: Added a diagnostic logging block inside `triggerCanvasSample` that runs when a clip has `STRETCH` mode active. It prints the following data:
-  1. **AudioBuffer duration and channel count** (ensures it is playing the fully processed and correctly sized pre-baked buffer).
-  2. **Scheduled start time vs. current AudioContext time** (with precise calculation of the scheduled start delay/delta).
-  3. **Node creation context** (explicitly flags that a brand new `AudioBufferSourceNode` is instantiated for each playback event, as required by the one-shot Web Audio standard).
-  4. **Playback rate checking** (reads the actual `playbackRate.value` and validates it against the expected pre-baked rate of `1.0` so that no extra tempo/pitch modifications are applied to the already-stretched buffer).
+* **[SamplerEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/SamplerEngine.ts)**:
+  1. Updated the `isChannelId` determination in `triggerCanvasSample` to prevent false positive channel matches on sample IDs.
+  2. Added an entry console log at the very first line of the STRETCH mode playback path:
+     `console.log("[STRETCH PLAYBACK] entering stretch playback path");`
+  3. Logged the `AudioBuffer` duration and number of channels being played.
+  4. Logged the scheduled start time vs. current `AudioContext.currentTime` with delay delta.
+  5. Logged whether a new `AudioBufferSourceNode` is created or reused.
+  6. Logged that the buffer is played back with the correct pre-baked `playbackRate` of `1.0`.
 
 ## Verification Results
 
@@ -162,6 +178,7 @@ npx tsc --noEmit
 
 ### Mock Diagnostic Output
 ```
+[STRETCH PLAYBACK] entering stretch playback path
 [SamplerEngine STRETCH Playback Diagnostic]
 - AudioBuffer duration: 8.730249s, channels: 2
 - Scheduled start time: 12.500000s (Context time: 12.448512s, Delta: 0.051488s)
