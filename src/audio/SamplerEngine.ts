@@ -18,6 +18,7 @@ export interface SamplerEngineDelegate {
   beatsToSeconds: (beats: number) => number;
   getBPM?: () => number;
   notifySampleLoaded?: () => void;
+  getCanvasClips?: () => CanvasClip[];
 }
 
 export class SamplerEngine {
@@ -33,6 +34,11 @@ export class SamplerEngine {
   private originalChannelSampleIds: Record<string, string> = {};
   private stretchWorker: Worker | null = null;
   private stretchDebounceTimers: Record<string, any> = {};
+
+  // Pre-processing and loading visual states for arranger sample clips
+  private processingClipIds: Set<string> = new Set();
+  private clipLoadingStates: Record<string, boolean> = {};
+  private loadingStateTimeouts: Record<string, any> = {};
 
   constructor(
     audioContext: AudioContext,
@@ -51,12 +57,26 @@ export class SamplerEngine {
       this.stretchWorker = new StretchWorker();
 
       this.stretchWorker.onmessage = (e) => {
-        console.log("Received stretched audio from worker for channel:", e.data.channelId);
-        const { processedData, channels, totalFrames, error, channelId } = e.data;
+        const { processedData, channels, totalFrames, error, channelId } = e.data; // channelId is clipId here
+        const clipId = channelId;
+
+        // Clean up processing states
+        this.processingClipIds.delete(clipId);
+        if (this.loadingStateTimeouts[clipId]) {
+          clearTimeout(this.loadingStateTimeouts[clipId]);
+          delete this.loadingStateTimeouts[clipId];
+        }
+        delete this.clipLoadingStates[clipId];
+
         if (error) {
           console.error("SoundStretch Web Worker error:", error);
+          if (this.delegate.notifySampleLoaded) {
+            this.delegate.notifySampleLoaded();
+          }
           return;
         }
+
+        console.log("Received stretched audio from worker for clip:", clipId);
 
         // Construct new AudioBuffer in the Web Audio context
         const buffer = this.audioContext.createBuffer(
@@ -77,14 +97,11 @@ export class SamplerEngine {
           }
         }
 
-        // Store in SampleRegistry under a stretched ID using the public API
-        const stretchedId = `${channelId}_stretched`;
+        // Store in SampleRegistry under a clip-specific stretched ID using the public API
+        const stretchedId = `${clipId}_stretched`;
         this.sampleRegistry.setSampleBuffer(stretchedId, buffer);
 
-        // Update active slot
-        this.channelSampleIds[channelId] = stretchedId;
-
-        console.log(`Stretched buffer registered for channel ${channelId}: duration=${buffer.duration.toFixed(2)}s`);
+        console.log(`Stretched buffer registered for clip ${clipId}: duration=${buffer.duration.toFixed(2)}s`);
 
         // Trigger UI redraw
         if (this.delegate.notifySampleLoaded) {
@@ -95,29 +112,31 @@ export class SamplerEngine {
     return this.stretchWorker;
   }
 
-
-  public calculateTempoRatio(channelId: string, originalDuration: number): number {
-    const settings = this.samplerSettings[channelId];
-    if (!settings) return 1.0;
-
-    const mode = settings.stretchMode?.toUpperCase();
-    if (mode !== "STRETCH" && mode !== "RESAMPLE") return 1.0;
-
-    const timeInBeats = settings.stretchTime || 0;
-    const multiplier = settings.stretchMul || 1.0;
-
-    let baseTempoRatio = 1.0;
-    if (timeInBeats > 0) {
-      const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
-      const targetDurationSeconds = (timeInBeats / bpm) * 60;
-      baseTempoRatio = originalDuration / targetDurationSeconds;
-    }
-    return baseTempoRatio * multiplier;
+  public isClipLoading(clipId: string): boolean {
+    return !!this.clipLoadingStates[clipId];
   }
 
-  public processSampleStretch(channelId: string) {
+  public ensureClipStretched(clip: CanvasClip, forceRecompute: boolean = false) {
+    if (clip.type !== "sample") return;
+
+    const channelId = clip.referenceId;
     const settings = this.samplerSettings[channelId];
-    if (!settings) return;
+    if (!settings || settings.stretchMode?.toUpperCase() !== "STRETCH") {
+      return;
+    }
+
+    const stretchedId = `${clip.id}_stretched`;
+    if (forceRecompute) {
+      this.sampleRegistry.removeSample(stretchedId);
+    } else {
+      if (this.sampleRegistry.getSampleBuffer(stretchedId)) {
+        return;
+      }
+    }
+
+    if (this.processingClipIds.has(clip.id)) {
+      return;
+    }
 
     const originalSampleId = this.originalChannelSampleIds[channelId] || this.channelSampleIds[channelId];
     if (!originalSampleId) return;
@@ -125,14 +144,20 @@ export class SamplerEngine {
     const pristineBuffer = this.sampleRegistry.getSampleBuffer(originalSampleId);
     if (!pristineBuffer) return;
 
-    // In Resample or normal mode, restore playback slot to pristine buffer and bypass worker
-    if (settings.stretchMode?.toUpperCase() !== "STRETCH") {
-      this.channelSampleIds[channelId] = originalSampleId;
-      if (this.delegate.notifySampleLoaded) {
-        this.delegate.notifySampleLoaded();
-      }
-      return;
+    // Start tracking processing
+    this.processingClipIds.add(clip.id);
+
+    if (this.loadingStateTimeouts[clip.id]) {
+      clearTimeout(this.loadingStateTimeouts[clip.id]);
     }
+    this.loadingStateTimeouts[clip.id] = setTimeout(() => {
+      if (this.processingClipIds.has(clip.id)) {
+        this.clipLoadingStates[clip.id] = true;
+        if (this.delegate.notifySampleLoaded) {
+          this.delegate.notifySampleLoaded();
+        }
+      }
+    }, 200);
 
     const worker = this.getOrCreateWorker();
 
@@ -169,8 +194,55 @@ export class SamplerEngine {
       pitchCents: pitchCents,
       tempoRatio: tempoRatio,
       sampleRate: sampleRate,
-      channelId: channelId
+      channelId: clip.id // Pass clip.id as channelId so it returns as identifier!
     }, [interleavedData.buffer]);
+  }
+
+
+  public calculateTempoRatio(channelId: string, originalDuration: number): number {
+    const settings = this.samplerSettings[channelId];
+    if (!settings) return 1.0;
+
+    const mode = settings.stretchMode?.toUpperCase();
+    if (mode !== "STRETCH" && mode !== "RESAMPLE") return 1.0;
+
+    const timeInBeats = settings.stretchTime || 0;
+    const multiplier = settings.stretchMul || 1.0;
+
+    let baseTempoRatio = 1.0;
+    if (timeInBeats > 0) {
+      const bpm = this.delegate.getBPM ? this.delegate.getBPM() : 120;
+      const targetDurationSeconds = (timeInBeats / bpm) * 60;
+      baseTempoRatio = originalDuration / targetDurationSeconds;
+    }
+    return baseTempoRatio * multiplier;
+  }
+
+  public processSampleStretch(channelId: string) {
+    const settings = this.samplerSettings[channelId];
+    if (!settings) return;
+
+    const originalSampleId = this.originalChannelSampleIds[channelId] || this.channelSampleIds[channelId];
+    if (!originalSampleId) return;
+
+    // Restore playback slot to pristine buffer by default
+    this.channelSampleIds[channelId] = originalSampleId;
+
+    if (settings.stretchMode?.toUpperCase() === "STRETCH") {
+      // Find all clips belonging to this channel and ensure they are stretched upfront
+      if (this.delegate.getCanvasClips) {
+        const clips = this.delegate.getCanvasClips();
+        for (const clip of clips) {
+          if (clip.type === "sample" && clip.referenceId === channelId) {
+            this.ensureClipStretched(clip, true); // force recompute since settings changed!
+          }
+        }
+      }
+    } else {
+      if (this.delegate.notifySampleLoaded) {
+        this.delegate.notifySampleLoaded();
+      }
+    }
   }
 
   public updateChannelSamplerSettings(channelId: string, settings: SamplerSettings) {
@@ -608,10 +680,17 @@ export class SamplerEngine {
       console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
     }
 
-    const sampleId = channelId ? (this.channelSampleIds[channelId] || clip.referenceId) : clip.referenceId;
+    const settings = channelId ? this.samplerSettings[channelId] : null;
+    const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+    const sampleId = isStretchActive ? `${clip.id}_stretched` : (channelId ? (this.channelSampleIds[channelId] || clip.referenceId) : clip.referenceId);
+
     const buffer = this.sampleRegistry.getSampleBuffer(sampleId);
     if (!buffer) {
-      console.warn(`Sample buffer with ID "${sampleId}" was not loaded yet.`);
+      if (isStretchActive) {
+        console.warn(`Stretched sample buffer for clip ${clip.id} is not fully ready yet. Playback skipped.`);
+      } else {
+        console.warn(`Sample buffer with ID "${sampleId}" was not loaded yet.`);
+      }
       return;
     }
 
@@ -674,8 +753,6 @@ export class SamplerEngine {
         }
       }
     }
-    const settings = channelId ? this.samplerSettings[channelId] : null;
-    const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
     const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
     const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats);
     const delay = sampleOffsetSeconds < 0 ? -sampleOffsetSeconds : 0;

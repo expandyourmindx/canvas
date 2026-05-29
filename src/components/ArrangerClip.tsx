@@ -100,6 +100,7 @@ export function ArrangerClip({
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
+  const isLoading = clip.type === "sample" && typeof (engine as any).isClipLoading === "function" && (engine as any).isClipLoading(clip.id);
 
   const resolvedName = clip.name || (() => {
     if (clip.type === "pattern") {
@@ -293,8 +294,18 @@ export function ArrangerClip({
       {clip.type === "sample" && (
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full pointer-events-none z-0"
+          className={`absolute inset-0 w-full h-full pointer-events-none z-0 transition-opacity duration-300 ${isLoading ? "opacity-30" : "opacity-100"}`}
         />
+      )}
+
+      {/* Beautiful Loading State Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-widest animate-pulse">Processing...</span>
+          </div>
+        </div>
       )}
 
       {/* Left Crop Handle */}

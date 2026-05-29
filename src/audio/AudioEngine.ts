@@ -106,7 +106,8 @@ export class AudioEngine {
           if (this.onSampleLoadedCallback) {
             this.onSampleLoadedCallback();
           }
-        }
+        },
+        getCanvasClips: () => this.canvasClips
       }
     );
 
@@ -965,14 +966,26 @@ export class AudioEngine {
 
   public setCanvasClips(clips: CanvasClip[]) {
     this.canvasClips = [...clips];
+    for (const clip of this.canvasClips) {
+      if (clip.type === "sample") {
+        this.samplerEngine.ensureClipStretched(clip);
+      }
+    }
   }
 
   public addCanvasClip(clip: CanvasClip) {
     this.canvasClips.push(clip);
+    if (clip.type === "sample") {
+      this.samplerEngine.ensureClipStretched(clip);
+    }
   }
 
   public removeCanvasClip(id: string) {
     this.canvasClips = this.canvasClips.filter(c => c.id !== id);
+  }
+
+  public isClipLoading(clipId: string): boolean {
+    return this.samplerEngine.isClipLoading(clipId);
   }
 
   public getAllSamplerSettings(): Record<string, SamplerSettings> {
