@@ -69,6 +69,11 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
     soundTouch.tempo = tempoRatio;
     soundTouch.pitchSemitones = pitchCents / 100;
 
+    // Optimized parameters for musical content (reduces stuttering artifacts compared to speech defaults)
+    soundTouch.sequenceMs = 40;
+    soundTouch.seekWindowMs = 15;
+    soundTouch.overlapMs = 8;
+
     // Create custom ArraySource and SimpleFilter
     const source = new ArraySource(paddedInputData);
     const filter = new SimpleFilter(source, soundTouch);
