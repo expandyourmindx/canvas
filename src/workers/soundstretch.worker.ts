@@ -6,10 +6,19 @@
 // Declare standard worker scope for compiler happiness
 declare const self: any;
 
-// @ts-ignore
-import soundTouchUrl from '/soundtouch.js?url';
-// @ts-ignore
-const createSoundTouchModule = (await import(/* @vite-ignore */ soundTouchUrl)).default;
+const response = await fetch('/soundtouch.js');
+const code = await response.text();
+try {
+  eval(code);
+} catch (e) {
+  // Support ES modules in eval context by stripping export statements and import.meta
+  const cleanCode = code
+    .replace('export default createSoundTouchModule;', '')
+    .replaceAll('import.meta.url', '"/soundtouch.js"');
+  eval(cleanCode);
+}
+const soundtouchModule = await (self as any).createSoundTouchModule();
+console.log("SoundTouch WebAssembly module successfully loaded in Worker.");
 
 interface SoundStretchWorkerMessage {
   audioData: Float32Array; // Interleaved Float32Array of PCM channels (L R L R ...)
@@ -19,10 +28,6 @@ interface SoundStretchWorkerMessage {
   sampleRate: number;
   channelId: string;
 }
-
-// Initialize SoundTouch WASM Module
-const soundtouchModule = await createSoundTouchModule();
-console.log("SoundTouch WebAssembly module successfully loaded in Worker.");
 
 self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
   const { audioData, channels, pitchCents, tempoRatio, sampleRate, channelId } = e.data;
