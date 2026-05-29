@@ -947,6 +947,10 @@ export class AudioEngine {
     return this.mixerManager.getInsertLevels(index);
   }
 
+  public getChannelMixerTarget(channelId: string): number {
+    return this.channelMixerTargets[channelId] ?? 1;
+  }
+
   public setInsertFXSlot(insertIndex: number, slotIndex: number, fxName: string) {
     this.mixerManager.setInsertFXSlot(insertIndex, slotIndex, fxName);
   }

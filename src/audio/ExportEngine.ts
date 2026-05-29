@@ -1,4 +1,6 @@
 import { ObsidianEngine } from "./ObsidianEngine";
+import { ParametricEQ } from "./effects/ParametricEQ";
+import { Reverb } from "./effects/Reverb";
 
 export interface ExportableEngine {
   getBpm(): number;
@@ -9,6 +11,8 @@ export interface ExportableEngine {
   getActivePatternId(): string;
   resolveChannelId?(referenceId: string): string | undefined;
   getChannelSamplerSettings?(channelId: string): any;
+  getMixerInserts?(): any[];
+  getChannelMixerTarget?(channelId: string): number;
   obsidian: {
     obsidianSettings: Record<string, any>;
   };
@@ -73,6 +77,113 @@ export class ExportEngine {
       }
     });
 
+    // Reconstruct full 16-channel Mixer inserts inside the OfflineAudioContext
+    const offlineInserts: {
+      index: number;
+      inputNode: GainNode;
+      gainNode: GainNode;
+      pannerNode: StereoPannerNode | null;
+    }[] = [];
+
+    const insertsData = engine.getMixerInserts ? engine.getMixerInserts() : [];
+
+    // 1. Create all insert nodes
+    for (let i = 0; i <= 15; i++) {
+      const data = insertsData.find((ins: any) => ins.index === i) || {
+        index: i,
+        volume: 80,
+        pan: 0,
+        fxSlots: Array(8).fill(""),
+        fxBypass: Array(8).fill(false),
+        eqSettings: {},
+        reverbSettings: {}
+      };
+
+      const inputNode = offlineCtx.createGain();
+      const gainNode = offlineCtx.createGain();
+      const pannerNode = offlineCtx.createStereoPanner ? offlineCtx.createStereoPanner() : null;
+
+      // Apply fader volume
+      const volVal = (data.volume / 80) * 0.8;
+      gainNode.gain.setValueAtTime(volVal, 0);
+
+      // Apply pan fader
+      if (pannerNode) {
+        pannerNode.pan.setValueAtTime(data.pan / 50, 0);
+      }
+
+      offlineInserts[i] = {
+        index: i,
+        inputNode,
+        gainNode,
+        pannerNode
+      };
+    }
+
+    // 2. Connect the nodes and build their active FX chains
+    const masterInsert = offlineInserts[0];
+
+    for (let i = 0; i <= 15; i++) {
+      const data = insertsData.find((ins: any) => ins.index === i) || {
+        index: i,
+        volume: 80,
+        pan: 0,
+        fxSlots: Array(8).fill(""),
+        fxBypass: Array(8).fill(false),
+        eqSettings: {},
+        reverbSettings: {}
+      };
+
+      const insertNodes = offlineInserts[i];
+      let lastNode: AudioNode = insertNodes.inputNode;
+
+      const fxSlots = data.fxSlots || Array(8).fill("");
+      const fxBypass = data.fxBypass || Array(8).fill(false);
+      const eqSettings = data.eqSettings || {};
+      const reverbSettings = data.reverbSettings || {};
+
+      for (let slotIdx = 0; slotIdx < 8; slotIdx++) {
+        const fxName = fxSlots[slotIdx];
+        const isBypassed = fxBypass[slotIdx];
+
+        if (fxName === "EQ" && !isBypassed && eqSettings[slotIdx]) {
+          const eq = new ParametricEQ(offlineCtx as unknown as AudioContext);
+          eq.deserialize(eqSettings[slotIdx]);
+          
+          lastNode.connect(eq.input);
+          eq.updateConnections();
+          lastNode = eq.output;
+        } else if (fxName === "Reverb" && !isBypassed && reverbSettings[slotIdx]) {
+          const reverb = new Reverb(offlineCtx as unknown as AudioContext);
+          reverb.deserialize(reverbSettings[slotIdx]);
+          
+          lastNode.connect(reverb.input);
+          reverb.updateConnections();
+          lastNode = reverb.output;
+        }
+      }
+
+      // Chain the end of active FX to fader gain node
+      lastNode.connect(insertNodes.gainNode);
+
+      // Route insert outputs (inserts 1-15 sum to masterInsert; masterInsert sums to offline destination)
+      if (i === 0) {
+        if (insertNodes.pannerNode) {
+          insertNodes.gainNode.connect(insertNodes.pannerNode);
+          insertNodes.pannerNode.connect(offlineCtx.destination);
+        } else {
+          insertNodes.gainNode.connect(offlineCtx.destination);
+        }
+      } else {
+        if (insertNodes.pannerNode) {
+          insertNodes.gainNode.connect(insertNodes.pannerNode);
+          insertNodes.pannerNode.connect(masterInsert.inputNode);
+        } else {
+          insertNodes.gainNode.connect(masterInsert.inputNode);
+        }
+      }
+    }
+
     // Helper mapping beats to absolute offline seconds
     const beatToTime = (beat: number) => {
       if (settings.range === "loop") {
@@ -124,7 +235,11 @@ export class ExportEngine {
             gainNode.gain.value = 0.8;
 
             source.connect(gainNode);
-            gainNode.connect(offlineCtx.destination);
+            const channelId = engine.resolveChannelId ? engine.resolveChannelId(clip.referenceId) : undefined;
+            const targetMixerIndex = (channelId && engine.getChannelMixerTarget)
+              ? engine.getChannelMixerTarget(channelId)
+              : 1;
+            gainNode.connect(offlineInserts[targetMixerIndex].inputNode);
 
             const offsetSecs = offsetBeats * (60 / bpm);
             const durSecs = activeClipDurationBeats * (60 / bpm);
@@ -158,7 +273,11 @@ export class ExportEngine {
                 const gainNode = offlineCtx.createGain();
                 gainNode.gain.value = note.velocity || 0.8;
                 source.connect(gainNode);
-                gainNode.connect(offlineCtx.destination);
+                const channelId = note.channelId;
+                const targetMixerIndex = (channelId && engine.getChannelMixerTarget)
+                  ? engine.getChannelMixerTarget(channelId)
+                  : 1;
+                gainNode.connect(offlineInserts[targetMixerIndex].inputNode);
                 source.start(noteStartTime);
               }
             } else if (note.pitch !== undefined) {
@@ -175,7 +294,10 @@ export class ExportEngine {
                 duration: noteDurBeats
               };
 
-              offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineCtx.destination);
+              const targetMixerIndex = engine.getChannelMixerTarget
+                ? engine.getChannelMixerTarget(channelId)
+                : 1;
+              offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineInserts[targetMixerIndex].inputNode);
             }
           }
         }
@@ -202,7 +324,11 @@ export class ExportEngine {
               const gainNode = offlineCtx.createGain();
               gainNode.gain.value = note.velocity || 0.8;
               source.connect(gainNode);
-              gainNode.connect(offlineCtx.destination);
+              const channelId = note.channelId;
+              const targetMixerIndex = (channelId && engine.getChannelMixerTarget)
+                ? engine.getChannelMixerTarget(channelId)
+                : 1;
+              gainNode.connect(offlineInserts[targetMixerIndex].inputNode);
               source.start(noteStartTime);
             }
           } else if (note.pitch !== undefined) {
@@ -218,7 +344,10 @@ export class ExportEngine {
               duration: note.duration
             };
 
-            offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineCtx.destination);
+            const targetMixerIndex = engine.getChannelMixerTarget
+              ? engine.getChannelMixerTarget(channelId)
+              : 1;
+            offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineInserts[targetMixerIndex].inputNode);
           }
         }
       }
