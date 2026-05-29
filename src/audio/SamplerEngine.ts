@@ -286,6 +286,7 @@ export class SamplerEngine {
    * Triggers a sample instrument key-playback event interactively (MIDI / Keyboard).
    */
   public noteOn(channelId: string, midiNote: number, velocity: number = 80, time?: number) {
+    console.log(`[noteOn START] channelId: ${channelId}, midiNote: ${midiNote}`);
     console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
     const now = time !== undefined ? time : this.audioContext.currentTime;
 
@@ -532,6 +533,7 @@ export class SamplerEngine {
    * Timeline event triggers for patterns.
    */
   public triggerSample(event: DAWEvent, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
+    console.log(`[triggerSample START] eventId: ${event.id}, sampleId: ${event.sampleId}, channelId: ${event.channelId || 'none'}`);
     if (!event.sampleId) return;
 
     // Determine the playing channel by matching registered sample IDs or channel ID prefix
