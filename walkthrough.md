@@ -160,12 +160,20 @@ I have resolved the channel ID resolution bug inside `SamplerEngine.triggerCanva
 ### SamplerEngine.ts
 * **[SamplerEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/SamplerEngine.ts)**:
   1. Updated the `isChannelId` determination in `triggerCanvasSample` to prevent false positive channel matches on sample IDs.
-  2. Added an entry console log at the very first line of the STRETCH mode playback path:
+  2. Added an entry console log at the very first line of `triggerCanvasSample` to debug:
+     - The clip ID being played
+     - The clip's `referenceId`
+     - The resolved channel ID
+     - The current stretch mode setting
+     - Whether it thinks `isStretchActive` is true
+     - The exact key being used to look up the cached buffer (`${clip.id}_stretched`)
+     - Whether a cached stretched buffer actually exists in the sample registry
+  3. Added an entry console log at the very first line of the STRETCH mode playback path:
      `console.log("[STRETCH PLAYBACK] entering stretch playback path");`
-  3. Logged the `AudioBuffer` duration and number of channels being played.
-  4. Logged the scheduled start time vs. current `AudioContext.currentTime` with delay delta.
-  5. Logged whether a new `AudioBufferSourceNode` is created or reused.
-  6. Logged that the buffer is played back with the correct pre-baked `playbackRate` of `1.0`.
+  4. Logged the `AudioBuffer` duration and number of channels being played.
+  5. Logged the scheduled start time vs. current `AudioContext.currentTime` with delay delta.
+  6. Logged whether a new `AudioBufferSourceNode` is created or reused.
+  7. Logged that the buffer is played back with the correct pre-baked `playbackRate` of `1.0`.
 
 ## Verification Results
 
