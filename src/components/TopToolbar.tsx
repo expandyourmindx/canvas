@@ -35,13 +35,14 @@ interface TopToolbarProps {
     sampler?: boolean;
     obsidian?: boolean;
   };
+  winOrder: any[];
   toggleWindow: (winId: any) => void;
   onSetFocus: (winId: any) => void;
   browserOpen?: boolean;
   onToggleBrowser?: () => void;
 }
 
-export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpen, onToggleBrowser }: TopToolbarProps) {
+export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, browserOpen, onToggleBrowser }: TopToolbarProps) {
   const {
     engine,
     playbackState,
@@ -326,10 +327,33 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
   };
 
   const handleWindowClick = (winId: any) => {
-    if (!activeWindows[winId]) {
+    const isOpen = activeWindows[winId as keyof typeof activeWindows];
+    if (isOpen) {
+      // Find the open window with the highest index in winOrder
+      let highestOpenWin: any = null;
+      let highestIndex = -1;
+      for (const id of winOrder) {
+        if (activeWindows[id as keyof typeof activeWindows]) {
+          const index = winOrder.indexOf(id);
+          if (index > highestIndex) {
+            highestIndex = index;
+            highestOpenWin = id;
+          }
+        }
+      }
+      const isFocused = highestOpenWin === winId;
+      if (isFocused) {
+        // If already open and focused, toggle it closed/minimized
+        toggleWindow(winId);
+      } else {
+        // If open but not focused (behind other windows), focus it (bring to front)
+        onSetFocus(winId);
+      }
+    } else {
+      // If closed, open it and focus it
       toggleWindow(winId);
+      onSetFocus(winId);
     }
-    onSetFocus(winId);
   };
 
   useEffect(() => {

@@ -299,14 +299,11 @@ export function Desktop() {
       {/* 2. Extensible top toolbar */}
       <TopToolbar
         activeWindows={activeWindows}
+        winOrder={winOrder}
         toggleWindow={toggleWindow}
         onSetFocus={handleSetFocus}
         browserOpen={browserOpen}
-        onToggleBrowser={() => {
-          if (!browserOpen) {
-            setBrowserOpen(true);
-          }
-        }}
+        onToggleBrowser={() => setBrowserOpen((prev) => !prev)}
       />
 
       {/* ── OFFLINE SAMPLES WARNING BANNER ── */}
