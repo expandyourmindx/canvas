@@ -20,6 +20,7 @@ call emcc -O3 -s WASM=1 ^
   soundtouch-src\source\SoundTouch\InterpolateShannon.cpp ^
   soundtouch-src\source\SoundTouch\cpu_detect_x86.cpp ^
   SoundTouchGlue.cpp ^
+  -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORT_NAME="createSoundTouchModule" ^
   -o %OUT_JS%
 if %ERRORLEVEL% EQU 0 (
     echo Compilation successful! Generated %OUT_JS% and %OUT_WASM%.

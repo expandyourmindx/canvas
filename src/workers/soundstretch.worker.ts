@@ -3,15 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Declare standard worker scope and importScripts for compiler happiness
+// Declare standard worker scope for compiler happiness
 declare const self: any;
-declare function importScripts(...urls: string[]): void;
 
 // Import compiled SoundTouch Emscripten glue from public served root
-importScripts("/soundtouch.js");
-
-// Declare global Module injected by soundtouch.js
-declare const Module: any;
+// @ts-ignore
+import createSoundTouchModule from '/soundtouch.js';
 
 interface SoundStretchWorkerMessage {
   audioData: Float32Array; // Interleaved Float32Array of PCM channels (L R L R ...)
@@ -22,27 +19,12 @@ interface SoundStretchWorkerMessage {
   channelId: string;
 }
 
-let soundtouchModule: any = null;
-
 // Initialize SoundTouch WASM Module
-Module.then((loadedModule: any) => {
-  soundtouchModule = loadedModule;
-  console.log("SoundTouch WebAssembly module successfully loaded in Worker.");
-});
+const soundtouchModule = await createSoundTouchModule();
+console.log("SoundTouch WebAssembly module successfully loaded in Worker.");
 
 self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
   const { audioData, channels, pitchCents, tempoRatio, sampleRate, channelId } = e.data;
-
-  if (!soundtouchModule) {
-    // Wait for the Module initialization promise to complete
-    const checkInterval = setInterval(() => {
-      if (soundtouchModule) {
-        clearInterval(checkInterval);
-        processAudio();
-      }
-    }, 10);
-    return;
-  }
 
   processAudio();
 
