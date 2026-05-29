@@ -302,7 +302,11 @@ export function Desktop() {
         toggleWindow={toggleWindow}
         onSetFocus={handleSetFocus}
         browserOpen={browserOpen}
-        onToggleBrowser={() => setBrowserOpen((prev) => !prev)}
+        onToggleBrowser={() => {
+          if (!browserOpen) {
+            setBrowserOpen(true);
+          }
+        }}
       />
 
       {/* ── OFFLINE SAMPLES WARNING BANNER ── */}

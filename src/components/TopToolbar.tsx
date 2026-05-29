@@ -326,10 +326,10 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
   };
 
   const handleWindowClick = (winId: any) => {
-    toggleWindow(winId);
     if (!activeWindows[winId]) {
-      onSetFocus(winId);
+      toggleWindow(winId);
     }
+    onSetFocus(winId);
   };
 
   useEffect(() => {
@@ -696,7 +696,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
                 ? "text-cyan-400 bg-cyan-500/10"
                 : "text-zinc-400 hover:text-indigo-400"
             }`}
-            title="Toggle Sample Browser"
+            title="Sample Browser"
           >
             <FolderOpen className="h-4 w-4" />
           </button>
@@ -704,7 +704,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
         <button
           onClick={() => handleWindowClick("canvas")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Arranger Window"
+          title="Arranger Window"
         >
           <Layers className="h-4 w-4" />
         </button>
@@ -712,7 +712,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
         <button
           onClick={() => handleWindowClick("sequencer")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Channel Rack Window"
+          title="Channel Rack Window"
         >
           <Music className="h-4 w-4" />
         </button>
@@ -720,7 +720,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
         <button
           onClick={() => handleWindowClick("pianoroll")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Piano Roll Window"
+          title="Piano Roll Window"
         >
           <Keyboard className="h-4 w-4" />
         </button>
@@ -728,7 +728,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
         <button
           onClick={() => handleWindowClick("obsidian")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Synth Window"
+          title="Synth Window"
         >
           <Zap className="h-4 w-4" />
         </button>
@@ -736,7 +736,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
         <button
           onClick={() => handleWindowClick("mixer")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Mixer Window"
+          title="Mixer Window"
         >
           <Activity className="h-4 w-4" />
         </button>
@@ -745,7 +745,7 @@ export function TopToolbar({ activeWindows, toggleWindow, onSetFocus, browserOpe
           id="toolbar-export-btn"
           onClick={() => handleWindowClick("export")}
           className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Toggle Export Window"
+          title="Export Window"
         >
           <Disc className="h-4 w-4" />
         </button>
