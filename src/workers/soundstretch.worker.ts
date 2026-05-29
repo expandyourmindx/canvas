@@ -55,13 +55,22 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
       stereoInputData = audioData;
     }
 
+    // Calculate exact expected output frames to prevent windowing residue drift
+    const expectedOutputFrames = Math.floor(numInputFrames / tempoRatio);
+
+    // soundtouch-js has internal latency and requires extra frames at the end to flush
+    // the remaining samples through the pipeline. We pad the input with trailing silence.
+    const paddingFrames = 32768;
+    const paddedInputData = new Float32Array(stereoInputData.length + paddingFrames * 2);
+    paddedInputData.set(stereoInputData);
+
     // Initialize SoundTouch
     const soundTouch = new SoundTouch();
     soundTouch.tempo = tempoRatio;
     soundTouch.pitchSemitones = pitchCents / 100;
 
     // Create custom ArraySource and SimpleFilter
-    const source = new ArraySource(stereoInputData);
+    const source = new ArraySource(paddedInputData);
     const filter = new SimpleFilter(source, soundTouch);
 
     // Extract all processed samples
@@ -89,21 +98,24 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
       offset += chunk.length;
     }
 
+    // Trim the output to exactly the expected target frames
+    const trimmedStereoData = processedStereoData.subarray(0, expectedOutputFrames * 2);
+
     // Downmix back to mono if input was mono
     let finalProcessedData: Float32Array;
     if (channels === 1) {
-      finalProcessedData = new Float32Array(totalFramesExtracted);
-      for (let i = 0; i < totalFramesExtracted; i++) {
-        finalProcessedData[i] = processedStereoData[i * 2];
+      finalProcessedData = new Float32Array(expectedOutputFrames);
+      for (let i = 0; i < expectedOutputFrames; i++) {
+        finalProcessedData[i] = trimmedStereoData[i * 2];
       }
     } else {
-      finalProcessedData = processedStereoData;
+      finalProcessedData = trimmedStereoData;
     }
 
     self.postMessage({
       processedData: finalProcessedData,
       channels: channels,
-      totalFrames: totalFramesExtracted,
+      totalFrames: expectedOutputFrames,
       channelId: channelId
     }, [finalProcessedData.buffer]);
 
