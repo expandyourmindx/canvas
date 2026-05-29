@@ -966,6 +966,10 @@ export class AudioEngine {
     return this.canvasClips;
   }
 
+  public resolveChannelId(referenceId: string): string | undefined {
+    return this.samplerEngine.resolveChannelId(referenceId);
+  }
+
   public setCanvasClips(clips: CanvasClip[]) {
     this.canvasClips = [...clips];
     for (const clip of this.canvasClips) {

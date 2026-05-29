@@ -7,6 +7,8 @@ export interface ExportableEngine {
   getSampleBuffer(id: string): AudioBuffer | undefined;
   getLoopSettings?(): { loopStart: number; loopEnd: number };
   getActivePatternId(): string;
+  resolveChannelId?(referenceId: string): string | undefined;
+  getChannelSamplerSettings?(channelId: string): any;
   obsidian: {
     obsidianSettings: Record<string, any>;
   };
@@ -95,7 +97,24 @@ export class ExportEngine {
         const offsetBeats = cropStart + (clipStartBeat - clip.startBeat);
 
         if (clip.type === "sample") {
-          const buffer = engine.getSampleBuffer(clip.referenceId);
+          let sampleId = clip.referenceId;
+          if (engine.resolveChannelId && engine.getChannelSamplerSettings) {
+            const channelId = engine.resolveChannelId(clip.referenceId);
+            const settings = channelId ? engine.getChannelSamplerSettings(channelId) : null;
+            const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+
+            if (isStretchActive) {
+              const stretchedId = `${clip.id}_stretched`;
+              if (engine.getSampleBuffer(stretchedId)) {
+                sampleId = stretchedId;
+                console.log(`[ExportEngine] Using cached stretched buffer for clip ${clip.id}: ${stretchedId}`);
+              } else {
+                console.warn(`[ExportEngine] Stretched buffer not found for clip ${clip.id}, falling back to original: ${clip.referenceId}`);
+              }
+            }
+          }
+
+          const buffer = engine.getSampleBuffer(sampleId);
           if (buffer) {
             const source = offlineCtx.createBufferSource();
             source.buffer = buffer;

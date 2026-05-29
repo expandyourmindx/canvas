@@ -270,6 +270,20 @@ export class SamplerEngine {
     return this.channelSampleIds[channelId];
   }
 
+  public resolveChannelId(referenceId: string): string | undefined {
+    const isChannelId = (referenceId.startsWith("sampler_") && !referenceId.endsWith("_sample")) ||
+                        (referenceId in this.samplerSettings) ||
+                        (referenceId in this.channelSampleIds);
+
+    return isChannelId ? referenceId : (
+      Object.keys(this.originalChannelSampleIds).find(
+        (key) => this.originalChannelSampleIds[key] === referenceId
+      ) ?? Object.keys(this.channelSampleIds).find(
+        (key) => this.channelSampleIds[key] === referenceId
+      )
+    );
+  }
+
   public getChannelSamplerSettings(channelId: string): SamplerSettings | undefined {
     return this.samplerSettings[channelId];
   }
@@ -667,18 +681,7 @@ export class SamplerEngine {
    * Plays a registered sample event with a hardware-accurate timeline target and optional offset.
    */
   public triggerCanvasSample(clip: CanvasClip, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
-    const isChannelId = (clip.referenceId.startsWith("sampler_") && !clip.referenceId.endsWith("_sample")) ||
-                        (clip.referenceId in this.samplerSettings) ||
-                        (clip.referenceId in this.channelSampleIds);
-
-    // Determine the playing channel by matching registered sample IDs or channel ID prefix
-    const channelId = isChannelId ? clip.referenceId : (
-      Object.keys(this.originalChannelSampleIds).find(
-        (key) => this.originalChannelSampleIds[key] === clip.referenceId
-      ) ?? Object.keys(this.channelSampleIds).find(
-        (key) => this.channelSampleIds[key] === clip.referenceId
-      )
-    );
+    const channelId = this.resolveChannelId(clip.referenceId);
 
     const settings = channelId ? this.samplerSettings[channelId] : null;
     const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
