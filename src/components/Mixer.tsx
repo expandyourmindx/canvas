@@ -138,6 +138,14 @@ export function Mixer({
   const [activePickerSlotIdx, setActivePickerSlotIdx] = useState<number | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  const [slotContextMenu, setSlotContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    slotIdx: number;
+  } | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
   // Close picker when clicking outside
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -150,6 +158,19 @@ export function Mixer({
     }
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [activePickerSlotIdx]);
+
+  // Close slot context menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setSlotContextMenu(null);
+      }
+    };
+    if (slotContextMenu !== null) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [slotContextMenu]);
 
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -529,6 +550,20 @@ export function Mixer({
                       onOpenReverbPanel?.(selectedInsert.index, slotIdx);
                     }
                   }}
+                  onContextMenu={(e) => {
+                    if (slotName) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const parent = document.getElementById("mixer-parent-container");
+                      const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
+                      setSlotContextMenu({
+                        visible: true,
+                        x: e.clientX - parentRect.left,
+                        y: e.clientY - parentRect.top,
+                        slotIdx
+                      });
+                    }
+                  }}
                   className="group h-8.5 bg-black/55 hover:bg-black/85 border border-dashed border-neutral-800 hover:border-cyan-500/30 flex items-center justify-between px-2.5 transition-all relative rounded-none hover:shadow-[0_0_6px_rgba(34,211,238,0.03)] cursor-pointer"
                 >
                   {/* Left slot indicator badge */}
@@ -623,6 +658,42 @@ export function Mixer({
               <span className="text-cyan-400 font-extrabold">0.00 MS (NATIVE)</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {slotContextMenu && (
+        <div
+          ref={contextMenuRef}
+          className="absolute bg-[#121316] border border-neutral-800 shadow-2xl py-1 z-[200] font-mono text-[9px] uppercase min-w-[70px] rounded-none select-none"
+          style={{
+            left: `${slotContextMenu.x}px`,
+            top: `${slotContextMenu.y}px`,
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              const slotName = selectedInsert.fxSlots[slotContextMenu.slotIdx];
+              if (slotName === "EQ") {
+                onOpenEQPanel?.(selectedInsert.index, slotContextMenu.slotIdx);
+              } else if (slotName === "Reverb") {
+                onOpenReverbPanel?.(selectedInsert.index, slotContextMenu.slotIdx);
+              }
+              setSlotContextMenu(null);
+            }}
+            className="w-full text-left px-2 py-1.5 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+          >
+            Open
+          </button>
+          <button
+            onClick={() => {
+              setInsertFXSlot(selectedInsert.index, slotContextMenu.slotIdx, "");
+              setSlotContextMenu(null);
+            }}
+            className="w-full text-left px-2 py-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/20 cursor-pointer font-bold transition-colors border-t border-neutral-850/50"
+          >
+            Remove
+          </button>
         </div>
       )}
     </div>
