@@ -6,9 +6,10 @@
 // Declare standard worker scope for compiler happiness
 declare const self: any;
 
-// Import compiled SoundTouch Emscripten glue from public served root
 // @ts-ignore
-import createSoundTouchModule from '/soundtouch.js';
+import soundTouchUrl from '/soundtouch.js?url';
+// @ts-ignore
+const createSoundTouchModule = (await import(/* @vite-ignore */ soundTouchUrl)).default;
 
 interface SoundStretchWorkerMessage {
   audioData: Float32Array; // Interleaved Float32Array of PCM channels (L R L R ...)
