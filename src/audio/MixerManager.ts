@@ -1,4 +1,4 @@
-import { MixerInsert, EQBandSettings, ParametricEQSettings } from "../types";
+import { MixerInsert, EQBandSettings, ParametricEQSettings, ReverbSettings } from "../types";
 import { ParametricEQ } from "./effects/ParametricEQ";
 import { Reverb } from "./effects/Reverb";
 export type { MixerInsert };
@@ -252,6 +252,12 @@ export class MixerManager {
     } else if (fxName === "Reverb") {
       const reverb = new Reverb(this.audioContext);
       fxInstances[slotIndex] = reverb;
+      if (!insert.reverbSettings) insert.reverbSettings = {};
+      if (!insert.reverbSettings[slotIndex]) {
+        insert.reverbSettings[slotIndex] = reverb.serialize();
+      } else {
+        reverb.deserialize(insert.reverbSettings[slotIndex]);
+      }
     } else {
       fxInstances[slotIndex] = null;
     }
@@ -283,6 +289,19 @@ export class MixerManager {
     }
   }
 
+  public updateInsertReverbParam(insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    const fxInstances = (insert as any).fxInstances || [];
+    const reverb = fxInstances[slotIndex];
+    if (reverb && reverb instanceof Reverb) {
+      reverb.updateParams(settings);
+      if (!insert.reverbSettings) insert.reverbSettings = {};
+      insert.reverbSettings[slotIndex] = reverb.serialize();
+    }
+  }
+
   public restoreMixerInserts(inserts: MixerInsert[]): void {
     if (!inserts) return;
     inserts.forEach((ins) => {
@@ -311,6 +330,12 @@ export class MixerManager {
         target.eqSettings = {};
       }
 
+      if (ins.reverbSettings) {
+        target.reverbSettings = structuredClone(ins.reverbSettings);
+      } else {
+        target.reverbSettings = {};
+      }
+
       const fxInstances = Array(8).fill(null);
       for (let i = 0; i < 8; i++) {
         const fxName = target.fxSlots[i];
@@ -322,6 +347,9 @@ export class MixerManager {
           fxInstances[i] = eq;
         } else if (fxName === "Reverb") {
           const reverb = new Reverb(this.audioContext);
+          if (target.reverbSettings && target.reverbSettings[i]) {
+            reverb.deserialize(target.reverbSettings[i]);
+          }
           fxInstances[i] = reverb;
         }
       }

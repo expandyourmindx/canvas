@@ -16,6 +16,7 @@ import { useAudioEngine } from "../audio/useAudioEngine";
 import { ExportWindow } from "./ExportWindow";
 import { SampleBrowser } from "./SampleBrowser";
 import { ParametricEQPanel } from "./effects/ParametricEQPanel";
+import { ReverbPanel } from "./effects/ReverbPanel";
 import { ChannelRow, SamplerSettings } from "../types";
 import {
   FileAudio,
@@ -51,13 +52,19 @@ export function Desktop() {
     obsidian: false, // Obsidian window initially closed
     export: false, // Export window initially closed
     eqpanel: false, // EQ Panel window initially closed
+    reverbpanel: false, // Reverb Panel window initially closed
   });
 
   // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
-  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel";
-  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel"]);
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel" | "reverbpanel";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel", "reverbpanel"]);
 
   const [eqPanelIndex, setEqPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
+    insertIndex: 0,
+    slotIndex: 0
+  });
+
+  const [reverbPanelIndex, setReverbPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
     insertIndex: 0,
     slotIndex: 0
   });
@@ -66,6 +73,12 @@ export function Desktop() {
     setEqPanelIndex({ insertIndex, slotIndex });
     setActiveWindows((prev) => ({ ...prev, eqpanel: true }));
     handleSetFocus("eqpanel");
+  };
+
+  const handleOpenReverbPanel = (insertIndex: number, slotIndex: number) => {
+    setReverbPanelIndex({ insertIndex, slotIndex });
+    setActiveWindows((prev) => ({ ...prev, reverbpanel: true }));
+    handleSetFocus("reverbpanel");
   };
 
   // 3. Lifted sequencer and sampler states for true visual sync and responsive knobs
@@ -524,6 +537,7 @@ export function Desktop() {
             channels={channels}
             channelMixers={channelMixers}
             onOpenEQPanel={handleOpenEQPanel}
+            onOpenReverbPanel={handleOpenReverbPanel}
           />
         </DraggableWindow>
 
@@ -588,6 +602,30 @@ export function Desktop() {
               insertIndex={eqPanelIndex.insertIndex}
               slotIndex={eqPanelIndex.slotIndex}
               onClose={() => toggleWindow("eqpanel")}
+            />
+          </DraggableWindow>
+        )}
+
+        {/* 3. Floating window wrapper: Reverb Panel */}
+        {activeWindows.reverbpanel && (
+          <DraggableWindow
+            id="reverbpanel"
+            title={`Convolution Reverb — Insert ${reverbPanelIndex.insertIndex === 0 ? "Master" : reverbPanelIndex.insertIndex} (Slot ${reverbPanelIndex.slotIndex + 1})`}
+            isVisible={activeWindows.reverbpanel}
+            onClose={() => toggleWindow("reverbpanel")}
+            onFocus={() => handleSetFocus("reverbpanel")}
+            zIndex={getZIndex("reverbpanel")}
+            defaultX={240}
+            defaultY={120}
+            defaultWidth={400}
+            defaultHeight={170}
+            minWidth={300}
+            minHeight={150}
+          >
+            <ReverbPanel
+              insertIndex={reverbPanelIndex.insertIndex}
+              slotIndex={reverbPanelIndex.slotIndex}
+              onClose={() => toggleWindow("reverbpanel")}
             />
           </DraggableWindow>
         )}

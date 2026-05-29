@@ -127,6 +127,12 @@ export interface ParametricEQSettings {
   bands: EQBandSettings[];
 }
 
+export interface ReverbSettings {
+  roomSize: number;
+  decay: number;
+  wetDry: number;
+}
+
 export interface MixerInsert {
   index: number;
   name: string;
@@ -141,6 +147,7 @@ export interface MixerInsert {
   fxSlots: string[]; // 8 empty FX slots
   fxBypass?: boolean[]; // 8 FX bypass flags
   eqSettings?: Record<number, ParametricEQSettings>; // EQ settings indexed by slot index (0-7)
+  reverbSettings?: Record<number, ReverbSettings>; // Reverb settings indexed by slot index (0-7)
 }
 
 export interface CanvasProject {

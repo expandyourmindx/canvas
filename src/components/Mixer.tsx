@@ -9,6 +9,7 @@ interface MixerProps {
   channels?: ChannelRow[];
   channelMixers?: Record<string, number>;
   onOpenEQPanel?: (insertIndex: number, slotIndex: number) => void;
+  onOpenReverbPanel?: (insertIndex: number, slotIndex: number) => void;
 }
 
 // The LevelMeter component uses requestAnimationFrame and direct DOM updates for high performance
@@ -125,6 +126,7 @@ export function Mixer({
   channels = [],
   channelMixers = {},
   onOpenEQPanel,
+  onOpenReverbPanel,
 }: MixerProps) {
   const { engine, setInsertFXSlot, setInsertFXBypass } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
@@ -523,6 +525,8 @@ export function Mixer({
                       setActivePickerSlotIdx(slotIdx);
                     } else if (slotName === "EQ") {
                       onOpenEQPanel?.(selectedInsert.index, slotIdx);
+                    } else if (slotName === "Reverb") {
+                      onOpenReverbPanel?.(selectedInsert.index, slotIdx);
                     }
                   }}
                   className="group h-8.5 bg-black/55 hover:bg-black/85 border border-dashed border-neutral-800 hover:border-cyan-500/30 flex items-center justify-between px-2.5 transition-all relative rounded-none hover:shadow-[0_0_6px_rgba(34,211,238,0.03)] cursor-pointer"

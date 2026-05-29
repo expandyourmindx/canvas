@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
-import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings } from "../types";
+import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings, ReverbSettings } from "../types";
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 
 export interface AudioEngineContextType {
@@ -96,6 +96,7 @@ export interface AudioEngineContextType {
   setInsertFXSlot: (insertIndex: number, slotIndex: number, fxName: string) => void;
   setInsertFXBypass: (insertIndex: number, slotIndex: number, bypass: boolean) => void;
   updateInsertEQBand: (insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => void;
+  updateInsertReverbParam: (insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => void;
 
   // Project Save & Load Actions
   saveProject: () => void;
@@ -472,6 +473,11 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   const updateInsertEQBand = useCallback((insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => {
     engine.updateInsertEQBand(insertIndex, slotIndex, bandIndex, settings);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const updateInsertReverbParam = useCallback((insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => {
+    engine.updateInsertReverbParam(insertIndex, slotIndex, settings);
     setIsDirty(true);
   }, [engine, setIsDirty]);
 
@@ -934,6 +940,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setInsertFXSlot,
     setInsertFXBypass,
     updateInsertEQBand,
+    updateInsertReverbParam,
     saveProject,
     loadProject,
     isDirty,

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert, EQBandSettings } from "../types";
+import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert, EQBandSettings, ReverbSettings } from "../types";
 import { ObsidianEngine } from "./ObsidianEngine";
 import { SamplerEngine } from "./SamplerEngine";
 import { SampleRegistry } from "./SampleRegistry";
@@ -957,6 +957,10 @@ export class AudioEngine {
 
   public updateInsertEQBand(insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) {
     this.mixerManager.updateInsertEQBand(insertIndex, slotIndex, bandIndex, settings);
+  }
+
+  public updateInsertReverbParam(insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) {
+    this.mixerManager.updateInsertReverbParam(insertIndex, slotIndex, settings);
   }
 
   /**
