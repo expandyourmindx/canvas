@@ -135,3 +135,36 @@ We saved progress in the repository with a clean commit:
 [main 5d99fcb] Integrate Sampler time stretching worker and Canvas visual scaling
  4 files changed, 206 insertions(+), 5 deletions(-)
 ```
+
+---
+
+# Walkthrough - STRETCH Playback Diagnostics
+
+I have added comprehensive diagnostic logging inside `SamplerEngine.triggerCanvasSample` for clips played back with `STRETCH` mode active.
+
+## Changes Made
+
+### SamplerEngine.ts
+* **[SamplerEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/SamplerEngine.ts)**: Added a diagnostic logging block inside `triggerCanvasSample` that runs when a clip has `STRETCH` mode active. It prints the following data:
+  1. **AudioBuffer duration and channel count** (ensures it is playing the fully processed and correctly sized pre-baked buffer).
+  2. **Scheduled start time vs. current AudioContext time** (with precise calculation of the scheduled start delay/delta).
+  3. **Node creation context** (explicitly flags that a brand new `AudioBufferSourceNode` is instantiated for each playback event, as required by the one-shot Web Audio standard).
+  4. **Playback rate checking** (reads the actual `playbackRate.value` and validates it against the expected pre-baked rate of `1.0` so that no extra tempo/pitch modifications are applied to the already-stretched buffer).
+
+## Verification Results
+
+### TypeScript Verification
+Verified that type checks pass perfectly:
+```powershell
+npx tsc --noEmit
+# Completed successfully with 0 errors
+```
+
+### Mock Diagnostic Output
+```
+[SamplerEngine STRETCH Playback Diagnostic]
+- AudioBuffer duration: 8.730249s, channels: 2
+- Scheduled start time: 12.500000s (Context time: 12.448512s, Delta: 0.051488s)
+- Node Reuse: A NEW AudioBufferSourceNode is created for this playback event (Web Audio standard one-shot node)
+- Playback rate: 1.000000 (Target: 1.000000 - pre-baked check: CORRECT (1.0))
+```
