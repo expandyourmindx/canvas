@@ -112,6 +112,33 @@ self.onmessage = (e: MessageEvent<SoundStretchWorkerMessage>) => {
       finalProcessedData = trimmedStereoData;
     }
 
+    // Diagnostic logging
+    let minVal = Infinity;
+    let maxVal = -Infinity;
+    let hasNaN = false;
+    for (let i = 0; i < finalProcessedData.length; i++) {
+      const v = finalProcessedData[i];
+      if (isNaN(v)) {
+        hasNaN = true;
+      } else {
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
+      }
+    }
+
+    const flushFrames = Math.max(0, totalFramesExtracted - expectedOutputFrames);
+    const flushSamplesCollected = flushFrames * channels;
+
+    console.log(
+      `[SoundStretch Worker Diagnostic] Channel/Clip: ${channelId}\n` +
+      `- Total output samples collected: ${finalProcessedData.length}\n` +
+      `- Any zero-length chunks during receive loop: ${outputChunks.some(c => c.length === 0)}\n` +
+      `- Final buffer Min value: ${minVal === Infinity ? 0 : minVal}\n` +
+      `- Final buffer Max value: ${maxVal === -Infinity ? 0 : maxVal}\n` +
+      `- Final buffer contains NaN: ${hasNaN}\n` +
+      `- Flush samples collected: ${flushSamplesCollected}`
+    );
+
     self.postMessage({
       processedData: finalProcessedData,
       channels: channels,
