@@ -218,3 +218,30 @@ Verified that type checks pass perfectly:
 npx tsc --noEmit
 # Completed successfully with 0 errors
 ```
+---
+
+# Walkthrough - Stretched Buffer Support in Export Engine
+
+I have updated the offline render / export pipeline in `ExportEngine.ts` to seamlessly locate and resolve pre-stretched buffers in the registry for sample clips in STRETCH mode.
+
+## Changes Made
+
+### 1. SamplerEngine & AudioEngine Modular Refactoring
+* **[SamplerEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/SamplerEngine.ts)**: Extracted and centralized the channel ID resolution logic into a public `resolveChannelId(referenceId)` helper, clean-refactoring `triggerCanvasSample` to eliminate redundant checks.
+* **[AudioEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/AudioEngine.ts)**: Exposes the `resolveChannelId` delegator publicly to allow external callers (such as the offline exporter) to properly map clip reference IDs back to their settings channels.
+
+### 2. Exporter Interface & Cached Lookup Integration
+* **[ExportEngine.ts](file:///c:/Users/elija/Desktop/Coding/Canvas%200.19.0/src/audio/ExportEngine.ts)**:
+  * Exposes `resolveChannelId` and `getChannelSamplerSettings` inside the `ExportableEngine` compiler target interface.
+  * In the sample clip scheduling loop, checks if the active channel has `STRETCH` mode enabled.
+  * If stretch is active, it queries the sample registry for a pre-rendered cache entry matching `${clip.id}_stretched`.
+  * If found, it swaps and renders the high-fidelity pre-stretched offline cache buffer instead of the original raw sample, ensuring song exports exactly match real-time arranger playback.
+
+## Verification Results
+
+### TypeScript Verification
+Verified that type checks pass perfectly:
+```powershell
+npx tsc --noEmit
+# Completed successfully with 0 errors
+```
