@@ -665,7 +665,9 @@ export class SamplerEngine {
    * Plays a registered sample event with a hardware-accurate timeline target and optional offset.
    */
   public triggerCanvasSample(clip: CanvasClip, absoluteContextTime: number, sampleOffsetSeconds: number = 0) {
-    const isChannelId = clip.referenceId.startsWith("sampler_");
+    const isChannelId = (clip.referenceId.startsWith("sampler_") && !clip.referenceId.endsWith("_sample")) ||
+                        (clip.referenceId in this.samplerSettings) ||
+                        (clip.referenceId in this.channelSampleIds);
 
     // Determine the playing channel by matching registered sample IDs or channel ID prefix
     const channelId = isChannelId ? clip.referenceId : (
@@ -682,6 +684,11 @@ export class SamplerEngine {
 
     const settings = channelId ? this.samplerSettings[channelId] : null;
     const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+
+    if (isStretchActive) {
+      console.log("[STRETCH PLAYBACK] entering stretch playback path");
+    }
+
     const sampleId = isStretchActive ? `${clip.id}_stretched` : (channelId ? (this.channelSampleIds[channelId] || clip.referenceId) : clip.referenceId);
 
     const buffer = this.sampleRegistry.getSampleBuffer(sampleId);
