@@ -153,7 +153,14 @@ export function ArrangerClip({
       // effectiveWidthPx = total canvas pixels that the FULL stretched audio spans.
       // This is the waveform's fixed pixel scale — independent of clip.duration.
       // clip.duration (= widthPx) is just a viewport window sliding over this scaled waveform.
-      let effectiveWidthPx = widthPx; // default: no stretch → 1:1 with beats
+      //
+      // Default: use the sample's natural duration at current BPM — never clip.duration.
+      // This ensures fresh clips (settings=undefined) also get a fixed waveform scale.
+      const secondsPerBeat = engine.beatsToSeconds(1);
+      let effectiveWidthPx = secondsPerBeat > 0
+        ? (buffer.duration / secondsPerBeat) * beatWidth
+        : widthPx;
+
       if (settings) {
         const stretchTime = settings.stretchTime || 0;
         const multiplier = settings.stretchMul ?? 1.0;
@@ -169,7 +176,6 @@ export function ArrangerClip({
           } else {
             // Auto: playbackRate = multiplier*pitchRatio, buffer plays at natural speed scaled
             // Full buffer audible duration = buffer.duration / (multiplier*pitchRatio)
-            const secondsPerBeat = engine.beatsToSeconds(1);
             effectiveWidthPx = secondsPerBeat > 0
               ? (buffer.duration / (multiplier * pitchRatio) / secondsPerBeat) * beatWidth
               : widthPx;
