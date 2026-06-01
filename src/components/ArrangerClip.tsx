@@ -96,7 +96,7 @@ export function ArrangerClip({
       }
     }
   }
-  const widthPx = effectiveBeats * beatWidth;
+  const widthPx = clip.duration * beatWidth;
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
