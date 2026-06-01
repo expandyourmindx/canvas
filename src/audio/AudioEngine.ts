@@ -72,6 +72,7 @@ export class AudioEngine {
   private channelMixerTargets: Record<string, number> = {};
   public mixerManager: MixerManager;
   public onSampleLoadedCallback: (() => void) | null = null;
+  public onClipDurationChangedCallback: ((clipId: string, durationBeats: number) => void) | null = null;
 
   constructor(options: AudioEngineOptions = {}) {
     const bpm = options.bpm ?? 120;
@@ -108,8 +109,10 @@ export class AudioEngine {
           }
         },
         getCanvasClips: () => this.canvasClips,
-        updateClipDuration: (clipId: string, durationBeats: number) => {
-          this.updateClipDuration(clipId, durationBeats);
+        onClipDurationChanged: (clipId: string, durationBeats: number) => {
+          if (this.onClipDurationChangedCallback) {
+            this.onClipDurationChangedCallback(clipId, durationBeats);
+          }
         }
       }
     );
@@ -1005,9 +1008,6 @@ export class AudioEngine {
     const clip = this.canvasClips.find(c => c.id === clipId);
     if (clip) {
       clip.duration = durationBeats;
-    }
-    if (this.onSampleLoadedCallback) {
-      this.onSampleLoadedCallback();
     }
   }
 

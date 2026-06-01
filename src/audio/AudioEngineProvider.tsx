@@ -461,6 +461,17 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     };
   }, [engine, notifySampleLoaded]);
 
+  // Synchronize stretch completion clip duration updates into React state
+  useEffect(() => {
+    engine.onClipDurationChangedCallback = (clipId: string, durationBeats: number) => {
+      engine.updateClipDuration(clipId, durationBeats);
+      setCanvasClipsState([...engine.getCanvasClips()]);
+    };
+    return () => {
+      engine.onClipDurationChangedCallback = null;
+    };
+  }, [engine]);
+
   const setInsertFXSlot = useCallback((insertIndex: number, slotIndex: number, fxName: string) => {
     engine.setInsertFXSlot(insertIndex, slotIndex, fxName);
     setIsDirty(true);
