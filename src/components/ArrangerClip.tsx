@@ -51,26 +51,8 @@ export function ArrangerClip({
   const { engine } = useAudioEngine();
   const leftPx = clip.startBeat * beatWidth;
   
-  // Visual width: clip.duration is always the clip boundary on the timeline.
-  // The resize handle directly modifies clip.duration, so widthPx must always track it.
-  // effectiveBeats is only needed for the waveform canvas crop window in STRETCH mode,
-  // where the processed audio buffer has a physically different duration than clip.duration.
+  // Clip frame width always = clip.duration (set by drag handles). Never changes due to stretch.
   const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
-
-  // effectiveBeats: the real output-buffer duration in STRETCH mode (for waveform crop).
-  // In RESAMPLE mode the audio engine adjusts playbackRate — clip.duration IS the boundary.
-  let effectiveBeats = clip.duration;
-  if (settings) {
-    const stretchTime = settings.stretchTime || 0;
-    const multiplier = settings.stretchMul ?? 1.0;
-    if (settings.stretchMode?.toUpperCase() === "STRETCH") {
-      // STRETCH: the worker re-encodes the buffer. Output length = stretchTime/multiplier (or clip.duration/multiplier for Auto).
-      effectiveBeats = stretchTime > 0 ? stretchTime / multiplier : clip.duration / multiplier;
-    }
-    // RESAMPLE: playbackRate handles speed — no separate effectiveBeats needed for the frame.
-  }
-
-  // The clip container always matches clip.duration so resize drags move the frame edge correctly.
   const widthPx = clip.duration * beatWidth;
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
@@ -168,39 +150,69 @@ export function ArrangerClip({
       const { mins, maxs } = cache;
       const N = mins.length;
 
-      // For waveform crop: STRETCH mode changes the buffer length (effectiveBeats = output duration).
-      // RESAMPLE mode keeps the same sample region — crop is always based on clip.duration.
-      const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
-      const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
+      // effectiveWidthPx = total canvas pixels that the FULL stretched audio spans.
+      // This is the waveform's fixed pixel scale — independent of clip.duration.
+      // clip.duration (= widthPx) is just a viewport window sliding over this scaled waveform.
+      let effectiveWidthPx = widthPx; // default: no stretch → 1:1 with beats
+      if (settings) {
+        const stretchTime = settings.stretchTime || 0;
+        const multiplier = settings.stretchMul ?? 1.0;
+        const pitchCents = settings.stretchPitch || 0;
+        const mode = settings.stretchMode?.toUpperCase();
 
-      const clipDurationSeconds = engine.beatsToSeconds(targetBeats);
-      const cropStartSeconds = engine.beatsToSeconds(clip.cropStart || 0);
-      const sampleDurationSeconds = buffer.duration;
+        if (mode === "RESAMPLE") {
+          const pitchRatio = Math.pow(2, pitchCents / 1200);
+          if (stretchTime > 0) {
+            // Fixed target: stretchTime beats of sample plays at multiplier*pitchRatio speed
+            // → full buffer spans stretchTime/(multiplier*pitchRatio) beats on the timeline
+            effectiveWidthPx = (stretchTime / (multiplier * pitchRatio)) * beatWidth;
+          } else {
+            // Auto: playbackRate = multiplier*pitchRatio, buffer plays at natural speed scaled
+            // Full buffer audible duration = buffer.duration / (multiplier*pitchRatio)
+            const secondsPerBeat = engine.beatsToSeconds(1);
+            effectiveWidthPx = secondsPerBeat > 0
+              ? (buffer.duration / (multiplier * pitchRatio) / secondsPerBeat) * beatWidth
+              : widthPx;
+          }
+        } else if (mode === "STRETCH") {
+          // STRETCH: processed buffer has a different physical duration
+          effectiveWidthPx = stretchTime > 0
+            ? (stretchTime / multiplier) * beatWidth
+            : (clip.duration / multiplier) * beatWidth;
+        }
+      }
 
-      if (clipDurationSeconds <= 0 || sampleDurationSeconds <= 0) return;
+      if (effectiveWidthPx <= 0 || buffer.duration <= 0) return;
+
+      // cropStart in beats → pixel offset into the stretched waveform space
+      const cropOffsetPx = (clip.cropStart || 0) * beatWidth;
 
       const headerHeight = 16;
       const bodyHeight = heightPx - headerHeight;
       const midY = headerHeight + bodyHeight / 2;
-      const ampScale = 0.85; // Standard amplitude scale to keep clean vertical margins
+      const ampScale = 0.85;
 
-      ctx.strokeStyle = "rgba(34, 211, 238, 0.85)"; // High-contrast cyan
+      ctx.strokeStyle = "rgba(34, 211, 238, 0.85)";
       ctx.lineWidth = 1.2;
 
       for (let i = 0; i < widthPx; i++) {
-        const tStart = cropStartSeconds + (i / widthPx) * clipDurationSeconds;
-        const tEnd = cropStartSeconds + ((i + 1) / widthPx) * clipDurationSeconds;
+        // Map canvas pixel i to a position in the raw buffer.
+        // The stretched audio spans effectiveWidthPx pixels total.
+        // cropOffsetPx shifts which part of that space is visible.
+        const wavePosPx = cropOffsetPx + i;
+        const tStart = (wavePosPx / effectiveWidthPx) * buffer.duration;
+        const tEnd = ((wavePosPx + 1) / effectiveWidthPx) * buffer.duration;
 
-        if (tStart < 0 || tStart >= sampleDurationSeconds) {
-          continue; // Silence (pre-gap or post-gap)
+        if (tStart < 0 || tStart >= buffer.duration) {
+          continue; // beyond sample — silence
         }
 
         let min = 0;
         let max = 0;
         let hasData = false;
 
-        const startIdx = Math.floor((tStart / sampleDurationSeconds) * N);
-        const endIdx = Math.ceil((tEnd / sampleDurationSeconds) * N);
+        const startIdx = Math.floor((tStart / buffer.duration) * N);
+        const endIdx = Math.ceil((tEnd / buffer.duration) * N);
 
         const clampedStart = Math.max(0, Math.min(N - 1, startIdx));
         const clampedEnd = Math.max(1, Math.min(N, endIdx));
@@ -225,7 +237,7 @@ export function ArrangerClip({
         ctx.stroke();
       }
     }
-  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, effectiveBeats, clip.cropStart, engine]);
+  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, clip.cropStart, settings, beatWidth, engine]);
 
   return (
     <div
