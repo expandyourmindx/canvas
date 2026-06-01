@@ -96,7 +96,8 @@ export function ArrangerClip({
       }
     }
   }
-  const widthPx = clip.duration * beatWidth;
+  // effectiveBeats accounts for resample/stretch speed — this drives the visual clip width.
+  const widthPx = effectiveBeats * beatWidth;
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
@@ -193,6 +194,8 @@ export function ArrangerClip({
       const { mins, maxs } = cache;
       const N = mins.length;
 
+      // For waveform crop: STRETCH mode changes the buffer length (effectiveBeats = output duration).
+      // RESAMPLE mode keeps the same sample region — crop is always based on clip.duration.
       const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
       const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
 
