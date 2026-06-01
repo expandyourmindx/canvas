@@ -51,53 +51,27 @@ export function ArrangerClip({
   const { engine } = useAudioEngine();
   const leftPx = clip.startBeat * beatWidth;
   
-  // Real-time Visual Scaling (The FL Effect):
-  // Calculate visual width that precisely matches the actual audio playback duration.
-  // RESAMPLE mode: pitch changes length (linked). STRETCH mode: pitch is independent.
+  // Visual width: clip.duration is always the clip boundary on the timeline.
+  // The resize handle directly modifies clip.duration, so widthPx must always track it.
+  // effectiveBeats is only needed for the waveform canvas crop window in STRETCH mode,
+  // where the processed audio buffer has a physically different duration than clip.duration.
   const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
-  
+
+  // effectiveBeats: the real output-buffer duration in STRETCH mode (for waveform crop).
+  // In RESAMPLE mode the audio engine adjusts playbackRate — clip.duration IS the boundary.
   let effectiveBeats = clip.duration;
-  if (settings && (settings.stretchTime || settings.stretchMul !== undefined || settings.stretchPitch)) {
+  if (settings) {
     const stretchTime = settings.stretchTime || 0;
     const multiplier = settings.stretchMul ?? 1.0;
-    const pitchCents = settings.stretchPitch || 0;
-    
-    if (stretchTime > 0) {
-      if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
-        // RESAMPLE: Pitch changes length. The playbackRate is baseTempoRatio * mul * 2^(cents/1200)
-        // Visual width = originalBeats / playbackRate
-        // But we know the target duration in beats = stretchTime, so:
-        // baseTempoRatio = originalDuration / targetDuration
-        // effectiveRate = baseTempoRatio * multiplier * pitchRatio
-        // visualBeats = originalBeatsLength / effectiveRate
-        // Simpler: targetBeats = stretchTime, then adjusted for mul and pitch:
-        // visualBeats = stretchTime / (multiplier * pitchRatio)  ... but that's not quite right.
-        // Actually: playbackRate = (origDur / targetDur) * mul * 2^(cents/1200)
-        // audibleDuration = origDur / playbackRate = targetDur / (mul * 2^(cents/1200))
-        // audibleBeats = stretchTime / (mul * 2^(cents/1200))
-        const pitchRatio = Math.pow(2, pitchCents / 1200);
-        effectiveBeats = stretchTime / (multiplier * pitchRatio);
-      } else {
-        // STRETCH: Pitch has ZERO effect on length. Time and multiplier are independent of pitch.
-        // The worker produces a buffer of length = originalFrames / tempoRatio
-        // tempoRatio = baseTempoRatio * multiplier = (origDur / targetDur) * multiplier
-        // outputDuration = origDur / tempoRatio = targetDur / multiplier
-        // outputBeats = stretchTime / multiplier
-        effectiveBeats = stretchTime / multiplier;
-      }
-    } else {
-      // stretchTime is 0 (Auto) — only multiplier and pitch affect length
-      if (settings.stretchMode?.toUpperCase() === "RESAMPLE") {
-        const pitchRatio = Math.pow(2, pitchCents / 1200);
-        effectiveBeats = clip.duration / (multiplier * pitchRatio);
-      } else {
-        // STRETCH with auto time: multiplier scales the tempo, pitch is independent
-        effectiveBeats = clip.duration / multiplier;
-      }
+    if (settings.stretchMode?.toUpperCase() === "STRETCH") {
+      // STRETCH: the worker re-encodes the buffer. Output length = stretchTime/multiplier (or clip.duration/multiplier for Auto).
+      effectiveBeats = stretchTime > 0 ? stretchTime / multiplier : clip.duration / multiplier;
     }
+    // RESAMPLE: playbackRate handles speed — no separate effectiveBeats needed for the frame.
   }
-  // effectiveBeats accounts for resample/stretch speed — this drives the visual clip width.
-  const widthPx = effectiveBeats * beatWidth;
+
+  // The clip container always matches clip.duration so resize drags move the frame edge correctly.
+  const widthPx = clip.duration * beatWidth;
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
