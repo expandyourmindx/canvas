@@ -262,8 +262,6 @@ export class AudioEngine {
     const endBeats = this.secondsToBeats(endSeconds);
     const playbackMode = this.getPlaybackMode();
 
-    console.log(`[scheduleTimelineSegment START] startSecs: ${startSeconds.toFixed(3)}, endSecs: ${endSeconds.toFixed(3)}, playbackMode: ${playbackMode}, canvasClipsCount: ${this.canvasClips.length}`);
-
     if (playbackMode === "pattern") {
       // Process custom defined notes/events (backward compatibility)
       for (const event of this.getEvents()) {
