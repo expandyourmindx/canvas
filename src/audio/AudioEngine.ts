@@ -107,7 +107,10 @@ export class AudioEngine {
             this.onSampleLoadedCallback();
           }
         },
-        getCanvasClips: () => this.canvasClips
+        getCanvasClips: () => this.canvasClips,
+        updateClipDuration: (clipId: string, durationBeats: number) => {
+          this.updateClipDuration(clipId, durationBeats);
+        }
       }
     );
 
@@ -996,6 +999,16 @@ export class AudioEngine {
 
   public removeCanvasClip(id: string) {
     this.canvasClips = this.canvasClips.filter(c => c.id !== id);
+  }
+
+  public updateClipDuration(clipId: string, durationBeats: number) {
+    const clip = this.canvasClips.find(c => c.id === clipId);
+    if (clip) {
+      clip.duration = durationBeats;
+    }
+    if (this.onSampleLoadedCallback) {
+      this.onSampleLoadedCallback();
+    }
   }
 
   public isClipLoading(clipId: string): boolean {

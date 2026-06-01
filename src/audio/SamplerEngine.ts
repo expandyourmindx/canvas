@@ -19,6 +19,7 @@ export interface SamplerEngineDelegate {
   getBPM?: () => number;
   notifySampleLoaded?: () => void;
   getCanvasClips?: () => CanvasClip[];
+  updateClipDuration?: (clipId: string, durationBeats: number) => void;
 }
 
 export class SamplerEngine {
@@ -102,6 +103,13 @@ export class SamplerEngine {
         this.sampleRegistry.setSampleBuffer(stretchedId, buffer);
 
         console.log(`Stretched buffer registered for clip ${clipId}: duration=${buffer.duration.toFixed(2)}s`);
+
+        // Update clip duration in canvasClips to match the actual stretched buffer length
+        if (this.delegate.updateClipDuration && this.delegate.getBPM) {
+          const bpm = this.delegate.getBPM();
+          const durationBeats = (buffer.duration / 60) * bpm;
+          this.delegate.updateClipDuration(clipId, durationBeats);
+        }
 
         // Trigger UI redraw
         if (this.delegate.notifySampleLoaded) {
