@@ -3,7 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
+import {
+  DARK,
+  SPACE,
+} from "../../public/Themes/Vintage Console/tokens";
 
 // Width in pixels of the sticky lane-label column on the left edge of the ruler.
 // Must match the 130px header used in Canvas.tsx so beat math stays aligned.
@@ -21,6 +25,14 @@ interface ArrangerRulerProps {
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   scrollLeft: number;
   viewportWidth: number;
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace("#", "");
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 export function ArrangerRuler({
@@ -53,7 +65,6 @@ export function ArrangerRuler({
     initialZoomX: number;
     isPanningZooming: boolean;
   } | null>(null);
-
 
   /**
    * Convert a raw clientX inside the ruler element into a snapped beat value.
@@ -181,33 +192,109 @@ export function ArrangerRuler({
       onPointerUp={handleRulerPointerUp}
       onDoubleClick={handleRulerDoubleClick}
       onContextMenu={(e) => e.preventDefault()}
-      className="flex h-7.5 border-[#17181c] border-b pb-1 cursor-pointer select-none sticky top-0 bg-[#0a0b0d] z-20"
+      style={{
+        display: "flex",
+        height: "30px", // matching original height
+        border: "none",
+        borderBottom: `1px solid ${DARK.bevelMid}`, // flat(DARK) bottom border
+        cursor: "pointer",
+        userSelect: "none",
+        position: "sticky",
+        top: 0,
+        backgroundColor: DARK.bg1, // Ruler background
+        zIndex: 20,
+        boxSizing: "border-box",
+      }}
     >
       {/* Sticky lane label column */}
       <div
         onPointerDown={(e) => e.stopPropagation()}
-        className="w-[130px] shrink-0 flex items-center pl-2 text-zinc-500 font-bold uppercase text-[8.5px] font-mono border-r border-[#17181c] h-full sticky left-0 bg-[#0a0b0d] z-30 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] cursor-default"
+        style={{
+          width: `${LABEL_WIDTH_PX}px`,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: `${SPACE.sm}px`,
+          color: DARK.textMid, // textMid hierarchy
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          fontSize: "8px",
+          fontFamily: DARK.font,
+          borderRight: `1px solid ${DARK.bevelDark}`, // flat/dark separator
+          height: "100%",
+          position: "sticky",
+          left: 0,
+          backgroundColor: DARK.bg1,
+          zIndex: 30,
+          cursor: "default",
+          boxSizing: "border-box",
+        }}
       >
         Arranger Lanes
       </div>
 
       {/* Beat grid area */}
-      <div className="flex-1 relative h-full overflow-visible">
-
-
+      <div
+        style={{
+          flex: 1,
+          position: "relative",
+          height: "100%",
+          overflow: "visible",
+          boxSizing: "border-box",
+        }}
+      >
         {/* Loop Range visual indicator overlay */}
         {loopSettings.isLooping && (
           <div
-            className="absolute top-0 bottom-0 bg-amber-500/10 border-l border-r border-amber-500/40 pointer-events-none z-10"
             style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
               left: `${loopSettings.loopStart * beatWidth}px`,
               width: `${(loopSettings.loopEnd - loopSettings.loopStart) * beatWidth}px`,
+              backgroundColor: hexToRgba(DARK.accentBlue, 0.15), // loop region fill DARK.accentBlue at 15%
+              border: "none",
+              borderLeft: `1px solid ${DARK.accentBlue}`, // loop bracket lines DARK.accentBlue
+              borderRight: `1px solid ${DARK.accentBlue}`,
+              pointerEvents: "none",
+              zIndex: 10,
+              boxSizing: "border-box",
             }}
           >
-            <div className="absolute left-0 top-0 bg-amber-500 text-[6px] font-black text-black px-0.5 select-none leading-none rounded-br-xs">
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                backgroundColor: DARK.accentBlue,
+                fontSize: "6px",
+                fontWeight: "black",
+                color: DARK.bg0,
+                padding: `0 ${SPACE.xs}px`,
+                userSelect: "none",
+                lineHeight: "1.2",
+                fontFamily: DARK.font,
+                boxSizing: "border-box",
+              }}
+            >
               L
             </div>
-            <div className="absolute right-0 top-0 bg-amber-500 text-[6px] font-black text-black px-0.5 select-none leading-none rounded-bl-xs">
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                backgroundColor: DARK.accentBlue,
+                fontSize: "6px",
+                fontWeight: "black",
+                color: DARK.bg0,
+                padding: `0 ${SPACE.xs}px`,
+                userSelect: "none",
+                lineHeight: "1.2",
+                fontFamily: DARK.font,
+                boxSizing: "border-box",
+              }}
+            >
               R
             </div>
           </div>
@@ -227,17 +314,60 @@ export function ArrangerRuler({
           return (
             <div
               key={beat}
-              className={`absolute top-0 bottom-0 text-left pl-1 flex flex-col justify-end pointer-events-none select-none ${
-                isBar ? "border-l border-zinc-700" : "border-l border-[#191a1e]/50"
-              }`}
-              style={{ left: `${beat * beatWidth}px`, width: `${beatWidth}px` }}
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: `${beat * beatWidth}px`,
+                width: `${beatWidth}px`,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "flex-end",
+                paddingLeft: `${SPACE.xs}px`,
+                pointerEvents: "none",
+                userSelect: "none",
+                boxSizing: "border-box",
+              }}
             >
+              {/* Vertical grid line marker */}
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  bottom: 0,
+                  width: "1px",
+                  height: isBar ? "100%" : "8px", // shorter height than bar lines
+                  backgroundColor: isBar ? DARK.bevelDark : DARK.bg5, // Bar lines: DARK.bevelDark, beat subdivision lines: DARK.bg5
+                }}
+              />
+
               {isBar ? (
-                <span className="text-cyan-400 font-black font-mono text-[7.5px] leading-tight">
+                <span
+                  style={{
+                    fontSize: "8px",
+                    color: DARK.textMid, // bar label textMid hierarchy
+                    fontFamily: DARK.font,
+                    fontWeight: "black",
+                    textTransform: "uppercase",
+                    lineHeight: "1.0",
+                    marginBottom: `${SPACE.xs}px`,
+                  }}
+                >
                   BAR {Math.floor(beat / 4) + 1}
                 </span>
               ) : (
-                <span className="text-zinc-650 font-mono text-[6.5px] leading-none">{beat + 1}</span>
+                <span
+                  style={{
+                    fontSize: "7px", // subdivision beat label textDim hierarchy
+                    color: DARK.textDim,
+                    fontFamily: DARK.font,
+                    textTransform: "uppercase",
+                    lineHeight: "1.0",
+                    marginBottom: `${SPACE.xs}px`,
+                  }}
+                >
+                  {beat + 1}
+                </span>
               )}
             </div>
           );

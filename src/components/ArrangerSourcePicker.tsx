@@ -4,9 +4,17 @@
  */
 
 import React, { useRef, useState, useEffect } from "react";
-import { Music, ChevronRight, ChevronLeft, Upload, Volume2 } from "lucide-react";
+import { ChevronRight, ChevronLeft, Upload, Volume2 } from "lucide-react";
 import { PatternData, ChannelRow } from "../types";
 import { AudioEngine } from "../audio/AudioEngine";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE
+} from "../../public/Themes/Vintage Console/tokens";
 
 interface ArrangerSourcePickerProps {
   patterns: PatternData[];
@@ -58,7 +66,7 @@ function SampleWaveform({
 
     if (!buffer) {
       // If buffer is loading/offline, draw a subtle loader dash
-      ctx.strokeStyle = "rgba(115, 115, 115, 0.4)";
+      ctx.strokeStyle = DARK.textDim;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(10, heightPx / 2);
@@ -71,7 +79,7 @@ function SampleWaveform({
     const midY = heightPx / 2;
     const ampScale = 0.85;
 
-    ctx.strokeStyle = "rgba(34, 211, 238, 0.85)"; // High-contrast cyan to match Canvas DAW theme
+    ctx.strokeStyle = DARK.accentBlue; // Accent blue from tokens
     ctx.lineWidth = 1.0;
 
     for (let i = 0; i < widthPx; i++) {
@@ -104,7 +112,16 @@ function SampleWaveform({
     }
   }, [sampleId, engine]);
 
-  return <canvas ref={canvasRef} className="w-full h-full pointer-events-none" style={{ height: "32px" }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        width: "100%",
+        height: "32px",
+        pointerEvents: "none",
+      }}
+    />
+  );
 }
 
 export function ArrangerSourcePicker({
@@ -152,13 +169,20 @@ export function ArrangerSourcePicker({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex flex-col border border-neutral-850 bg-black/15 transition-all duration-300 ease-in-out select-none overflow-hidden h-full shrink-0 ${
-        isCollapsed ? "w-10" : "w-[150px]"
-      } ${
-        isDraggingFile
-          ? "border-cyan-500 bg-[#16222c]/50 shadow-[inset_0_0_15px_rgba(6,182,212,0.25)]"
-          : ""
-      }`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: isCollapsed ? "40px" : "150px",
+        height: "100%",
+        backgroundColor: isDraggingFile ? DARK.bg5 : DARK.bg2,
+        border: "none",
+        borderRight: `1px solid ${DARK.bevelMid}`, // flat(DARK) right border
+        boxSizing: "border-box",
+        flexShrink: 0,
+        overflow: "hidden",
+        userSelect: "none",
+        fontFamily: DARK.font,
+      }}
     >
       <input
         type="file"
@@ -173,16 +197,57 @@ export function ArrangerSourcePicker({
       />
 
       {/* Header Strip */}
-      <div className="flex items-center justify-between p-1.5 border-b border-neutral-850 shrink-0 bg-[#0c0d10]">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: isCollapsed ? "center" : "space-between",
+          padding: `${SPACE.sm}px ${SPACE.md}px`,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          flexShrink: 0,
+          backgroundColor: DARK.bg1,
+          boxSizing: "border-box",
+        }}
+      >
         {!isCollapsed && (
-          <span className="text-[8px] font-black tracking-widest text-zinc-555 uppercase select-none font-mono">
+          <span
+            style={{
+              fontSize: "8px",
+              fontWeight: "black",
+              letterSpacing: "0.15em",
+              color: DARK.textDim,
+              textTransform: "uppercase",
+              userSelect: "none",
+              fontFamily: DARK.font,
+            }}
+          >
             PICKER
           </span>
         )}
-        <div className={`flex items-center gap-1 ${isCollapsed ? "flex-col w-full" : ""}`}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: `${SPACE.xs}px`,
+            flexDirection: isCollapsed ? "column" : "row",
+            width: isCollapsed ? "100%" : "auto",
+            boxSizing: "border-box",
+          }}
+        >
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-1 hover:bg-[#1b1c20] text-zinc-400 hover:text-cyan-400 transition-colors rounded-none border border-transparent hover:border-neutral-850 cursor-pointer flex items-center justify-center"
+            style={{
+              padding: "4px",
+              backgroundColor: DARK.bg3,
+              color: DARK.textMid,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             title="Load Custom Sample File"
           >
             <Upload className="h-3.5 w-3.5" />
@@ -190,7 +255,18 @@ export function ArrangerSourcePicker({
           
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 hover:bg-[#1b1c20] text-zinc-400 hover:text-cyan-400 transition-colors rounded-none border border-transparent hover:border-neutral-850 cursor-pointer flex items-center justify-center"
+            style={{
+              padding: "4px",
+              backgroundColor: DARK.bg3,
+              color: DARK.textMid,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             title={isCollapsed ? "Expand Picker Panel" : "Collapse Picker Panel"}
           >
             {isCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
@@ -201,41 +277,100 @@ export function ArrangerSourcePicker({
       {!isCollapsed && (
         <>
           {/* Three tabs at the top */}
-          <div className="flex border-b border-neutral-850 bg-[#0a0b0d] p-0.5 select-none shrink-0 font-mono text-[7.5px] font-bold">
+          <div
+            style={{
+              display: "flex",
+              backgroundColor: DARK.bg1,
+              padding: `${SPACE.xs}px`,
+              borderBottom: `1px solid ${DARK.bevelDark}`,
+              userSelect: "none",
+              flexShrink: 0,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              boxSizing: "border-box",
+            }}
+          >
             <button
               onClick={() => setActiveTab("patterns")}
-              className={`flex-1 py-1 text-center border-none transition-colors cursor-pointer rounded-none uppercase ${
-                activeTab === "patterns"
-                  ? "bg-cyan-500/10 text-cyan-400 font-black border-b border-cyan-500"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
+              style={{
+                flex: 1,
+                padding: `${SPACE.sm}px 0`,
+                textAlign: "center",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                fontFamily: DARK.font,
+                fontSize: "8px",
+                fontWeight: activeTab === "patterns" ? "black" : "bold",
+                backgroundColor: activeTab === "patterns" ? DARK.bg0 : DARK.bg3,
+                color: activeTab === "patterns" ? DARK.textHi : DARK.textDim,
+                boxSizing: "border-box",
+                border: "none",
+                ...(activeTab === "patterns" ? sunken(DARK) : raised(DARK)),
+              }}
             >
               Patterns
             </button>
             <button
               onClick={() => setActiveTab("samples")}
-              className={`flex-1 py-1 text-center border-none transition-colors cursor-pointer rounded-none uppercase ${
-                activeTab === "samples"
-                  ? "bg-cyan-500/10 text-cyan-400 font-black border-b border-cyan-500"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
+              style={{
+                flex: 1,
+                padding: `${SPACE.sm}px 0`,
+                textAlign: "center",
+                cursor: "pointer",
+                textTransform: "uppercase",
+                fontFamily: DARK.font,
+                fontSize: "8px",
+                fontWeight: activeTab === "samples" ? "black" : "bold",
+                backgroundColor: activeTab === "samples" ? DARK.bg0 : DARK.bg3,
+                color: activeTab === "samples" ? DARK.textHi : DARK.textDim,
+                boxSizing: "border-box",
+                border: "none",
+                ...(activeTab === "samples" ? sunken(DARK) : raised(DARK)),
+              }}
             >
               Samples
             </button>
             <button
               disabled
-              className="flex-1 py-1 text-center border-none text-zinc-650 cursor-not-allowed uppercase flex flex-col justify-center items-center opacity-50 relative group"
+              style={{
+                flex: 1,
+                padding: `${SPACE.sm}px 0`,
+                textAlign: "center",
+                cursor: "not-allowed",
+                textTransform: "uppercase",
+                fontFamily: DARK.font,
+                fontSize: "8px",
+                fontWeight: "bold",
+                backgroundColor: DARK.bg3,
+                color: DARK.textDim,
+                opacity: 0.5,
+                boxSizing: "border-box",
+                border: "none",
+                ...raised(DARK),
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
               title="Coming Soon"
             >
               <span>Auto</span>
-              <span className="text-[5px] text-zinc-600 scale-[0.8] leading-none mt-px">SOON</span>
+              <span style={{ fontSize: "5px", color: DARK.textDim, marginTop: "1px" }}>SOON</span>
             </button>
           </div>
 
           {/* Tab contents */}
-          <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              padding: `${SPACE.md}px`,
+              boxSizing: "border-box",
+            }}
+          >
             {activeTab === "patterns" && (
-              <div className="space-y-2">
+              <div style={{ display: "flex", flexDirection: "column", gap: `${SPACE.md}px` }}>
                 {patterns.map((pat) => {
                   const isSelected = selectedClipType === "pattern" && selectedReferenceId === pat.id;
                   
@@ -273,15 +408,34 @@ export function ArrangerSourcePicker({
                           if (obsChan) onOpenPianoRoll(obsChan.id);
                         }
                       }}
-                      className={`group p-1.5 border transition-all duration-150 rounded-none cursor-pointer flex flex-col gap-1.5 ${
-                        isSelected
-                          ? "border-cyan-500 bg-[#16222c]/40 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.15)] animate-pulse"
-                          : "border-neutral-850 bg-[#121316]/50 text-neutral-400 hover:bg-[#15171d] hover:border-neutral-800"
-                      }`}
+                      style={{
+                        padding: `${SPACE.md}px`,
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: `${SPACE.sm}px`,
+                        backgroundColor: isSelected ? DARK.bg5 : DARK.bg3,
+                        boxSizing: "border-box",
+                        ...(isSelected ? {
+                          ...sunken(DARK),
+                          borderLeft: `2px solid ${DARK.accentBlue}`, // left border accent DARK.accentBlue
+                        } : raised(DARK)),
+                      }}
                       title={`${pat.name} - ${pat.notes.length} notes (Drag to timeline / Click to select tool)`}
                     >
                       {/* Mini Note Preview */}
-                      <div className="w-full h-8 relative bg-neutral-950/70 border border-neutral-900/50 overflow-hidden rounded-xs pointer-events-none">
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "32px",
+                          position: "relative",
+                          backgroundColor: DARK.bg0,
+                          overflow: "hidden",
+                          pointerEvents: "none",
+                          boxSizing: "border-box",
+                          ...sunken(DARK),
+                        }}
+                      >
                         {pat.notes.map((note, idx) => {
                           const noteLeftPct = (note.time / 4) * 100;
                           const noteWidthPct = ((note.duration || 0.25) / 4) * 100;
@@ -291,10 +445,10 @@ export function ArrangerSourcePicker({
                           return (
                             <div
                               key={idx}
-                              className={`absolute h-[2px] rounded-xs ${
-                                isSelected ? "bg-cyan-400 shadow-[0_0_2px_rgba(6,182,212,0.5)]" : "bg-neutral-500/80"
-                              }`}
                               style={{
+                                position: "absolute",
+                                height: "2px",
+                                backgroundColor: isSelected ? DARK.accentBlue : DARK.textLo,
                                 left: `${Math.max(0, Math.min(95, noteLeftPct))}%`,
                                 width: `${Math.max(4, Math.min(100 - noteLeftPct, noteWidthPct))}%`,
                                 top: `${Math.min(85, Math.max(15, topPct))}%`,
@@ -305,13 +459,43 @@ export function ArrangerSourcePicker({
                       </div>
 
                       {/* Pattern Name */}
-                      <div className="flex justify-between items-center px-0.5 pointer-events-none">
-                        <span className={`text-[8.5px] font-black tracking-wide uppercase truncate leading-none mt-0.5 ${
-                          isSelected ? "text-cyan-400 font-black" : "text-neutral-300"
-                        }`}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: `0 ${SPACE.xs}px`,
+                          pointerEvents: "none",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "8.5px",
+                            fontFamily: DARK.font,
+                            fontWeight: isSelected ? "black" : "bold",
+                            color: isSelected ? DARK.textHi : DARK.textMid,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            lineHeight: "1.0",
+                          }}
+                        >
                           {pat.name}
                         </span>
-                        <span className="text-[6.5px] font-mono bg-black/40 px-1 py-0.5 text-zinc-555 shrink-0">
+                        <span
+                          style={{
+                            fontSize: "7px",
+                            fontFamily: DARK.font,
+                            color: DARK.textDim,
+                            backgroundColor: DARK.bg0,
+                            padding: `2px ${SPACE.sm}px`,
+                            boxSizing: "border-box",
+                            flexShrink: 0,
+                          }}
+                        >
                           {pat.notes.length}N
                         </span>
                       </div>
@@ -319,7 +503,19 @@ export function ArrangerSourcePicker({
                   );
                 })}
                 {patterns.length === 0 && (
-                  <div className="text-zinc-650 text-[8.5px] font-mono p-3 border border-neutral-850 bg-[#121316]/30 text-center uppercase">
+                  <div
+                    style={{
+                      color: DARK.textDim,
+                      fontSize: "8px",
+                      fontFamily: DARK.font,
+                      padding: `${SPACE.lg}px`,
+                      backgroundColor: DARK.bg1,
+                      textAlign: "center",
+                      textTransform: "uppercase",
+                      boxSizing: "border-box",
+                      ...flush(DARK),
+                    }}
+                  >
                     No Patterns
                   </div>
                 )}
@@ -327,7 +523,7 @@ export function ArrangerSourcePicker({
             )}
             
             {activeTab === "samples" && (
-              <div className="space-y-2">
+              <div style={{ display: "flex", flexDirection: "column", gap: `${SPACE.md}px` }}>
                 {sampleChannels.map((chan) => {
                   const isSelected = selectedClipType === "sample" && selectedReferenceId === chan.id;
                   const sampleId = chan.sampleId || chan.id;
@@ -366,32 +562,93 @@ export function ArrangerSourcePicker({
                           onOpenWindow?.("sampler");
                         }
                       }}
-                      className={`group p-1.5 border transition-all duration-150 rounded-none cursor-pointer flex flex-col gap-1.5 ${
-                        isSelected
-                          ? "border-cyan-500 bg-[#16222c]/40 text-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.15)] animate-pulse"
-                          : "border-neutral-850 bg-[#121316]/50 text-neutral-400 hover:bg-[#15171d] hover:border-neutral-800"
-                      }`}
+                      style={{
+                        padding: `${SPACE.md}px`,
+                        cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: `${SPACE.sm}px`,
+                        backgroundColor: isSelected ? DARK.bg5 : DARK.bg3,
+                        boxSizing: "border-box",
+                        ...(isSelected ? {
+                          ...sunken(DARK),
+                          borderLeft: `2px solid ${DARK.accentBlue}`, // left border accent DARK.accentBlue
+                        } : raised(DARK)),
+                      }}
                       title={`${chan.name} (Drag to timeline / Click to select tool)`}
                     >
                       {/* Waveform Canvas Preview */}
-                      <div className="w-full h-8 relative bg-neutral-950/70 border border-neutral-900/50 overflow-hidden rounded-xs pointer-events-none flex items-center justify-center">
+                      <div
+                        style={{
+                          width: "100%",
+                          height: "32px",
+                          position: "relative",
+                          backgroundColor: DARK.bg0,
+                          overflow: "hidden",
+                          pointerEvents: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxSizing: "border-box",
+                          ...sunken(DARK),
+                        }}
+                      >
                         <SampleWaveform sampleId={sampleId} engine={engine} />
                       </div>
 
                       {/* Sample Name */}
-                      <div className="flex justify-between items-center px-0.5 pointer-events-none">
-                        <span className={`text-[8.5px] font-black tracking-wide uppercase truncate leading-none mt-0.5 ${
-                          isSelected ? "text-cyan-400 font-black" : "text-neutral-300"
-                        }`}>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: `0 ${SPACE.xs}px`,
+                          pointerEvents: "none",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "8.5px",
+                            fontFamily: DARK.font,
+                            fontWeight: isSelected ? "black" : "bold",
+                            color: isSelected ? DARK.textHi : DARK.textMid,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.08em",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            lineHeight: "1.0",
+                          }}
+                        >
                           {chan.name}
                         </span>
-                        <Volume2 className={`h-3 w-3 shrink-0 ${isSelected ? "text-cyan-400" : "text-zinc-650"}`} />
+                        <Volume2
+                          className="shrink-0"
+                          style={{
+                            height: "12px",
+                            width: "12px",
+                            color: isSelected ? DARK.accentBlue : DARK.textDim,
+                          }}
+                        />
                       </div>
                     </div>
                   );
                 })}
                 {sampleChannels.length === 0 && (
-                  <div className="text-zinc-650 text-[8.5px] font-mono p-3 border border-neutral-850 bg-[#121316]/30 text-center uppercase">
+                  <div
+                    style={{
+                      color: DARK.textDim,
+                      fontSize: "8px",
+                      fontFamily: DARK.font,
+                      padding: `${SPACE.lg}px`,
+                      backgroundColor: DARK.bg1,
+                      textAlign: "center",
+                      textTransform: "uppercase",
+                      boxSizing: "border-box",
+                      ...flush(DARK),
+                    }}
+                  >
                     No Samples
                   </div>
                 )}
