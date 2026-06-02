@@ -519,19 +519,20 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
     if (!canvas || !eqInstance) return;
 
     const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.width / dpr;
+    const cssH = canvas.height / dpr;
+
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
-    const W = canvas.width;
-    const H = canvas.height;
 
     // Check click hit distance against all 7 band points
     let hitIndex: number | null = null;
     let minDistance = 250; // Maximum hit radius squared (15px)
 
     eqInstance.bands.forEach((band: EQBandSettings, idx: number) => {
-      const bx = hzToX(band.frequency, W);
-      const by = gainToY(band.bypass ? 0 : band.gain, H);
+      const bx = hzToX(band.frequency, cssW);
+      const by = gainToY(band.bypass ? 0 : band.gain, cssH);
       const dist = Math.pow(x - bx, 2) + Math.pow(y - by, 2);
       if (dist < minDistance) {
         minDistance = dist;
@@ -554,15 +555,19 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = Math.max(0, Math.min(canvas.width, e.clientX - rect.left));
-    const y = Math.max(0, Math.min(canvas.height, e.clientY - rect.top));
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.width / dpr;
+    const cssH = canvas.height / dpr;
 
-    const targetHz = xToHz(x, canvas.width);
+    const x = Math.max(0, Math.min(cssW, e.clientX - rect.left));
+    const y = Math.max(0, Math.min(cssH, e.clientY - rect.top));
+
+    const targetHz = xToHz(x, cssW);
     const targetBand = eqInstance.bands[draggedBandIdx];
     
     // Check if type permits gain adjustment (cuts/notch/bandpass generally don't adjust gain)
     const hasGain = !["lowcut", "highcut", "notch", "bandpass"].includes(targetBand.type);
-    const targetGain = hasGain ? yToGain(y, canvas.height) : 0;
+    const targetGain = hasGain ? yToGain(y, cssH) : 0;
 
     updateInsertEQBand(insertIndex, slotIndex, draggedBandIdx, {
       frequency: targetHz,
@@ -592,18 +597,19 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.width / dpr;
+    const cssH = canvas.height / dpr;
+
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
-    const W = canvas.width;
-    const H = canvas.height;
 
     let hoverIdx = selectedBandIdx;
     let minDistance = 400; // Hover hit squared radius (20px)
 
     eqInstance.bands.forEach((band: EQBandSettings, idx: number) => {
-      const bx = hzToX(band.frequency, W);
-      const by = gainToY(band.bypass ? 0 : band.gain, H);
+      const bx = hzToX(band.frequency, cssW);
+      const by = gainToY(band.bypass ? 0 : band.gain, cssH);
       const dist = Math.pow(x - bx, 2) + Math.pow(y - by, 2);
       if (dist < minDistance) {
         minDistance = dist;
