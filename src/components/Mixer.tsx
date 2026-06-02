@@ -386,7 +386,7 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
           top: `${topPx}px`,
           width: `${SIZE.faderThumbW}px`,
           height: `${thumbHeight}px`,
-          backgroundColor: DARK.bg3,
+          backgroundColor: DARK.bg5,
           pointerEvents: "none",
           boxSizing: "border-box",
           ...raised(DARK),
@@ -410,8 +410,7 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
               key={i} 
               style={{ 
                 height: "1px", 
-                borderTop: `1px solid ${DARK.bevelDark}`, 
-                borderBottom: `1px solid ${DARK.bevelLight}`,
+                background: i === 2 ? `${DARK.accentBlue}66` : DARK.bevelLight,
                 boxSizing: "border-box",
               }} 
             />
