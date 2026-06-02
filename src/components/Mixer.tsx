@@ -191,9 +191,10 @@ interface PanKnobProps {
   onChange: (value: number) => void;
   defaultValue?: number;
   title?: string;
+  dotColor?: string;
 }
 
-function PanKnob({ value, min, max, onChange, defaultValue = 0, title }: PanKnobProps) {
+function PanKnob({ value, min, max, onChange, defaultValue = 0, title, dotColor = DARK.accentBlue }: PanKnobProps) {
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -275,7 +276,7 @@ function PanKnob({ value, min, max, onChange, defaultValue = 0, title }: PanKnob
           pointerEvents: "none",
         }}
       >
-        <circle cx={dotX} cy={dotY} r={1.5} fill={DARK.accentBlue} />
+        <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
       </svg>
     </div>
   );
