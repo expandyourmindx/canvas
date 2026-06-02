@@ -10,7 +10,6 @@
 export class SampleRegistry {
   private audioContext: AudioContext;
   private sampleBuffers: Map<string, AudioBuffer> = new Map();
-  private accessOrder: string[] = [];
   private readonly maxCacheSize: number;
 
   constructor(audioContext: AudioContext, maxCacheSize: number = 150) {
@@ -19,7 +18,7 @@ export class SampleRegistry {
   }
 
   public async loadSample(id: string, arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
-    // Return cached buffer if already loaded — move to front of access order
+    // Return cached buffer if already loaded — move to end of access order
     const existing = this.sampleBuffers.get(id);
     if (existing) {
       this.touchAccessOrder(id);
@@ -29,7 +28,6 @@ export class SampleRegistry {
     try {
       const decodedData = await this.audioContext.decodeAudioData(arrayBuffer);
       this.sampleBuffers.set(id, decodedData);
-      this.accessOrder.push(id);
       this.evictIfNeeded();
       return decodedData;
     } catch (error) {
@@ -56,31 +54,47 @@ export class SampleRegistry {
    * without going through decodeAudioData.
    */
   public setSampleBuffer(id: string, buffer: AudioBuffer): void {
+    // Delete and re-set to guarantee it is placed at the end of the insertion/access order
+    this.sampleBuffers.delete(id);
     this.sampleBuffers.set(id, buffer);
-    this.touchAccessOrder(id);
     this.evictIfNeeded();
   }
 
   public removeSample(id: string): void {
     this.sampleBuffers.delete(id);
-    this.accessOrder = this.accessOrder.filter(k => k !== id);
+  }
+
+  public deleteSampleBuffer(id: string): void {
+    this.removeSample(id);
   }
 
   public clearAll(): void {
     this.sampleBuffers.clear();
-    this.accessOrder = [];
+  }
+
+  public clear(): void {
+    this.clearAll();
+  }
+
+  public has(id: string): boolean {
+    return this.sampleBuffers.has(id);
   }
 
   private touchAccessOrder(id: string): void {
-    this.accessOrder = this.accessOrder.filter(k => k !== id);
-    this.accessOrder.push(id);
+    const buffer = this.sampleBuffers.get(id);
+    if (buffer) {
+      this.sampleBuffers.delete(id);
+      this.sampleBuffers.set(id, buffer);
+    }
   }
 
   private evictIfNeeded(): void {
     while (this.sampleBuffers.size > this.maxCacheSize) {
-      const oldest = this.accessOrder.shift();
-      if (oldest) {
+      const oldest = this.sampleBuffers.keys().next().value;
+      if (oldest !== undefined) {
         this.sampleBuffers.delete(oldest);
+      } else {
+        break;
       }
     }
   }
