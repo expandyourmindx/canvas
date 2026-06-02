@@ -1,12 +1,203 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAudioEngine } from "../../audio/useAudioEngine";
-import { Knob } from "../ChannelRack";
-import { Power, RefreshCw, Sparkles } from "lucide-react";
+import { Power, Sparkles } from "lucide-react";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  SPACE,
+  SIZE,
+} from "../../../public/Themes/Vintage Console/tokens";
 
 interface ReverbPanelProps {
   insertIndex: number;
   slotIndex: number;
   onClose: () => void;
+}
+
+interface ReverbKnobProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  defaultValue: number;
+  dotColor: string;
+  formatValue: (v: number) => string;
+  onChange: (val: number) => void;
+  title?: string;
+}
+
+function ReverbKnob({
+  label,
+  value,
+  min,
+  max,
+  defaultValue,
+  dotColor,
+  formatValue,
+  onChange,
+  title,
+}: ReverbKnobProps) {
+  const knobRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startY = useRef(0);
+  const startValue = useRef(0);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.altKey && e.button === 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange(defaultValue);
+      return;
+    }
+    e.preventDefault();
+    isDragging.current = true;
+    startY.current = e.clientY;
+    startValue.current = value;
+    knobRef.current?.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const deltaY = startY.current - e.clientY; // drag up increases
+    const range = max - min;
+    const dragDistance = 120; // pixels for full sweep
+    const valueDelta = (deltaY / dragDistance) * range;
+    const newValue = Math.max(min, Math.min(max, Math.round(startValue.current + valueDelta)));
+    onChange(newValue);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      knobRef.current?.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -1 : 1;
+    const step = (max - min) <= 100 ? 5 : 2;
+    const newValue = Math.max(min, Math.min(max, value + dir * step));
+    onChange(newValue);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onChange(defaultValue);
+  };
+
+  // Convert value to degrees for rotation (sweep from -135deg to +135deg)
+  const percent = (value - min) / (max - min);
+  const angleDeg = -135 + percent * 270;
+  const angleRad = (angleDeg * Math.PI) / 180;
+
+  // Size-specific dimensions for knobMd (26px)
+  const knobSize = SIZE.knobMd; // 26px
+  const cx = knobSize / 2; // 13
+  const cy = knobSize / 2; // 13
+  const R = 8;
+  const dotX = cx + R * Math.sin(angleRad);
+  const dotY = cy - R * Math.cos(angleRad);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", userSelect: "none" }}>
+      {/* Label above */}
+      <span
+        style={{
+          fontFamily: DARK.font,
+          fontSize: "7px",
+          color: DARK.textLo,
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          marginBottom: `${SPACE.sm}px`,
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </span>
+
+      {/* Knob Body */}
+      <div
+        ref={knobRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          width: `${knobSize}px`,
+          height: `${knobSize}px`,
+          borderRadius: "50%",
+          backgroundColor: DARK.knobBody,
+          position: "relative",
+          cursor: "ns-resize",
+          boxSizing: "border-box",
+          ...raised(DARK),
+        }}
+        title={`${title}: ${formatValue(value)} (Double-click to reset)`}
+      >
+        {/* Highlight Ellipse */}
+        <div
+          style={{
+            position: "absolute",
+            top: "2px",
+            left: "2px",
+            width: "10px",
+            height: "5px",
+            borderRadius: "50%",
+            backgroundColor: DARK.knobHighlight,
+            transform: "rotate(-30deg)",
+            pointerEvents: "none",
+          }}
+        />
+
+        {/* Indicator Dot */}
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+          }}
+        >
+          <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
+        </svg>
+      </div>
+
+      {/* Value Readout below */}
+      <div
+        style={{
+          marginTop: `${SPACE.sm}px`,
+          width: "56px",
+          height: "15px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: DARK.bg0,
+          boxSizing: "border-box",
+          padding: `0 ${SPACE.xs}px`,
+          ...sunken(DARK),
+        }}
+      >
+        <span
+          style={{
+            fontFamily: DARK.font,
+            fontSize: "8px",
+            color: DARK.lcdText,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {formatValue(value)}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProps) {
@@ -38,8 +229,20 @@ export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProp
 
   if (!reverbInstance) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-500 font-mono py-10 gap-3">
-        <RefreshCw className="h-5 w-5 animate-spin text-indigo-500" />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          backgroundColor: DARK.bg2,
+          fontFamily: DARK.font,
+          color: DARK.textDim,
+          textTransform: "uppercase",
+          gap: `${SPACE.sm}px`,
+        }}
+      >
         <span>Instantiating convolution hardware...</span>
       </div>
     );
@@ -67,105 +270,181 @@ export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProp
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0d0e12] select-none p-4 font-mono text-[10px] text-zinc-300 rounded-none border border-neutral-850">
-      
-      {/* 1. Hardware Header Deck */}
-      <div className="flex items-center justify-between border-b border-neutral-850/50 pb-2 mb-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-cyan-400 animate-pulse" />
-          <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: DARK.bg1,
+        fontFamily: DARK.font,
+        fontSize: "10px",
+        userSelect: "none",
+        padding: "4px",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Header bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: DARK.titleBarGradient,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          padding: `0 ${SPACE.md}px`,
+          height: `${SIZE.titleBarHeight}px`,
+          boxSizing: "border-box",
+          flexShrink: 0,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+          <Sparkles size={11} style={{ color: DARK.accentBlue }} />
+          <span
+            style={{
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              color: DARK.textHi,
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              fontWeight: "bold",
+            }}
+          >
             CONVOLUTION REVERB
           </span>
         </div>
-        <div className="text-[7.5px] text-zinc-650 font-bold uppercase tracking-wider">
-          Analog Synthesized IR Model
-        </div>
+        <span
+          style={{
+            fontFamily: DARK.font,
+            fontSize: "7px",
+            color: DARK.textDim,
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            textAlign: "right",
+            fontWeight: "bold",
+          }}
+        >
+          ANALOG SYNTHESIZED IR MODEL
+        </span>
       </div>
 
-      {/* 2. Control Rack Dashboard */}
-      <div className="flex items-center justify-between gap-6 flex-1 px-2">
-        
-        {/* Bypass Switch Panel */}
-        <div className="flex flex-col items-center gap-2 pr-4 border-r border-neutral-850/40 font-mono">
+      {/* Main body */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          flex: 1,
+          backgroundColor: DARK.bg2,
+          ...flat(DARK),
+          padding: `${SPACE.md}px`,
+          boxSizing: "border-box",
+          marginTop: "4px",
+        }}
+      >
+        {/* Left column: ACTIVE button */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingRight: `${SPACE.lg}px`,
+          }}
+        >
           <button
             onClick={toggleBypass}
-            className={`w-8 h-8 rounded-none border flex items-center justify-center cursor-pointer transition-all duration-150 ${
-              bypassState
-                ? "bg-red-500/10 border-red-500/30 text-red-500 animate-pulse"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15"
-            }`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: `${SPACE.xs}px`,
+              width: "48px",
+              height: "48px",
+              cursor: "pointer",
+              boxSizing: "border-box",
+              border: "none",
+              borderRadius: 0,
+              ...(!bypassState
+                ? { ...sunken(DARK), backgroundColor: DARK.bg0, color: DARK.stateGreen }
+                : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textDim }
+              ),
+            }}
             title={bypassState ? "Enable Effect" : "Bypass Effect"}
           >
-            <Power className="h-4 w-4" />
+            <Power size={14} style={{ color: !bypassState ? DARK.stateGreen : DARK.textDim }} />
+            <span
+              style={{
+                fontFamily: DARK.font,
+                fontSize: "7px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: !bypassState ? DARK.stateGreen : DARK.textDim,
+              }}
+            >
+              ACTIVE
+            </span>
           </button>
-          <span className={`text-[6.5px] font-bold tracking-widest uppercase ${
-            bypassState ? "text-red-550" : "text-emerald-400"
-          }`}>
-            {bypassState ? "BYPASS" : "ACTIVE"}
-          </span>
         </div>
 
-        {/* Knobs Deck */}
-        <div className="flex-1 flex justify-around items-center">
-          
+        {/* Divider */}
+        <div
+          style={{
+            width: "1px",
+            alignSelf: "stretch",
+            backgroundColor: DARK.bevelDark,
+          }}
+        />
+
+        {/* Right column: Three Knobs */}
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            justifyContent: "space-around",
+            alignItems: "center",
+            paddingLeft: `${SPACE.lg}px`,
+          }}
+        >
           {/* Knob 1: Room Size */}
-          <div className="flex flex-col items-center gap-1.5">
-            <Knob
-              label="ROOM"
-              value={roomSizeVal}
-              min={10}
-              max={500}
-              color="cyan"
-              onChange={handleRoomSizeChange}
-              title="Impulse Response Length"
-              defaultValue={200}
-            />
-            <div className="flex flex-col items-center font-mono text-[7.5px] leading-none mt-1">
-              <span className="text-zinc-400 font-extrabold uppercase">SIZE</span>
-              <span className="text-zinc-550 mt-1">{(roomSizeVal / 100).toFixed(2)}s</span>
-            </div>
-          </div>
+          <ReverbKnob
+            label="ROOM/SIZE"
+            value={roomSizeVal}
+            min={10}
+            max={500}
+            dotColor={DARK.accentBlue}
+            defaultValue={200}
+            onChange={handleRoomSizeChange}
+            formatValue={(val) => (val / 100).toFixed(2) + "S"}
+            title="Impulse Response Length"
+          />
 
           {/* Knob 2: Decay */}
-          <div className="flex flex-col items-center gap-1.5">
-            <Knob
-              label="DECAY"
-              value={decayVal}
-              min={10}
-              max={1000}
-              color="cyan"
-              onChange={handleDecayChange}
-              title="Tail Falloff Rate"
-              defaultValue={200}
-            />
-            <div className="flex flex-col items-center font-mono text-[7.5px] leading-none mt-1">
-              <span className="text-zinc-400 font-extrabold uppercase">RATE</span>
-              <span className="text-zinc-550 mt-1">{(decayVal / 100).toFixed(2)}</span>
-            </div>
-          </div>
+          <ReverbKnob
+            label="DECAY/RATE"
+            value={decayVal}
+            min={10}
+            max={1000}
+            dotColor={DARK.accentPurple}
+            defaultValue={200}
+            onChange={handleDecayChange}
+            formatValue={(val) => (val / 100).toFixed(2)}
+            title="Tail Falloff Rate"
+          />
 
           {/* Knob 3: Wet/Dry */}
-          <div className="flex flex-col items-center gap-1.5">
-            <Knob
-              label="MIX"
-              value={wetDryVal}
-              min={0}
-              max={100}
-              color="cyan"
-              onChange={handleWetDryChange}
-              title="Dry/Wet Crossfade Ratio"
-              defaultValue={50}
-            />
-            <div className="flex flex-col items-center font-mono text-[7.5px] leading-none mt-1">
-              <span className="text-zinc-400 font-extrabold uppercase">WET</span>
-              <span className="text-zinc-550 mt-1">{wetDryVal}%</span>
-            </div>
-          </div>
-
+          <ReverbKnob
+            label="MIX/WET"
+            value={wetDryVal}
+            min={0}
+            max={100}
+            dotColor={DARK.accentGreen}
+            defaultValue={50}
+            onChange={handleWetDryChange}
+            formatValue={(val) => val + "%"}
+            title="Dry/Wet Crossfade Ratio"
+          />
         </div>
-
       </div>
-
     </div>
   );
 }
