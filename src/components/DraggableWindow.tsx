@@ -3,8 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { X, Maximize2, Minimize2 } from "lucide-react";
+import {
+  DARK,
+  raised,
+  SPACE,
+  SIZE
+} from "../../public/Themes/Vintage Console/tokens";
 
 interface DraggableWindowProps {
   id: string;
@@ -44,6 +50,11 @@ export function DraggableWindow({
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
   const [isMaximized, setIsMaximized] = useState(defaultMaximized);
 
+  // Hover and drag states
+  const [isDragging, setIsDragging] = useState(false);
+  const [isMaximizeHovered, setIsMaximizeHovered] = useState(false);
+  const [isCloseHovered, setIsCloseHovered] = useState(false);
+
   // Drag and resize active states
   const dragStart = useRef<{ posX: number; posY: number; winX: number; winY: number } | null>(null);
   const resizeStart = useRef<{ posX: number; posY: number; winW: number; winH: number } | null>(null);
@@ -68,6 +79,8 @@ export function DraggableWindow({
       winX: position.x,
       winY: position.y,
     };
+
+    setIsDragging(true);
 
     // Set pointer capture to track moves outside window bounds
     const element = e.currentTarget;
@@ -96,6 +109,7 @@ export function DraggableWindow({
       const element = e.currentTarget;
       element.releasePointerCapture(e.pointerId);
       dragStart.current = null;
+      setIsDragging(false);
     }
   };
 
@@ -157,6 +171,11 @@ export function DraggableWindow({
       bottom: 0,
       zIndex,
       display: isVisible ? "flex" : "none",
+      flexDirection: "column",
+      backgroundColor: DARK.bg1,
+      boxSizing: "border-box",
+      overflow: "hidden",
+      pointerEvents: "auto",
     }
     : {
       position: "absolute",
@@ -166,15 +185,32 @@ export function DraggableWindow({
       height: `${size.height}px`,
       zIndex,
       display: isVisible ? "flex" : "none",
+      flexDirection: "column",
+      backgroundColor: DARK.bg1,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+      boxSizing: "border-box",
+      overflow: "hidden",
+      pointerEvents: "auto",
+      ...raised(DARK),
     };
+
+  const titleTextStyle: React.CSSProperties = {
+    fontFamily: DARK.font,
+    fontSize: "9px",
+    color: DARK.textHi,
+    textTransform: "uppercase",
+    letterSpacing: "0.2em",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    fontWeight: "bold",
+  };
 
   return (
     <div
       ref={containerRef}
       onPointerDown={onFocus}
       style={windowStyles}
-      className={`flex-col bg-[#121315]/95 border ${isMaximized ? "border-transparent" : "border-neutral-800 rounded-sm shadow-2xl"
-        } backdrop-blur-md overflow-hidden transition-shadow duration-300 pointer-events-auto`}
     >
       {/* Title Bar Dragger Handle */}
       <div
@@ -182,36 +218,86 @@ export function DraggableWindow({
         onPointerMove={handleDragMove}
         onPointerUp={handleDragUp}
         onDoubleClick={toggleMaximize}
-        className={`flex items-center justify-between px-2.5 h-7.5 bg-[#1a1c1e] shrink-0 border-b border-neutral-800/80 cursor-grab active:cursor-grabbing select-none ${isMaximized ? "" : "rounded-t-sm"
-          }`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: `0 ${SPACE.md}px`,
+          height: `${SIZE.titleBarHeight}px`,
+          background: DARK.titleBarGradient,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          cursor: isMaximized ? "default" : (isDragging ? "grabbing" : "grab"),
+          userSelect: "none",
+          flexShrink: 0,
+          boxSizing: "border-box",
+        }}
       >
-        <div className="flex items-center gap-2">
-          <h3 className="text-[10px] font-black font-sans tracking-wide text-[#eceff4] uppercase truncate max-w-[240px]">
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <h3 style={titleTextStyle} title={title}>
             {title}
           </h3>
         </div>
 
         {/* Action Window Hub */}
-        <div className="flex items-center gap-1">
+        <div style={{ display: "flex", alignItems: "center", gap: "2px", height: "100%" }}>
           <button
             onClick={toggleMaximize}
-            className="p-0.5 hover:bg-neutral-800 rounded text-zinc-400 hover:text-white transition-colors cursor-pointer"
+            onMouseEnter={() => setIsMaximizeHovered(true)}
+            onMouseLeave={() => setIsMaximizeHovered(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: `${SIZE.titleBarHeight}px`,
+              height: `${SIZE.titleBarHeight}px`,
+              backgroundColor: isMaximizeHovered ? DARK.bg4 : DARK.bg3,
+              color: isMaximizeHovered ? DARK.textHi : DARK.textMid,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              padding: 0,
+              ...raised(DARK),
+            }}
             title={isMaximized ? "Restore Window Size" : "Maximize Window"}
           >
-            {isMaximized ? <Minimize2 className="h-2.5 w-2.5" /> : <Maximize2 className="h-2.5 w-2.5" />}
+            {isMaximized ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
           </button>
           <button
             onClick={onClose}
-            className="p-0.5 hover:bg-red-500/20 rounded text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+            onMouseEnter={() => setIsCloseHovered(true)}
+            onMouseLeave={() => setIsCloseHovered(false)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: `${SIZE.titleBarHeight}px`,
+              height: `${SIZE.titleBarHeight}px`,
+              backgroundColor: isCloseHovered ? DARK.stateRed : DARK.bg3,
+              color: isCloseHovered ? "white" : DARK.textMid,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              padding: 0,
+              ...raised(DARK),
+            }}
             title="Minimize Window to Dock"
           >
-            <X className="h-2.5 w-2.5" />
+            <X size={10} />
           </button>
         </div>
       </div>
 
       {/* Internal Scrollable Content Chamber */}
-      <div className="flex-1 overflow-auto bg-[#0a0b0d]/90 p-1 min-h-0 relative">
+      <div
+        style={{
+          flex: 1,
+          overflow: "hidden",
+          backgroundColor: DARK.bg1,
+          position: "relative",
+          minHeight: 0,
+          boxSizing: "border-box",
+        }}
+      >
         {children}
       </div>
 
@@ -221,21 +307,38 @@ export function DraggableWindow({
           onPointerDown={handleResizeDown}
           onPointerMove={handleResizeMove}
           onPointerUp={handleResizeUp}
-          className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-end justify-end p-1.5 z-40 group select-none"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            right: 0,
+            width: "16px",
+            height: "16px",
+            cursor: "se-resize",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "flex-end",
+            padding: "2px",
+            zIndex: 40,
+            userSelect: "none",
+          }}
         >
-          {/* Bottom right resize accent representation */}
           <svg
-            width="8"
-            height="8"
-            viewBox="0 0 8 8"
-            className="text-neutral-700 hover:text-indigo-400 transition-colors"
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            style={{ display: "block" }}
           >
-            <path
-              d="M6 0 L8 0 L8 8 L0 8 L0 6 L6 6 Z"
-              fill="currentColor"
-              fillRule="evenodd"
-              opacity="0.6"
-            />
+            {/* Ridge 3 */}
+            <line x1="3" y1="11" x2="11" y2="3" stroke={DARK.bevelLight} strokeWidth="1" />
+            <line x1="4" y1="11" x2="11" y2="4" stroke={DARK.bevelDark} strokeWidth="1" />
+
+            {/* Ridge 2 */}
+            <line x1="6" y1="11" x2="11" y2="6" stroke={DARK.bevelLight} strokeWidth="1" />
+            <line x1="7" y1="11" x2="11" y2="7" stroke={DARK.bevelDark} strokeWidth="1" />
+
+            {/* Ridge 1 */}
+            <line x1="9" y1="11" x2="11" y2="9" stroke={DARK.bevelLight} strokeWidth="1" />
+            <line x1="10" y1="11" x2="11" y2="10" stroke={DARK.bevelDark} strokeWidth="1" />
           </svg>
         </div>
       )}
