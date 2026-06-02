@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAudioEngine } from "../../audio/useAudioEngine";
-import { Power, Sparkles } from "lucide-react";
+import { Power } from "lucide-react";
 import {
   DARK,
   raised,
@@ -283,50 +283,6 @@ export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProp
         boxSizing: "border-box",
       }}
     >
-      {/* Header bar */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: DARK.titleBarGradient,
-          borderBottom: `1px solid ${DARK.bevelDark}`,
-          padding: `0 ${SPACE.md}px`,
-          height: `${SIZE.titleBarHeight}px`,
-          boxSizing: "border-box",
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
-          <Sparkles size={11} style={{ color: DARK.accentBlue }} />
-          <span
-            style={{
-              fontFamily: DARK.font,
-              fontSize: "9px",
-              color: DARK.textHi,
-              textTransform: "uppercase",
-              letterSpacing: "0.2em",
-              fontWeight: "bold",
-            }}
-          >
-            CONVOLUTION REVERB
-          </span>
-        </div>
-        <span
-          style={{
-            fontFamily: DARK.font,
-            fontSize: "7px",
-            color: DARK.textDim,
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            textAlign: "right",
-            fontWeight: "bold",
-          }}
-        >
-          ANALOG SYNTHESIZED IR MODEL
-        </span>
-      </div>
-
       {/* Main body */}
       <div
         style={{
@@ -337,7 +293,6 @@ export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProp
           ...flat(DARK),
           padding: `${SPACE.md}px`,
           boxSizing: "border-box",
-          marginTop: "4px",
         }}
       >
         {/* Left column: ACTIVE button */}
