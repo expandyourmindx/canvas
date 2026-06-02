@@ -835,6 +835,7 @@ export function ChannelRack({
           return (
             <div
               key={channel.id}
+              data-channel-row=""
               onClick={() => setFocusedChannelId(channel.id)}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -875,6 +876,12 @@ export function ChannelRack({
                   setDraggedChannelId(channel.id);
                   e.dataTransfer.setData("text/plain", channel.id);
                   e.dataTransfer.effectAllowed = "move";
+
+                  // Use the entire channel row as the drag ghost instead of just the handle
+                  const row = e.currentTarget.closest("[data-channel-row]") as HTMLElement;
+                  if (row) {
+                    e.dataTransfer.setDragImage(row, 20, row.offsetHeight / 2);
+                  }
                 }}
                 onDragEnd={() => {
                   setDraggedChannelId(null);
