@@ -18,6 +18,8 @@ import {
   RefreshCw,
   HardDrive,
   Package,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { ChannelRow } from "../types";
 import {
@@ -27,6 +29,15 @@ import {
   getLibraryManager,
 } from "../audio/SampleLibraryManager";
 import { useAudioEngine } from "../audio/useAudioEngine";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE,
+  SIZE,
+} from "../../public/Themes/Vintage Console/tokens";
 export { getLibraryManager };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -54,6 +65,8 @@ interface SampleBrowserProps {
     settings?: any
   ) => void;
   onSampleLoaded?: () => void;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 
@@ -66,7 +79,19 @@ export function SampleBrowser({
   getSampleBuffer,
   previewChannel,
   onSampleLoaded,
+  isPinned,
+  onTogglePin,
 }: SampleBrowserProps) {
+  // Local fallback pin state if not controlled from props
+  const [localPinned, setLocalPinned] = useState(true);
+  const pinned = isPinned !== undefined ? isPinned : localPinned;
+  const togglePin = onTogglePin || (() => setLocalPinned(!localPinned));
+
+  // ── Hover state tracking ──
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+
+  // ── Search Focus state ──
+  const [searchFocused, setSearchFocused] = useState(false);
   // ── Built-in sample index (from /public/samples/sample-index.json) ──
   const [builtInCategories, setBuiltInCategories] = useState<Category[]>([]);
 
@@ -313,7 +338,7 @@ export function SampleBrowser({
 
   // ── Render Helpers ──
 
-  const renderUserNode = (node: SampleNode, folderIndex: number, depth: number = 0) => {
+  const renderUserNode = (node: SampleNode, folderIndex: number, depth: number = 1) => {
     const isFolder = node.type === "folder";
     const isExpanded = !!expandedPaths[node.path];
 
@@ -330,27 +355,53 @@ export function SampleBrowser({
     }
 
     if (isFolder) {
+      const isHovered = hoveredItemId === node.path;
+      let bg = DARK.bg1;
+      let fg = DARK.textMid;
+      if (isHovered) {
+        bg = DARK.bg3;
+        fg = DARK.textHi;
+      }
+
       return (
-        <div key={node.path} className="space-y-0.5">
+        <div key={node.path} style={{ display: "flex", flexDirection: "column" }}>
           <div
             onClick={() => togglePath(node.path)}
-            className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-[#121316]/30 cursor-pointer text-[9px] text-zinc-400 select-none font-mono"
-            style={{ paddingLeft: `${10 + depth * 8}px` }}
+            onMouseEnter={() => setHoveredItemId(node.path)}
+            onMouseLeave={() => setHoveredItemId(null)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.sm}px`,
+              padding: `${SPACE.xs}px ${SPACE.sm}px`,
+              paddingLeft: `${depth * SPACE.xl}px`,
+              backgroundColor: bg,
+              color: fg,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              textTransform: "uppercase" as const,
+              cursor: "pointer",
+              boxSizing: "border-box" as const,
+              userSelect: "none" as const,
+            }}
           >
+            <ChevronRight
+              size={10}
+              style={{
+                color: DARK.textLo,
+                transform: isExpanded ? "rotate(90deg)" : "none",
+                flexShrink: 0,
+              }}
+            />
             {isExpanded ? (
-              <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
+              <FolderOpen size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
             ) : (
-              <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
+              <Folder size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
             )}
-            {isExpanded ? (
-              <FolderOpen className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-            ) : (
-              <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            )}
-            <span className="truncate">{node.name}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.name}</span>
           </div>
           {isExpanded && node.children && (
-            <div className="space-y-0.5">
+            <div style={{ display: "flex", flexDirection: "column" }}>
               {node.children.map((child) => renderUserNode(child, folderIndex, depth + 1))}
             </div>
           )}
@@ -360,6 +411,17 @@ export function SampleBrowser({
       const stableId = node.path;
       const isSelected = selectedSampleId === stableId;
       const isLoading = !!loadingItems[node.path];
+      const isHovered = hoveredItemId === stableId;
+
+      let bg = DARK.bg1;
+      let fg = DARK.textMid;
+      if (isSelected) {
+        bg = DARK.bg4;
+        fg = DARK.accentMaster;
+      } else if (isHovered) {
+        bg = DARK.bg3;
+        fg = DARK.textHi;
+      }
 
       return (
         <div
@@ -370,24 +432,42 @@ export function SampleBrowser({
             setSelectedSampleId(stableId);
             handlePreviewUser(node);
           }}
-          className={`group flex items-center justify-between py-1 px-2 cursor-grab active:cursor-grabbing text-[9px] font-mono select-none rounded-none transition-all duration-100 border ${
-            isSelected
-              ? "bg-[#181d26] text-amber-400 border-amber-500/30"
-              : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-neutral-850/30"
-          }`}
-          style={{ paddingLeft: `${10 + depth * 8}px` }}
+          onMouseEnter={() => setHoveredItemId(stableId)}
+          onMouseLeave={() => setHoveredItemId(null)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: `${SPACE.xs}px ${SPACE.sm}px`,
+            paddingLeft: `${depth * SPACE.xl}px`,
+            backgroundColor: bg,
+            color: fg,
+            fontFamily: DARK.font,
+            fontSize: "8px",
+            textTransform: "uppercase" as const,
+            cursor: "grab",
+            boxSizing: "border-box" as const,
+            userSelect: "none" as const,
+          }}
           title={node.name}
         >
-          <div className="flex items-center gap-1.5 truncate">
+          <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px`, overflow: "hidden", flex: 1 }}>
             {isLoading ? (
-              <Loader2 className="h-3 w-3 text-amber-500 animate-spin shrink-0" />
+              <Loader2 size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
             ) : (
-              <Music className={`h-3 w-3 shrink-0 ${isSelected ? "text-amber-400" : "text-zinc-650"}`} />
+              <Music size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
             )}
-            <span className="truncate">{node.name}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.name}</span>
           </div>
           {!isLoading && (
-            <Volume2 className="h-2.5 w-2.5 text-amber-400/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            <Volume2
+              size={10}
+              style={{
+                color: isSelected ? DARK.accentMaster : DARK.textLo,
+                opacity: isHovered || isSelected ? 1 : 0,
+                flexShrink: 0,
+              }}
+            />
           )}
         </div>
       );
@@ -397,40 +477,180 @@ export function SampleBrowser({
   const hasFSAASupport = typeof (window as any).showDirectoryPicker !== "undefined";
 
   return (
-    <div className="w-[220px] shrink-0 border border-[#1b1c20]/40 bg-black/15 flex flex-col h-full select-none scrollbar-thin overflow-hidden">
-      {/* Search Header */}
-      <div className="p-2 border-b border-neutral-900 bg-[#0c0d10] flex items-center gap-1.5 shrink-0">
-        <Search className="h-3 w-3 text-zinc-500 shrink-0" />
-        <input
-          type="text"
-          placeholder="Search samples..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-transparent text-[9px] text-neutral-200 outline-none w-full placeholder-zinc-600 font-mono"
-        />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        width: "100%",
+        backgroundColor: DARK.bg1,
+        borderRight: `1px solid ${DARK.bevelMid}`,
+        userSelect: "none",
+        overflow: "hidden",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Header Title Bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: `${SIZE.titleBarHeight}px`,
+          backgroundColor: DARK.bg3,
+          backgroundImage: DARK.titleBarGradient,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          padding: `0 ${SPACE.md}px`,
+          flexShrink: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: DARK.font,
+            fontSize: "9px",
+            color: DARK.textHi,
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
+            fontWeight: "bold",
+          }}
+        >
+          Sample Browser
+        </span>
+        <button
+          onClick={togglePin}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "14px",
+            height: "14px",
+            backgroundColor: DARK.bg3,
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            boxSizing: "border-box",
+            ...(pinned ? sunken(DARK) : raised(DARK)),
+          }}
+          title={pinned ? "Unpin - switch to floating window" : "Pin - dock to left edge"}
+        >
+          {pinned ? (
+            <Pin size={8} style={{ color: DARK.accentMaster }} />
+          ) : (
+            <PinOff size={8} style={{ color: DARK.textMid }} />
+          )}
+        </button>
+      </div>
+
+      {/* Search Header Container */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: `${SPACE.sm}px`,
+          padding: `${SPACE.md}px`,
+          backgroundColor: DARK.bg1,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          flexShrink: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", flex: 1, alignItems: "center", position: "relative" }}>
+          <input
+            type="text"
+            placeholder="SEARCH SAMPLES..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            style={{
+              flex: 1,
+              backgroundColor: DARK.bg0,
+              color: DARK.textHi,
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              padding: `${SPACE.xs}px ${SPACE.sm}px ${SPACE.xs}px 18px`,
+              outline: "none",
+              border: "none",
+              textTransform: "uppercase",
+              boxSizing: "border-box",
+              ...(searchFocused ? { border: `1px solid ${DARK.bevelLight}` } : sunken(DARK)),
+            }}
+          />
+          <Search
+            size={10}
+            style={{
+              position: "absolute",
+              left: "6px",
+              color: DARK.textMid,
+              pointerEvents: "none",
+            }}
+          />
+        </div>
         <button
           onClick={handleAddFolderClick}
-          className="p-1 hover:bg-[#1b1c20] text-zinc-400 hover:text-amber-400 transition-colors rounded-xs border border-transparent hover:border-neutral-800"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "20px",
+            height: "20px",
+            backgroundColor: DARK.bg3,
+            color: DARK.textMid,
+            cursor: "pointer",
+            border: "none",
+            boxSizing: "border-box",
+            padding: 0,
+            ...raised(DARK),
+          }}
           title={hasFSAASupport ? "Add native sample folder from disk" : "Upload directory fallback (Firefox/Safari)"}
         >
-          <FolderPlus className="h-3.5 w-3.5" />
+          <FolderPlus size={12} style={{ color: DARK.textMid }} />
         </button>
       </div>
 
       {/* Directory Folders Tree List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2 select-none scrollbar-thin">
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: `${SPACE.xs}px`,
+          padding: `${SPACE.xs}px 0`,
+          boxSizing: "border-box",
+        }}
+      >
         {/* ── Built-in Samples Section ── */}
-        <div className="space-y-1">
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {/* Section Header */}
           <div
             onClick={() => togglePath("__builtin__")}
-            className="flex items-center gap-1.5 py-1 px-1.5 hover:bg-[#121316]/50 cursor-pointer select-none text-[9.5px] font-bold text-zinc-400 uppercase tracking-widest transition-colors duration-100"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.sm}px`,
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: DARK.bg2,
+              color: DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              cursor: "pointer",
+              boxSizing: "border-box",
+              ...flat(DARK),
+            }}
           >
-            {expandedPaths.__builtin__ ? (
-              <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
-            ) : (
-              <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
-            )}
-            <Package className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
+            <ChevronRight
+              size={10}
+              style={{
+                color: DARK.textLo,
+                transform: expandedPaths.__builtin__ ? "rotate(90deg)" : "none",
+                flexShrink: 0,
+              }}
+            />
+            <Package size={12} style={{ color: DARK.accentBlue, flexShrink: 0 }} />
             <span>Built-in Presets</span>
           </div>
 
@@ -446,25 +666,67 @@ export function SampleBrowser({
 
               if (searchQuery && filteredSamples.length === 0) return null;
 
+              const isCatHovered = hoveredItemId === catKey;
+              let catBg = DARK.bg1;
+              let catFg = DARK.textMid;
+              if (isCatHovered) {
+                catBg = DARK.bg3;
+                catFg = DARK.textHi;
+              }
+
               return (
-                <div key={category.name} className="pl-2 space-y-1">
+                <div key={category.name} style={{ display: "flex", flexDirection: "column" }}>
                   <div
                     onClick={() => togglePath(catKey)}
-                    className="flex items-center gap-1.5 py-0.5 px-1 hover:bg-[#121316]/30 cursor-pointer text-[9px] font-bold text-zinc-500 uppercase select-none"
+                    onMouseEnter={() => setHoveredItemId(catKey)}
+                    onMouseLeave={() => setHoveredItemId(null)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: `${SPACE.sm}px`,
+                      padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                      paddingLeft: `${1 * SPACE.xl}px`,
+                      backgroundColor: catBg,
+                      color: catFg,
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      boxSizing: "border-box",
+                    }}
                   >
+                    <ChevronRight
+                      size={10}
+                      style={{
+                        color: DARK.textLo,
+                        transform: isCatExpanded ? "rotate(90deg)" : "none",
+                        flexShrink: 0,
+                      }}
+                    />
                     {isCatExpanded ? (
-                      <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
+                      <FolderOpen size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
                     ) : (
-                      <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
+                      <Folder size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
                     )}
-                    <span className="truncate">{category.name}</span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{category.name}</span>
                   </div>
 
                   {isCatExpanded && (
-                    <div className="pl-3.5 space-y-0.5 border-l border-neutral-900 ml-1.5">
+                    <div style={{ display: "flex", flexDirection: "column" }}>
                       {filteredSamples.map((sample) => {
                         const isSelected = selectedSampleId === sample.id;
                         const isLoading = !!loadingItems[sample.id];
+                        const isSampleHovered = hoveredItemId === sample.id;
+
+                        let sampBg = DARK.bg1;
+                        let sampFg = DARK.textMid;
+                        if (isSelected) {
+                          sampBg = DARK.bg4;
+                          sampFg = DARK.accentMaster;
+                        } else if (isSampleHovered) {
+                          sampBg = DARK.bg3;
+                          sampFg = DARK.textHi;
+                        }
 
                         return (
                           <div
@@ -475,27 +737,41 @@ export function SampleBrowser({
                               setSelectedSampleId(sample.id);
                               handlePreviewBuiltIn(sample);
                             }}
-                            className={`group flex items-center justify-between py-1 px-2 cursor-grab active:cursor-grabbing text-[9px] font-mono select-none rounded-none transition-all duration-100 border ${
-                              isSelected
-                                ? "bg-[#181d26] text-cyan-400 border-cyan-500/30"
-                                : "bg-transparent text-zinc-500 border-transparent hover:text-zinc-300 hover:bg-neutral-850/30"
-                            }`}
+                            onMouseEnter={() => setHoveredItemId(sample.id)}
+                            onMouseLeave={() => setHoveredItemId(null)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                              paddingLeft: `${2 * SPACE.xl}px`,
+                              backgroundColor: sampBg,
+                              color: sampFg,
+                              fontFamily: DARK.font,
+                              fontSize: "8px",
+                              textTransform: "uppercase",
+                              cursor: "grab",
+                              boxSizing: "border-box",
+                            }}
                             title={sample.name}
                           >
-                            <div className="flex items-center gap-1.5 truncate">
+                            <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px`, overflow: "hidden", flex: 1 }}>
                               {isLoading ? (
-                                <Loader2 className="h-3 w-3 text-cyan-500 animate-spin shrink-0" />
+                                <Loader2 size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
                               ) : (
-                                <Music
-                                  className={`h-3 w-3 shrink-0 ${
-                                    isSelected ? "text-cyan-400" : "text-zinc-600"
-                                  }`}
-                                />
+                                <Music size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
                               )}
-                              <span className="truncate">{sample.name}</span>
+                              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sample.name}</span>
                             </div>
                             {!isLoading && (
-                              <Volume2 className="h-2.5 w-2.5 text-cyan-400/40 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                              <Volume2
+                                size={10}
+                                style={{
+                                  color: isSelected ? DARK.accentMaster : DARK.textLo,
+                                  opacity: isSampleHovered || isSelected ? 1 : 0,
+                                  flexShrink: 0,
+                                }}
+                              />
                             )}
                           </div>
                         );
@@ -508,16 +784,43 @@ export function SampleBrowser({
         </div>
 
         {/* ── User Folders Section ── */}
-        <div className="pt-2 border-t border-neutral-900/60 space-y-1">
-          <div className="flex items-center justify-between px-1.5 py-1 text-[9.5px] font-bold text-zinc-400 uppercase tracking-widest select-none">
-            <div className="flex items-center gap-1.5">
-              <HardDrive className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+        <div style={{ display: "flex", flexDirection: "column", borderTop: `1px solid ${DARK.bevelDark}`, paddingTop: `${SPACE.sm}px` }}>
+          {/* Section Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: DARK.bg2,
+              color: DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              boxSizing: "border-box",
+              ...flat(DARK),
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+              <HardDrive size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
               <span>User Folders</span>
             </div>
           </div>
 
           {userFolders.length === 0 && (
-            <div className="px-2 py-3 border border-dashed border-neutral-850 text-center text-[8.5px] text-zinc-500 font-mono">
+            <div
+              style={{
+                padding: `${SPACE.lg}px`,
+                textAlign: "center",
+                fontSize: "8px",
+                color: DARK.textDim,
+                fontFamily: DARK.font,
+                border: `1px dashed ${DARK.bevelMid}`,
+                margin: `${SPACE.sm}px`,
+                boxSizing: "border-box",
+              }}
+            >
               No custom folders added. Click the plus button above to add one.
             </div>
           )}
@@ -525,38 +828,84 @@ export function SampleBrowser({
           {userFolders.map((folder, folderIndex) => {
             const isExpanded = !!expandedPaths[folder.name];
             const filteredChildren = folder.children;
+            const isFolderHovered = hoveredItemId === folder.name;
+
+            let fldBg = DARK.bg1;
+            let fldFg = DARK.textMid;
+            if (isFolderHovered) {
+              fldBg = DARK.bg3;
+              fldFg = DARK.textHi;
+            }
 
             return (
-              <div key={folder.name} className="space-y-0.5">
+              <div key={folder.name} style={{ display: "flex", flexDirection: "column" }}>
                 <div
-                  onClick={() => togglePath(folder.name)}
-                  className="group flex items-center gap-1.5 py-1 px-1.5 hover:bg-[#121316]/50 cursor-pointer select-none text-[9px] font-bold text-zinc-400 uppercase tracking-wide transition-colors duration-100"
+                  onClick={() => {
+                    if (folder.authorized) {
+                      togglePath(folder.name);
+                    }
+                  }}
+                  onMouseEnter={() => setHoveredItemId(folder.name)}
+                  onMouseLeave={() => setHoveredItemId(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: `${SPACE.sm}px`,
+                    padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                    paddingLeft: `${1 * SPACE.xl}px`,
+                    backgroundColor: fldBg,
+                    color: fldFg,
+                    fontFamily: DARK.font,
+                    fontSize: "8px",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    boxSizing: "border-box",
+                  }}
                 >
                   {folder.authorized ? (
-                    isExpanded ? (
-                      <ChevronDown className="h-3 w-3 text-zinc-500 shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 text-zinc-500 shrink-0" />
-                    )
+                    <ChevronRight
+                      size={10}
+                      style={{
+                        color: DARK.textLo,
+                        transform: isExpanded ? "rotate(90deg)" : "none",
+                        flexShrink: 0,
+                      }}
+                    />
                   ) : (
-                    <span title="Re-authorize folder permission">
+                    <span
+                      title="Re-authorize folder permission"
+                      style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}
+                    >
                       <RefreshCw
                         onClick={(e) => handleReauthorizeFolder(folderIndex, e)}
-                        className="h-3 w-3 text-amber-500 hover:text-amber-400 animate-pulse shrink-0"
+                        size={10}
+                        style={{
+                          color: DARK.accentMaster,
+                          cursor: "pointer",
+                        }}
                       />
                     </span>
                   )}
                   {isExpanded && folder.authorized ? (
-                    <FolderOpen className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                    <FolderOpen size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
                   ) : (
-                    <Folder className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <Folder size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
                   )}
-                  <span className="truncate flex-1">{folder.name}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{folder.name}</span>
 
                   {!folder.authorized && (
                     <span
                       onClick={(e) => handleReauthorizeFolder(folderIndex, e)}
-                      className="text-[7.5px] text-amber-500 hover:text-amber-400 font-normal normal-case tracking-normal hover:underline shrink-0 pr-1"
+                      style={{
+                        fontSize: "7.5px",
+                        color: DARK.accentMaster,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        fontFamily: DARK.font,
+                        textTransform: "none",
+                        paddingRight: `${SPACE.xs}px`,
+                        flexShrink: 0,
+                      }}
                     >
                       re-authorize
                     </span>
@@ -565,19 +914,40 @@ export function SampleBrowser({
                   {/* Remove button */}
                   <button
                     onClick={(e) => handleRemoveFolder(folderIndex, e)}
-                    className="p-0.5 opacity-0 group-hover:opacity-100 hover:bg-red-950/30 text-zinc-650 hover:text-red-400 transition-all cursor-pointer rounded-xs"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "12px",
+                      height: "12px",
+                      backgroundColor: DARK.bg3,
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      opacity: isFolderHovered ? 1 : 0,
+                      boxSizing: "border-box",
+                      ...raised(DARK),
+                    }}
                     title="Remove folder from library"
                   >
-                    <X className="h-2.5 w-2.5" />
+                    <X size={8} style={{ color: DARK.stateRed }} />
                   </button>
                 </div>
 
                 {/* Folder contents */}
                 {isExpanded && folder.authorized && (
-                  <div className="pl-2 space-y-0.5 border-l border-neutral-900/60 ml-2">
-                    {filteredChildren.map((child) => renderUserNode(child, folderIndex))}
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {filteredChildren.map((child) => renderUserNode(child, folderIndex, 2))}
                     {filteredChildren.length === 0 && (
-                      <div className="px-2 py-2 text-[8px] text-zinc-600 font-mono">
+                      <div
+                        style={{
+                          padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                          paddingLeft: `${2 * SPACE.xl}px`,
+                          fontSize: "8px",
+                          color: DARK.textDim,
+                          fontFamily: DARK.font,
+                        }}
+                      >
                         No audio files found in this folder.
                       </div>
                     )}
@@ -593,11 +963,11 @@ export function SampleBrowser({
       <input
         ref={fallbackInputRef}
         type="file"
-        // @ts-ignore — webkitdirectory is non-standard but widely supported
+        // @ts-ignore
         webkitdirectory=""
         directory=""
         multiple
-        className="hidden"
+        style={{ display: "none" }}
         onChange={handleFallbackFiles}
       />
     </div>
