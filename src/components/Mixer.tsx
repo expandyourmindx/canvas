@@ -655,7 +655,7 @@ export function Mixer({
               height: "100%",
               backgroundColor: isMasterSelected ? DARK.bg4 : DARK.bg3,
               borderRight: `1px solid ${DARK.bg0}`,
-              borderLeft: `1px solid ${DARK.bg2}`,
+              borderLeft: isMasterSelected ? `2px solid ${stripColors[0] ?? DARK.accentMaster}` : `1px solid ${DARK.bg2}`,
               display: "flex",
               flexDirection: "column",
               justifyContent: "space-between",
@@ -684,12 +684,12 @@ export function Mixer({
               >
                 MASTER
               </span>
-              <div style={{ height: "2px", backgroundColor: stripColors[0] ?? DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+              <div style={{ height: "3px", backgroundColor: stripColors[0] ?? DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
               <div 
                 style={{
                   fontFamily: DARK.font,
                   fontSize: "7.5px",
-                  color: DARK.textLo,
+                  color: DARK.textMid,
                   fontWeight: "bold",
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
@@ -727,6 +727,7 @@ export function Mixer({
                 onChange={(v) => handlePanChange(0, v)}
                 title="MASTER PANNING BALANCE"
                 defaultValue={0}
+                dotColor={DARK.accentMaster}
               />
             </div>
 
@@ -780,7 +781,7 @@ export function Mixer({
                 style={{
                   ...sunken(DARK),
                   backgroundColor: DARK.lcdBg,
-                  color: DARK.lcdText,
+                  color: DARK.accentBlue,
                   fontFamily: DARK.font,
                   fontSize: "9px",
                   textAlign: "right",
@@ -893,7 +894,7 @@ export function Mixer({
                   height: "100%",
                   backgroundColor: isSelected ? DARK.bg4 : DARK.bg3,
                   borderRight: `1px solid ${DARK.bg0}`,
-                  borderLeft: `1px solid ${DARK.bg2}`,
+                  borderLeft: isSelected ? `2px solid ${stripColors[ins.index] ?? DARK.accentMaster}` : `1px solid ${DARK.bg2}`,
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
@@ -953,7 +954,7 @@ export function Mixer({
                         fontFamily: DARK.font,
                         fontSize: "8px",
                         fontWeight: isSelected ? "bold" : "normal",
-                        color: isSelected ? DARK.textHi : DARK.textMid,
+                        color: DARK.textHi,
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
                         display: "block",
@@ -965,12 +966,12 @@ export function Mixer({
                       {displayName}
                     </span>
                   )}
-                  <div style={{ height: "2px", backgroundColor: stripColors[ins.index] ?? DARK.accentBlue, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+                  <div style={{ height: "3px", backgroundColor: stripColors[ins.index] ?? DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
                   <div 
                     style={{
                       fontFamily: DARK.font,
                       fontSize: "7.5px",
-                      color: DARK.textLo,
+                      color: DARK.textMid,
                       fontWeight: "bold",
                       textTransform: "uppercase",
                       letterSpacing: "0.04em",
@@ -1008,6 +1009,7 @@ export function Mixer({
                     onChange={(v) => handlePanChange(ins.index, v)}
                     title={`PANNER FOR INSERT ${ins.index}`}
                     defaultValue={0}
+                    dotColor={stripColors[ins.index] ?? DARK.accentMaster}
                   />
                 </div>
 
@@ -1059,7 +1061,7 @@ export function Mixer({
                     style={{
                       ...sunken(DARK),
                       backgroundColor: DARK.lcdBg,
-                      color: DARK.lcdText,
+                      color: DARK.accentBlue,
                       fontFamily: DARK.font,
                       fontSize: "9px",
                       textAlign: "right",
