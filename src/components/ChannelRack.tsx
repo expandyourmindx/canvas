@@ -17,8 +17,15 @@ import {
   GripVertical,
   Copy
 } from "lucide-react";
-
-
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE,
+  SIZE
+} from "../../public/Themes/Vintage Console/tokens";
 
 const DEFAULT_CHANNELS: ChannelRow[] = [
   { id: "sampler_default", name: "Sampler", type: "sample", sampleId: "sampler_default_sample", mixerTarget: 1, instrumentType: "sampler" }
@@ -90,16 +97,29 @@ export function Knob({ value, min, max, onChange, label, title, color = "cyan", 
 
   // Convert value to degrees for rotation (sweep from -135deg to +135deg)
   const percent = (value - min) / (max - min);
-  const rotation = -135 + percent * 270;
+  const angleDeg = -135 + percent * 270;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const cx = 11;
+  const cy = 11;
+  const R = 6.5;
+  const dotX = cx + R * Math.sin(angleRad);
+  const dotY = cy - R * Math.cos(angleRad);
 
-  const colorClass = color === "cyan" ? "bg-cyan-400" : "bg-amber-500";
-  const glowClass = color === "cyan"
-    ? "shadow-[0_0_4px_rgba(34,211,238,0.5)]"
-    : "shadow-[0_0_4px_rgba(245,158,11,0.5)]";
+  const dotColor = color === "cyan" ? DARK.accentBlue : DARK.accentMaster;
 
   return (
-    <div className="flex flex-col items-center w-6 shrink-0 select-none">
-      <span className="text-[5.5px] text-zinc-500 font-bold leading-none uppercase mb-1 font-mono tracking-tighter">
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "24px", flexShrink: 0, userSelect: "none" }}>
+      <span 
+        style={{ 
+          fontSize: "6px", 
+          color: DARK.textLo, 
+          fontWeight: "bold", 
+          textTransform: "uppercase", 
+          marginBottom: "2px", 
+          fontFamily: DARK.font, 
+          letterSpacing: "0.08em" 
+        }}
+      >
         {label}
       </span>
       <div
@@ -109,18 +129,46 @@ export function Knob({ value, min, max, onChange, label, title, color = "cyan", 
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
-        className="w-5 h-5 rounded-full border border-neutral-800 bg-neutral-900/90 flex items-center justify-center relative touch-none cursor-ns-resize shadow-inner active:border-zinc-500 hover:border-zinc-800 select-none"
+        style={{
+          width: "22px",
+          height: "22px",
+          borderRadius: "50%",
+          backgroundColor: DARK.knobBody,
+          position: "relative",
+          cursor: "ns-resize",
+          userSelect: "none",
+          boxSizing: "border-box",
+          ...raised(DARK),
+        }}
         title={`${title}: ${value} (Double-click to reset)`}
       >
-        <div className="absolute inset-[1px] rounded-full bg-gradient-to-b from-[#18191d] to-[#0c0d10] flex items-center justify-center">
-          {/* Rotating pointer pin */}
-          <div
-            className="w-full h-full relative"
-            style={{ transform: `rotate(${rotation}deg)` }}
-          >
-            <div className={`w-[1.5px] h-[5px] ${colorClass} ${glowClass} absolute top-[0.5px] left-1/2 -translate-x-1/2 rounded-full`} />
-          </div>
-        </div>
+        {/* Highlight Ellipse */}
+        <div 
+          style={{
+            position: "absolute",
+            top: "2px",
+            left: "2px",
+            width: "8px",
+            height: "4px",
+            borderRadius: "50%",
+            backgroundColor: DARK.knobHighlight,
+            transform: "rotate(-30deg)",
+            pointerEvents: "none",
+          }}
+        />
+        {/* Indicator Dot */}
+        <svg 
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+          }}
+        >
+          <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
+        </svg>
       </div>
     </div>
   );
@@ -514,57 +562,174 @@ export function ChannelRack({
   };
 
   return (
-    <div ref={containerRef} className="flex flex-col h-full bg-[#08090a] text-zinc-300 font-mono text-[11px] select-none h-full relative">
+    <div 
+      ref={containerRef} 
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: DARK.bg1,
+        color: DARK.textMid,
+        fontFamily: DARK.font,
+        fontSize: "11px",
+        userSelect: "none",
+        position: "relative",
+        boxSizing: "border-box",
+        ...flat(DARK),
+      }}
+    >
 
       {/* 2. PATTERN SELECTOR HEADER */}
-      <header className="flex items-center justify-between bg-[#101114] border-b border-neutral-900 p-1 px-2.5 h-10 shrink-0 select-none">
-        <div className="flex items-center gap-2">
-          <span className="text-zinc-550 font-black text-[9px] tracking-widest uppercase">Channel Rack</span>
+      <header 
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: DARK.bg2,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          padding: `0 ${SPACE.md}px`,
+          height: "30px",
+          flexShrink: 0,
+          userSelect: "none",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+          <span 
+            style={{
+              color: DARK.textHi,
+              fontWeight: "bold",
+              fontSize: "9px",
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              fontFamily: DARK.font,
+            }}
+          >
+            Channel Rack
+          </span>
 
-          <div className="flex items-center bg-black/50 border border-neutral-800 rounded-none h-6 px-1 gap-1">
+          {/* LCD Selector Panel */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1px", backgroundColor: DARK.bg2 }}>
             <button
+              type="button"
               onClick={prevPattern}
-              className="p-1 hover:text-white hover:bg-neutral-800/60 text-zinc-550 transition-colors cursor-pointer"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "18px",
+                height: "20px",
+                backgroundColor: DARK.bg3,
+                color: DARK.textMid,
+                cursor: "pointer",
+                border: "none",
+                boxSizing: "border-box",
+                ...raised(DARK),
+              }}
+              title="Previous Pattern"
             >
-              <ChevronLeft className="h-3.5 w-3.5" />
+              <ChevronLeft size={12} />
             </button>
-            {isRenaming ? (
-              <input
-                type="text"
-                autoFocus
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={handleRenameSubmit}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRenameSubmit();
-                  if (e.key === 'Escape') setIsRenaming(false);
-                }}
-                className="bg-neutral-900 text-[10px] text-cyan-400 font-bold border border-cyan-500 rounded-none w-20 px-1 focus:outline-none text-center"
-              />
-            ) : (
-              <span
-                onDoubleClick={startRename}
-                className="text-[10px] font-bold px-2 text-cyan-400 text-center select-none w-20 truncate cursor-pointer hover:bg-neutral-800/40"
-                title="Double click to rename"
-              >
-                {patterns.find(p => p.id === activePatternId)?.name || activePatternId}
-              </span>
-            )}
-            <button
-              onClick={nextPattern}
-              className="p-1 hover:text-white hover:bg-neutral-800/60 text-zinc-550 transition-colors cursor-pointer"
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "20px",
+                minWidth: "80px",
+                backgroundColor: DARK.lcdBg,
+                ...sunken(DARK),
+                boxSizing: "border-box",
+                padding: `0 ${SPACE.sm}px`,
+              }}
             >
-              <ChevronRight className="h-3.5 w-3.5" />
+              {isRenaming ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onBlur={handleRenameSubmit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRenameSubmit();
+                    if (e.key === 'Escape') setIsRenaming(false);
+                  }}
+                  style={{
+                    backgroundColor: "transparent",
+                    color: DARK.accentBlue,
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    border: "none",
+                    outline: "none",
+                    textAlign: "center",
+                    width: "70px",
+                  }}
+                />
+              ) : (
+                <span
+                  onDoubleClick={startRename}
+                  style={{
+                    color: DARK.lcdText,
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    width: "70px",
+                  }}
+                  title="Double click to rename"
+                >
+                  {patterns.find(p => p.id === activePatternId)?.name || activePatternId}
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={nextPattern}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "18px",
+                height: "20px",
+                backgroundColor: DARK.bg3,
+                color: DARK.textMid,
+                cursor: "pointer",
+                border: "none",
+                boxSizing: "border-box",
+                ...raised(DARK),
+              }}
+              title="Next Pattern"
+            >
+              <ChevronRight size={12} />
             </button>
           </div>
 
+          {/* Selector select input */}
           <select
             value={activePatternId}
             onChange={(e) => setActivePatternId(e.target.value)}
-            className="bg-black/50 border border-neutral-800 text-[10px] text-zinc-400 h-6 px-1 focus:outline-none focus:border-cyan-500 rounded-none font-medium cursor-pointer max-w-[120px]"
+            style={{
+              backgroundColor: DARK.bg3,
+              color: DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              height: "20px",
+              padding: `0 ${SPACE.sm}px`,
+              outline: "none",
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+              maxWidth: "100px",
+            }}
           >
             {patterns.map(p => (
-              <option key={p.id} value={p.id}>
+              <option key={p.id} value={p.id} style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>
                 {p.name}
               </option>
             ))}
@@ -573,60 +738,161 @@ export function ChannelRack({
           {/* Plus Add Pattern Button */}
           <button
             onClick={handleAddNewPattern}
-            className="flex items-center justify-center border border-neutral-800 bg-black/50 text-cyan-400 hover:text-white hover:bg-neutral-800/60 transition-colors h-6 w-6 cursor-pointer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "20px",
+              height: "20px",
+              backgroundColor: DARK.bg3,
+              color: DARK.accentGreen,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             title="Add Pattern"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus size={12} />
           </button>
 
           {/* Clone Pattern Button */}
           <button
             onClick={handleCloneActivePattern}
-            className="flex items-center justify-center border border-neutral-800 bg-black/50 text-amber-400 hover:text-white hover:bg-neutral-800/60 transition-colors h-6 w-6 cursor-pointer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "20px",
+              height: "20px",
+              backgroundColor: DARK.bg3,
+              color: DARK.accentBlue,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             title="Clone/Duplicate Active Pattern"
           >
-            <Copy className="h-3 w-3" />
+            <Copy size={11} />
           </button>
 
           {/* Delete Pattern Button */}
           <button
             onClick={() => deletePattern(activePatternId)}
-            className="flex items-center justify-center border border-neutral-800 bg-black/50 text-red-400 hover:text-white hover:bg-neutral-800/60 transition-colors h-6 w-6 cursor-pointer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "20px",
+              height: "20px",
+              backgroundColor: DARK.bg3,
+              color: DARK.stateRed,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             title="Delete Pattern"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 size={12} />
           </button>
         </div>
 
         {/* Global Toolbar actions */}
-        <div className="flex items-center gap-2">
+        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
           <button
             onClick={() => {
               clearEvents();
             }}
-            className="px-2 py-1 bg-red-500/10 border border-red-500/20 hover:border-red-500/40 text-red-405 hover:bg-red-500/20 text-[9px] font-bold uppercase transition-colors rounded-none cursor-pointer flex items-center gap-1"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.xs}px`,
+              padding: `0 ${SPACE.md}px`,
+              height: "20px",
+              backgroundColor: DARK.bg3,
+              color: DARK.stateRed,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
+            title="Clear Patterns"
           >
-            <Trash2 className="h-3 w-3" />
-            <span>Clear Patterns</span>
+            <Trash2 size={10} />
+            <span>Clear</span>
           </button>
         </div>
       </header>
 
       {/* THE MAIN CHANNELS CONTAINER GRID */}
-      <main className="flex-1 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin scrollbar-thumb-neutral-850">
+      <main 
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: `${SPACE.md}px`,
+          backgroundColor: DARK.bg1,
+          display: "flex",
+          flexDirection: "column",
+          gap: `${SPACE.xs}px`,
+          boxSizing: "border-box",
+        }}
+      >
 
         {/* Playhead LED Bulbs Track Row */}
-        <div className="flex items-center pl-[185px] h-3 select-none pointer-events-none">
-          <div className="flex-1 grid grid-cols-16 gap-[3px] pr-2.5">
+        <div 
+          style={{
+            display: "flex",
+            alignItems: "center",
+            height: "12px",
+            userSelect: "none",
+            pointerEvents: "none",
+            boxSizing: "border-box",
+          }}
+        >
+          {/* Transparent spacer corresponding to Grab Handle (14px) + Command Strip (205px) */}
+          <div style={{ width: "219px", flexShrink: 0 }} />
+
+          {/* Bulbs Grid */}
+          <div 
+            style={{
+              flex: 1,
+              paddingLeft: "6px",
+              paddingRight: "6px",
+              boxSizing: "border-box",
+              display: "grid",
+              gridTemplateColumns: "repeat(16, minmax(0, 1fr))",
+              gap: `${SPACE.xs}px`,
+              alignItems: "center",
+            }}
+          >
             {stepColumns.map((_, i) => {
               const isCurrent = playbackState === "playing" && activePlayheadIndexRef.current === i;
               return (
-                <div key={i} className="flex justify-center items-center h-[4px]">
+                <div 
+                  key={i} 
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "4px",
+                  }}
+                >
                   <div
-                    className={`w-1.5 h-1.5 rounded-full transition-all duration-75 ${isCurrent
-                        ? "bg-cyan-400 shadow-[0_0_5px_#22d3ee]"
-                        : "bg-neutral-850"
-                      }`}
+                    style={{
+                      width: "4px",
+                      height: "4px",
+                      borderRadius: "50%",
+                      backgroundColor: isCurrent ? DARK.accentBlue : DARK.bg0,
+                      border: isCurrent ? `1px solid ${DARK.bevelLight}` : `1px solid ${DARK.bevelDark}`,
+                      boxSizing: "border-box",
+                    }}
                   />
                 </div>
               );
@@ -676,11 +942,18 @@ export function ChannelRack({
                 }
                 setDraggedChannelId(null);
               }}
-              className={`flex items-center h-8 select-none transition-all duration-150 cursor-pointer ${isFocused
-                  ? "bg-[#14151a] border border-neutral-800"
-                  : "bg-[#0c0d10] border border-neutral-900/60"
-                } p-0.5 ${isEffectivelyMuted ? "opacity-45" : "opacity-100"
-                }`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                height: "32px",
+                userSelect: "none",
+                cursor: "pointer",
+                padding: "2px",
+                opacity: isEffectivelyMuted ? 0.45 : 1,
+                boxSizing: "border-box",
+                backgroundColor: isFocused ? DARK.bg4 : DARK.bg3,
+                ...(isFocused ? raised(DARK) : flat(DARK)),
+              }}
             >
 
               {/* Grab Handle */}
@@ -694,10 +967,20 @@ export function ChannelRack({
                 onDragEnd={() => {
                   setDraggedChannelId(null);
                 }}
-                className="drag-handle w-3.5 h-full flex items-center justify-center cursor-grab active:cursor-grabbing text-zinc-650 hover:text-cyan-400 transition-colors shrink-0"
+                style={{
+                  width: "14px",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "grab",
+                  color: DARK.textLo,
+                  flexShrink: 0,
+                  boxSizing: "border-box",
+                }}
                 title="Drag to rearrange channel"
               >
-                <GripVertical className="w-3.5 h-3.5" />
+                <GripVertical size={12} />
               </div>
 
               {/* LEFT SIDE COMMAND STRIP WORKPLACE WITH DRAG AND DROP CAPABILITY */}
@@ -775,10 +1058,17 @@ export function ChannelRack({
                     }
                   }
                 }}
-                className={`flex items-center gap-1.5 w-[205px] shrink-0 p-0.5 transition-all duration-150 rounded-sm ${draggingOverChannelId === channel.id
-                    ? "bg-cyan-950/50 border border-dashed border-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                    : ""
-                  }`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: `${SPACE.sm}px`,
+                  width: "205px",
+                  flexShrink: 0,
+                  padding: "2px",
+                  boxSizing: "border-box",
+                  backgroundColor: draggingOverChannelId === channel.id ? DARK.bg0 : "transparent",
+                  ...(draggingOverChannelId === channel.id ? sunken(DARK) : {}),
+                }}
               >
 
                 {/* 0. MIDI Focus Target Indicator LED */}
@@ -789,19 +1079,33 @@ export function ChannelRack({
                     e.stopPropagation();
                     setFocusedChannelId(channel.id);
                   }}
-                  className={`w-4 h-5 flex items-center justify-center rounded-xs transition-all duration-150 border cursor-pointer select-none relative ${isFocused
-                      ? "bg-amber-500/20 border-amber-500/80 text-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
-                      : "bg-neutral-900 border-neutral-850 text-neutral-500 hover:text-neutral-300"
-                    }`}
+                  style={{
+                    width: "16px",
+                    height: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: DARK.bg0,
+                    cursor: "pointer",
+                    border: "none",
+                    boxSizing: "border-box",
+                    ...sunken(DARK),
+                  }}
                   title={isFocused ? "MIDI Data actively routed here" : "Click to route PC MIDI to this channel"}
                 >
-                  <div className={`w-1.5 h-1.5 rounded-full transition-all duration-150 ${isFocused
-                      ? "bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.95)] animate-pulse"
-                      : "bg-zinc-800"
-                    }`} />
+                  <div
+                    style={{
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      backgroundColor: isFocused ? DARK.accentMaster : DARK.bg2,
+                      border: isFocused ? `1px solid ${DARK.bevelLight}` : `1px solid ${DARK.bevelDark}`,
+                      boxSizing: "border-box",
+                    }}
+                  />
                 </button>
 
-                {/* A. MIXER TARGET ROUTER (Functionless numerical box, custom wheel/increment behavior) */}
+                {/* A. MIXER TARGET ROUTER */}
                 <div
                   onWheel={(e) => {
                     e.preventDefault();
@@ -818,43 +1122,83 @@ export function ChannelRack({
                       [channel.id]: Math.max(1, Math.min(99, (prev[channel.id] ?? channel.mixerTarget) + 1))
                     }));
                   }}
-                  className="w-5 h-5 flex items-center justify-center bg-black border border-neutral-850 text-[9px] font-mono font-bold text-emerald-400 select-none cursor-ns-resize hover:border-emerald-500/40"
+                  style={{
+                    width: "20px",
+                    height: "20px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: DARK.lcdBg,
+                    color: DARK.lcdText,
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    cursor: "ns-resize",
+                    boxSizing: "border-box",
+                    ...sunken(DARK),
+                  }}
                   title="Mixer channel router (Click to increase, hover and scroll to change)"
                 >
                   {channelMixers[channel.id] ?? channel.mixerTarget}
                 </div>
 
                 {/* B. MUTE / SOLO TOGGLE LEDS */}
-                <div className="flex items-center gap-1">
-                  {/* Mute button (Green LED indicates active channel, clicking turns off LED and mutes) */}
+                <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.xs}px` }}>
+                  {/* Mute Button (M) */}
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setMutedChannels(prev => ({ ...prev, [channel.id]: !prev[channel.id] }));
                     }}
-                    className="w-4 h-4 flex items-center justify-center bg-black border border-neutral-850 hover:border-zinc-550 transition-colors cursor-pointer"
-                    title="Mute Channel"
+                    style={{
+                      width: "18px",
+                      height: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      boxSizing: "border-box",
+                      ...(isMuted
+                        ? { ...sunken(DARK), backgroundColor: DARK.stateRed, color: "#ffffff" }
+                        : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                      ),
+                    }}
+                    title="Mute Channel (M)"
                   >
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full transition-all duration-75 ${isMuted
-                          ? "bg-zinc-800"
-                          : "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.85)]"
-                        }`}
-                    />
+                    M
                   </button>
 
-                  {/* Solo button (S) */}
+                  {/* Solo Button (S) */}
                   <button
-                    onClick={() => {
-                      setSoloedChannels(prev => {
-                        const nextVal = !prev[channel.id];
-                        // If turning on solo, we toggle on. If shutting down solo, we toggle off.
-                        return { ...prev, [channel.id]: nextVal };
-                      });
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSoloedChannels(prev => ({ ...prev, [channel.id]: !prev[channel.id] }));
                     }}
-                    className={`w-4 h-4 flex items-center justify-center text-[8px] font-extrabold border rounded-none transition-colors cursor-pointer ${isSoloed
-                        ? "bg-amber-500/20 text-amber-400 border-amber-500/45 shadow-[0_0_4px_rgba(245,158,11,0.25)]"
-                        : "bg-black text-zinc-650 border-neutral-850 hover:text-zinc-400 hover:border-zinc-700"
-                      }`}
+                    style={{
+                      width: "18px",
+                      height: "20px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      boxSizing: "border-box",
+                      ...(isSoloed
+                        ? { ...sunken(DARK), backgroundColor: DARK.stateGreen, color: "#ffffff" }
+                        : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                      ),
+                    }}
                     title="Solo Channel (S)"
                   >
                     S
@@ -862,7 +1206,16 @@ export function ChannelRack({
                 </div>
 
                 {/* C. PAN / VOL LEVELERS */}
-                <div className="flex items-center gap-1.5 w-14 shrink-0">
+                <div 
+                  style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: `${SPACE.sm}px`, 
+                    width: "56px", 
+                    flexShrink: 0,
+                    boxSizing: "border-box",
+                  }}
+                >
                   <Knob
                     label="PAN"
                     value={channelPans[channel.id] ?? 0}
@@ -887,6 +1240,7 @@ export function ChannelRack({
 
                 {/* D. INSTRUMENT BUTTON WITH RIGHT-CLICK POPUPS */}
                 <button
+                  type="button"
                   onContextMenu={(e) => handleRightClick(e, channel.id)}
                   onClick={() => {
                     setActiveInstrumentId(channel.id);
@@ -900,16 +1254,46 @@ export function ChannelRack({
                       }
                     }
                   }}
-                  className={`flex-1 text-left px-2 py-1 select-none border text-[9px] font-black uppercase tracking-wider truncate cursor-pointer transition-colors rounded-none flex items-center justify-between ${isSelected
-                      ? "bg-[#181d26] text-cyan-400 border-cyan-500/35"
-                      : "bg-[#121316] text-zinc-350 border-neutral-850 hover:bg-[#1a1c22] hover:text-white"
-                    }`}
+                  style={{
+                    flex: 1,
+                    textAlign: "left",
+                    paddingLeft: `${SPACE.sm}px`,
+                    paddingRight: `${SPACE.sm}px`,
+                    height: "22px",
+                    userSelect: "none",
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    cursor: "pointer",
+                    border: "none",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    minWidth: 0,
+                    ...(isSelected
+                      ? { ...sunken(DARK), backgroundColor: DARK.bg5, color: DARK.textHi }
+                      : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                    ),
+                  }}
                   title={`${channel.name} Settings (Right-click for options)`}
                 >
-                  <span className="truncate mr-1">{channel.name}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "4px" }}>
+                    {channel.name}
+                  </span>
                   {isFocused && (
-                    <span
-                      className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.95)] shrink-0 animate-pulse"
+                    <div
+                      style={{
+                        width: "4px",
+                        height: "4px",
+                        borderRadius: "50%",
+                        backgroundColor: DARK.accentMaster,
+                        border: `1px solid ${DARK.bevelLight}`,
+                        flexShrink: 0,
+                        boxSizing: "border-box",
+                      }}
                       title="MIDI Target Focused"
                     />
                   )}
@@ -918,7 +1302,7 @@ export function ChannelRack({
               </div>
 
               {/* RIGHT SIDE 16-STEP GRID OR MINI PIANO ROLL PREVIEW */}
-              <div className="flex-1 px-1.5 h-full flex items-center min-w-0">
+              <div style={{ flex: 1, paddingLeft: "6px", paddingRight: "6px", height: "100%", display: "flex", alignItems: "center", minWidth: 0, boxSizing: "border-box" }}>
                 {hasPianoRollEvents ? (
                   <div
                     onClick={(e) => {
@@ -927,18 +1311,32 @@ export function ChannelRack({
                         onOpenPianoRoll(channel.id);
                       }
                     }}
-                    className="flex-1 h-5 bg-[#040507] border border-neutral-900 hover:border-cyan-500/40 rounded-sm relative overflow-hidden group transition-all flex items-center justify-between px-2 cursor-pointer"
+                    style={{
+                      flex: 1,
+                      height: "20px",
+                      backgroundColor: DARK.bg0,
+                      position: "relative",
+                      overflow: "hidden",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingLeft: `${SPACE.sm}px`,
+                      paddingRight: `${SPACE.sm}px`,
+                      cursor: "pointer",
+                      boxSizing: "border-box",
+                      ...sunken(DARK),
+                    }}
                     title="Piano Roll active (Click to open Piano Roll)"
                   >
                     {/* Grid lines */}
-                    <div className="absolute inset-0 flex justify-between pointer-events-none opacity-[0.03]">
-                      <div className="w-[1px] h-full bg-white" style={{ left: "25%" }} />
-                      <div className="w-[1px] h-full bg-white" style={{ left: "50%" }} />
-                      <div className="w-[1px] h-full bg-white" style={{ left: "75%" }} />
+                    <div style={{ position: "absolute", inset: 0, display: "flex", justifyContent: "space-between", pointerEvents: "none", opacity: 0.05 }}>
+                      <div style={{ width: "1px", height: "100%", backgroundColor: DARK.bevelLight, marginLeft: "25%" }} />
+                      <div style={{ width: "1px", height: "100%", backgroundColor: DARK.bevelLight, marginLeft: "50%" }} />
+                      <div style={{ width: "1px", height: "100%", backgroundColor: DARK.bevelLight, marginLeft: "75%" }} />
                     </div>
 
                     {/* SVG/Micro MIDI notes */}
-                    <div className="absolute inset-0 py-0.5 px-2.5 pointer-events-none">
+                    <div style={{ position: "absolute", inset: 0, paddingTop: "2px", paddingBottom: "2px", paddingLeft: "10px", paddingRight: "10px", pointerEvents: "none" }}>
                       {(() => {
                         const pitches = channelEvents.map(e => e.pitch).filter((p): p is number => p !== undefined);
                         const minPitch = pitches.length > 0 ? Math.min(...pitches) - 1 : 55;
@@ -954,8 +1352,12 @@ export function ChannelRack({
                           return (
                             <div
                               key={e.id || idx}
-                              className="absolute h-[2px] bg-cyan-400/80 shadow-[0_0_2px_#22d3ee] rounded-xs"
                               style={{
+                                position: "absolute",
+                                height: "2px",
+                                backgroundColor: DARK.accentBlue,
+                                border: `1px solid ${DARK.bevelLight}`,
+                                boxSizing: "border-box",
                                 left: `${leftPercent}%`,
                                 width: `${Math.max(2.5, widthPercent)}%`,
                                 top: `${Math.min(85, Math.max(15, topPercent))}%`,
@@ -966,16 +1368,58 @@ export function ChannelRack({
                       })()}
                     </div>
 
-                    <span className="text-[7.5px] text-zinc-600 font-extrabold uppercase tracking-widest pl-1 group-hover:text-cyan-400/80 transition-colors pointer-events-none z-10">
-                      PIANO ROLL ACTIVE
+                    <span 
+                      style={{
+                        fontSize: "8px",
+                        color: DARK.textMid,
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.15em",
+                        fontFamily: DARK.font,
+                        zIndex: 10,
+                        pointerEvents: "none",
+                      }}
+                    >
+                      Piano Roll Active
                     </span>
                   </div>
                 ) : (
-                  <div className="w-full grid grid-cols-16 gap-[3px] h-full items-center">
+                  <div 
+                    style={{
+                      width: "100%",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(16, minmax(0, 1fr))",
+                      gap: `${SPACE.xs}px`,
+                      height: "100%",
+                      alignItems: "center",
+                      paddingLeft: "6px",
+                      paddingRight: "6px",
+                      boxSizing: "border-box",
+                    }}
+                  >
                     {stepColumns.map((beatValue, index) => {
                       const isActive = isStepActive(channel, index);
                       const isPassing = playbackState === "playing" && activePlayheadIndexRef.current === index;
                       const isBeatGroupA = Math.floor(index / 4) % 2 === 0;
+
+                      // Base background color and border constructor based on state
+                      let bg = DARK.bg3;
+                      let borderStyle = raised(DARK);
+
+                      if (isActive) {
+                        borderStyle = sunken(DARK);
+                        if (channel.type === "sample") {
+                          bg = isPassing ? "#a8f5b4" : DARK.stateGreen;
+                        } else {
+                          bg = isPassing ? "#a0e8ff" : DARK.accentBlue;
+                        }
+                      } else {
+                        if (isPassing) {
+                          bg = DARK.bg5;
+                        } else {
+                          bg = isBeatGroupA ? DARK.bg3 : DARK.bg2;
+                        }
+                      }
 
                       return (
                         <button
@@ -987,20 +1431,15 @@ export function ChannelRack({
                               handleStepToggle(channel, index);
                             }
                           }}
-                          className={`h-4.5 w-full rounded-none border transition-all cursor-pointer relative ${isActive
-                              ? channel.type === "sample"
-                                ? isPassing
-                                  ? "bg-emerald-300 border-emerald-450 scale-[0.93] shadow-[0_0_8px_rgba(52,211,153,0.9)]"
-                                  : "bg-emerald-500 border-emerald-600 hover:bg-emerald-450"
-                                : isPassing
-                                  ? "bg-cyan-300 border-cyan-455 scale-[0.93] shadow-[0_0_8px_rgba(34,211,238,0.9)]"
-                                  : "bg-cyan-500 border-cyan-550 hover:bg-cyan-450"
-                              : isPassing
-                                ? "bg-zinc-650 border-zinc-550 scale-[0.95]"
-                                : isBeatGroupA
-                                  ? "bg-[#25272c] border-neutral-750/70 hover:bg-[#32353c] hover:border-zinc-700"
-                                  : "bg-[#141518] border-neutral-900 hover:bg-[#202227] hover:border-zinc-800"
-                            }`}
+                          style={{
+                            height: "18px",
+                            width: "100%",
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                            padding: 0,
+                            backgroundColor: bg,
+                            ...borderStyle,
+                          }}
                           title={`${channel.name} at Step ${index + 1}`}
                         />
                       );
@@ -1014,13 +1453,26 @@ export function ChannelRack({
         })}
 
         {/* Dynamic ADD CHANNEL button row with Overlay Dropdown */}
-        <div className="pt-2 pl-1 select-none flex relative">
+        <div style={{ paddingTop: `${SPACE.lg}px`, paddingLeft: `${SPACE.sm}px`, userSelect: "none", display: "flex", position: "relative" }}>
           <button
             onClick={(e) => {
               e.stopPropagation();
               setAddDropdownOpen(!addDropdownOpen);
             }}
-            className="px-3.5 py-1.5 bg-[#121316] hover:bg-[#1a1c22] border border-neutral-850 hover:border-zinc-700 text-cyan-400 hover:text-cyan-300 font-bold uppercase transition-colors rounded-none cursor-pointer flex items-center justify-center text-[9px] tracking-wider"
+            style={{
+              padding: `${SPACE.sm}px ${SPACE.lg}px`,
+              backgroundColor: DARK.bg3,
+              color: DARK.accentBlue,
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
             id="add-channel-btn"
           >
             + Add Channel
@@ -1028,11 +1480,36 @@ export function ChannelRack({
 
           {addDropdownOpen && (
             <div
-              style={{ bottom: "100%", left: "4px" }}
-              className="absolute mb-1 bg-[#111215] border border-neutral-850 p-1 w-36 z-50 shadow-2xl flex flex-col font-sans text-[10px] text-neutral-300 font-semibold rounded-sm"
+              style={{
+                position: "absolute",
+                bottom: "100%",
+                left: "4px",
+                marginBottom: "4px",
+                backgroundColor: DARK.bg2,
+                ...flat(DARK),
+                padding: "2px",
+                width: "120px",
+                zIndex: 50,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                display: "flex",
+                flexDirection: "column",
+                boxSizing: "border-box",
+              }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-2 py-1 text-[8px] text-zinc-500 uppercase tracking-widest font-black border-b border-neutral-900/60 mb-1">
+              <div 
+                style={{
+                  padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                  fontSize: "8px",
+                  color: DARK.textLo,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  borderBottom: `1px solid ${DARK.bevelDark}`,
+                  marginBottom: "2px",
+                  fontFamily: DARK.font,
+                  fontWeight: "bold",
+                }}
+              >
                 Select Instrument
               </div>
               <button
@@ -1041,7 +1518,28 @@ export function ChannelRack({
                   addChannelWithInstrument("sampler");
                   setAddDropdownOpen(false);
                 }}
-                className="w-full text-left px-2 py-1.5 hover:bg-[#181d26] hover:text-cyan-400 transition-colors uppercase tracking-wide cursor-pointer font-sans"
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  backgroundColor: "transparent",
+                  color: DARK.textMid,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  boxSizing: "border-box",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textHi;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = DARK.textMid;
+                }}
               >
                 Sampler
               </button>
@@ -1051,7 +1549,28 @@ export function ChannelRack({
                   addChannelWithInstrument("obsidian");
                   setAddDropdownOpen(false);
                 }}
-                className="w-full text-left px-2 py-1.5 hover:bg-[#181d26] hover:text-rose-400 transition-colors uppercase tracking-wide cursor-pointer font-sans text-rose-500"
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  backgroundColor: "transparent",
+                  color: DARK.accentOrange,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  boxSizing: "border-box",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textHi;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = DARK.accentOrange;
+                }}
               >
                 Obsidian
               </button>
@@ -1064,10 +1583,19 @@ export function ChannelRack({
       {/* ABSOLUTE FLOATING CUSTOM RIGHT-CLICK CONTEXT MENU POPUP */}
       {contextMenu && contextMenu.visible && (
         <div
-          className="absolute bg-[#111215] border border-neutral-850 p-1 w-44 z-50 shadow-2xl flex flex-col font-sans select-none text-[10px] text-neutral-300 font-semibold"
           style={{
+            position: "absolute",
+            backgroundColor: DARK.bg2,
+            ...flat(DARK),
+            padding: "2px",
+            width: "150px",
+            zIndex: 100,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+            display: "flex",
+            flexDirection: "column",
+            boxSizing: "border-box",
             top: Math.max(0, Math.min(contextMenu.y, (containerRef.current?.clientHeight ?? 400) - 115)),
-            left: Math.max(0, Math.min(contextMenu.x, (containerRef.current?.clientWidth ?? 800) - 180))
+            left: Math.max(0, Math.min(contextMenu.x, (containerRef.current?.clientWidth ?? 800) - 180)),
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -1079,9 +1607,30 @@ export function ChannelRack({
               }
               setContextMenu(null);
             }}
-            className="w-full text-left px-2 py-1.5 hover:bg-[#181b21] hover:text-white rounded-none cursor-pointer flex items-center gap-1.5"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: "transparent",
+              color: DARK.textMid,
+              border: "none",
+              cursor: "pointer",
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = DARK.bg3;
+              e.currentTarget.style.color = DARK.textHi;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = DARK.textMid;
+            }}
           >
-            <span>Send to Piano Roll</span>
+            Send to Piano Roll
           </button>
 
           <button
@@ -1093,12 +1642,33 @@ export function ChannelRack({
               }
               setContextMenu(null);
             }}
-            className="w-full text-left px-2 py-1.5 hover:bg-[#181b21] hover:text-white rounded-none cursor-pointer flex items-center gap-1.5"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: "transparent",
+              color: DARK.textMid,
+              border: "none",
+              cursor: "pointer",
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = DARK.bg3;
+              e.currentTarget.style.color = DARK.textHi;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = DARK.textMid;
+            }}
           >
-            <span>Clear steps</span>
+            Clear Steps
           </button>
 
-          <hr className="border-neutral-800 my-0.5" />
+          <div style={{ height: "1px", backgroundColor: DARK.bevelDark, margin: "2px 0" }} />
 
           <button
             type="button"
@@ -1106,9 +1676,30 @@ export function ChannelRack({
               deleteChannelRow(contextMenu.channelId);
               setContextMenu(null);
             }}
-            className="w-full text-left px-2 py-1.5 hover:bg-red-950/40 text-red-400 hover:text-red-300 rounded-none cursor-pointer flex items-center gap-1.5"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: "transparent",
+              color: DARK.stateRed,
+              border: "none",
+              cursor: "pointer",
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              boxSizing: "border-box",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = DARK.bg3;
+              e.currentTarget.style.color = "#ffffff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = DARK.stateRed;
+            }}
           >
-            <span>Delete Channel</span>
+            Delete Channel
           </button>
         </div>
       )}
