@@ -20,6 +20,23 @@ import { ArrangerClip } from "./ArrangerClip";
 import { getLibraryManager } from "./SampleBrowser";
 
 import { getAutoSnapResolution } from "../utils/snapUtils";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE,
+  SIZE
+} from "../../public/Themes/Vintage Console/tokens";
+
+function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace("#", "");
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
 
 export interface CanvasProps {
   channels?: ChannelRow[];
@@ -251,8 +268,8 @@ export function Canvas({
   // Helper to construct dynamic grid line CSS background styles
   const getGridStyle = () => {
     const gradients = [
-      'linear-gradient(to right, rgba(255, 255, 255, 0.18) 2px, transparent 2px)', // Bar lines (always drawn)
-      'linear-gradient(to right, rgba(255, 255, 255, 0.09) 1px, transparent 1px)' // Beat lines (always drawn)
+      'linear-gradient(to right, rgba(74, 102, 128, 0.22) 2px, transparent 2px)', // Bar lines (always drawn)
+      'linear-gradient(to right, rgba(74, 102, 128, 0.09) 1px, transparent 1px)' // Beat lines (always drawn)
     ];
     const sizes = [
       `${beatWidth * 4}px 100%`,
@@ -262,22 +279,21 @@ export function Canvas({
     const res = activeSnapResolution;
     if (res !== null) {
       if (res <= 0.5) {
-        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(74, 102, 128, 0.05) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.5}px 100%`);
       }
       if (res <= 0.25) {
-        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(74, 102, 128, 0.03) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.25}px 100%`);
       }
       if (res <= 0.125) {
-        gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px)');
+        gradients.push('linear-gradient(to right, rgba(74, 102, 128, 0.015) 1px, transparent 1px)');
         sizes.push(`${beatWidth * 0.125}px 100%`);
       }
     }
 
     // Add alternating bar shading layer on the very bottom (every 4 bars / 16 beats)
-    // The first group of 4 bars is slightly lighter, the second group is transparent/darker, alternating
-    gradients.push('linear-gradient(to right, rgba(255, 255, 255, 0.02) 50%, transparent 50%)');
+    gradients.push('linear-gradient(to right, rgba(74, 102, 128, 0.02) 50%, transparent 50%)');
     sizes.push(`${beatWidth * 32}px 100%`);
 
     return {
@@ -355,24 +371,15 @@ export function Canvas({
   // Resolve metadata (human labels, theme colors) for selected brush element
   const getClipMetadata = (type: "pattern" | "sample", refId: string) => {
     if (type === "sample") {
-      const match = AVAILABLE_SAMPLES.find(s => s.id === refId);
-      if (match) {
-        return {
-          name: match.name,
-          color: match.color
-        };
-      }
       return {
         name: getSampleName(refId),
-        color: "from-neutral-600/25 to-neutral-500/10 border-neutral-700 text-neutral-300"
+        color: DARK.accentGreen
       };
     } else {
       const match = patterns.find(p => p.id === refId);
-      let colorClass = "from-cyan-555/15 to-cyan-500/5 text-cyan-400 border-cyan-500/30";
-
       return {
         name: match?.name || "MIDI Pattern",
-        color: colorClass
+        color: DARK.accentBlue
       };
     }
   };
@@ -621,56 +628,167 @@ export function Canvas({
   };
 
   return (
-    <div id="daw-canvas-window" className="h-full flex flex-col bg-[#121315] border border-neutral-800 rounded-none p-3 shadow-md gap-3 font-sans overflow-hidden">
+    <div
+      id="daw-canvas-window"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: DARK.bg1,
+        color: DARK.textMid,
+        fontFamily: DARK.font,
+        fontSize: "11px",
+        userSelect: "none",
+        position: "relative",
+        boxSizing: "border-box",
+        padding: `${SPACE.md}px`,
+        gap: `${SPACE.md}px`,
+        overflow: "hidden",
+        ...flat(DARK),
+      }}
+    >
 
       {/* HEADER STRIP */}
-      <div className="flex items-center justify-between border-b border-[#1b1c20] pb-2">
-        <div className="flex items-center gap-2">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: DARK.bg2,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          padding: `${SPACE.xs}px ${SPACE.md}px`,
+          height: "30px",
+          flexShrink: 0,
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
           {selectedClipType ? (
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-black/40 border border-neutral-850/50 text-[9px] font-mono text-orange-400 rounded-none shadow-[inset_0_0_4px_rgba(249,115,22,0.1)]">
-              <span className="h-1.5 w-1.5 rounded-full bg-orange-500 shrink-0 animate-pulse shadow-[0_0_4px_rgba(249,115,22,0.6)]" />
-              <span className="font-bold text-[8px] uppercase tracking-wider text-zinc-550 mr-0.5">STAMP:</span>
-              <span className="text-orange-300 font-bold uppercase truncate max-w-[150px] leading-none mt-0.5">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.xs}px`,
+                padding: `2px ${SPACE.sm}px`,
+                backgroundColor: DARK.bg0,
+                color: DARK.accentMaster,
+                fontFamily: DARK.font,
+                fontSize: "8px",
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                boxSizing: "border-box",
+                ...sunken(DARK),
+              }}
+            >
+              <div
+                style={{
+                  width: "4px",
+                  height: "4px",
+                  borderRadius: "50%",
+                  backgroundColor: DARK.accentMaster,
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ color: DARK.textMid }}>STAMP:</span>
+              <span style={{ color: DARK.accentMaster, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "150px" }}>
                 {selectedClipType === "pattern" 
                   ? (patterns.find(p => p.id === selectedReferenceId)?.name || "MIDI Pattern")
                   : getSampleName(selectedReferenceId)}
               </span>
-              <span className="text-[7.5px] font-mono text-zinc-555 bg-neutral-900 px-1 py-0.5 rounded-none ml-1 uppercase leading-none">
+              <span
+                style={{
+                  fontSize: "7px",
+                  fontFamily: DARK.font,
+                  color: DARK.textHi,
+                  backgroundColor: DARK.bg3,
+                  padding: `1px ${SPACE.xs}px`,
+                  marginLeft: `${SPACE.sm}px`,
+                  textTransform: "uppercase",
+                }}
+              >
                 {selectedClipType === "pattern" ? "Pattern" : "Sample"}
               </span>
             </div>
           ) : (
-            <div className="text-[9px] font-mono text-zinc-650 uppercase tracking-widest pl-1 font-bold">No Stamp</div>
+            <div
+              style={{
+                fontSize: "8px",
+                fontFamily: DARK.font,
+                color: DARK.textLo,
+                textTransform: "uppercase",
+                letterSpacing: "0.15em",
+                paddingLeft: `${SPACE.sm}px`,
+                fontWeight: "bold",
+              }}
+            >
+              No Stamp
+            </div>
           )}
         </div>
-        <div className="flex items-center gap-2.5">
+        <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.md}px` }}>
           {/* Tool Selector Toggle Group */}
-          <div className="flex items-center bg-black/40 border border-[#1b1c20] p-0.5 select-none font-mono">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              backgroundColor: DARK.bg0,
+              padding: `${SPACE.xs}px`,
+              boxSizing: "border-box",
+              ...sunken(DARK),
+            }}
+          >
             <button
               onClick={() => {
                 setActiveTool('pencil');
                 setSelectedIds([]);
               }}
-              className={`px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer select-none rounded-none border-none ${activeTool === 'pencil'
-                  ? 'bg-cyan-500 text-black'
-                  : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+              style={{
+                padding: `2px ${SPACE.sm}px`,
+                fontSize: "8px",
+                fontWeight: "bold",
+                fontFamily: DARK.font,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.xs}px`,
+                backgroundColor: activeTool === 'pencil' ? DARK.bg5 : DARK.bg3,
+                color: activeTool === 'pencil' ? DARK.textHi : DARK.textMid,
+                boxSizing: "border-box",
+                ...(activeTool === 'pencil' ? sunken(DARK) : raised(DARK)),
+              }}
               title="Pencil Tool: Draw arranger notes/stamps"
             >
-              <Pencil className="h-2.5 w-2.5" />
+              <Pencil style={{ height: "10px", width: "10px" }} />
               <span>Pencil</span>
             </button>
             <button
               onClick={() => {
                 setActiveTool('pointer');
               }}
-              className={`px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer select-none rounded-none border-none ${activeTool === 'pointer'
-                  ? 'bg-cyan-500 text-black'
-                  : 'text-zinc-500 hover:text-zinc-350'
-                }`}
+              style={{
+                padding: `2px ${SPACE.sm}px`,
+                fontSize: "8px",
+                fontWeight: "bold",
+                fontFamily: DARK.font,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.xs}px`,
+                backgroundColor: activeTool === 'pointer' ? DARK.bg5 : DARK.bg3,
+                color: activeTool === 'pointer' ? DARK.textHi : DARK.textMid,
+                boxSizing: "border-box",
+                ...(activeTool === 'pointer' ? sunken(DARK) : raised(DARK)),
+              }}
               title="Pointer Tool: Multiple select / relocation"
             >
-              <MousePointer className="h-2.5 w-2.5" />
+              <MousePointer style={{ height: "10px", width: "10px" }} />
               <span>Pointer</span>
             </button>
             <button
@@ -678,13 +796,26 @@ export function Canvas({
                 setActiveTool('split');
                 setSelectedIds([]);
               }}
-              className={`px-2 py-0.5 text-[8.5px] font-black uppercase tracking-wider transition-colors flex items-center gap-1 cursor-pointer select-none rounded-none border-none ${activeTool === 'split'
-                  ? 'bg-cyan-500 text-black'
-                  : 'text-zinc-500 hover:text-zinc-300'
-                }`}
+              style={{
+                padding: `2px ${SPACE.sm}px`,
+                fontSize: "8px",
+                fontWeight: "bold",
+                fontFamily: DARK.font,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+                border: "none",
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.xs}px`,
+                backgroundColor: activeTool === 'split' ? DARK.bg5 : DARK.bg3,
+                color: activeTool === 'split' ? DARK.textHi : DARK.textMid,
+                boxSizing: "border-box",
+                ...(activeTool === 'split' ? sunken(DARK) : raised(DARK)),
+              }}
               title="Razor/Split Tool: Slice arranger clips in half"
             >
-              <svg className="h-2.5 w-2.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg style={{ height: "10px", width: "10px", flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="6" width="20" height="12" rx="1.5" />
                 <line x1="6" y1="12" x2="18" y2="12" />
                 <circle cx="8" cy="12" r="0.75" fill="currentColor" />
@@ -696,29 +827,55 @@ export function Canvas({
           </div>
 
           {/* Snap Resolution Selection Dropdown */}
-          <div className="flex items-center gap-1.5 border border-neutral-800 bg-black/40 px-2 py-1 select-none">
-            <span className="text-[7.5px] font-mono text-zinc-500 uppercase tracking-widest font-black leading-none mt-0.5">SNAP:</span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.sm}px`,
+              backgroundColor: DARK.bg3,
+              padding: `2px ${SPACE.sm}px`,
+              boxSizing: "border-box",
+              ...raised(DARK),
+            }}
+          >
+            <span style={{ fontSize: "8px", fontWeight: "bold", fontFamily: DARK.font, color: DARK.textMid, letterSpacing: "0.08em" }}>SNAP:</span>
             <select
               value={snapResolution}
               onChange={(e) => {
                 const val = e.target.value;
                 setSnapResolution(val === "auto" ? "auto" : parseFloat(val));
               }}
-              className="bg-transparent text-[8.5px] font-mono text-cyan-400 focus:outline-none border-none py-px cursor-pointer select-none leading-none pr-1"
+              style={{
+                backgroundColor: "transparent",
+                color: DARK.accentBlue,
+                fontFamily: DARK.font,
+                fontSize: "8px",
+                fontWeight: "bold",
+                border: "none",
+                outline: "none",
+                cursor: "pointer",
+              }}
             >
-              <option value="auto" className="bg-[#121315] text-zinc-300">Auto Snap</option>
-              <option value="4" className="bg-[#121315] text-zinc-300">1 Bar (4 Beats)</option>
-              <option value="1" className="bg-[#121315] text-zinc-300">1/4 (1 Beat)</option>
-              <option value="0.5" className="bg-[#121315] text-zinc-300">1/8 (0.5 Beats)</option>
-              <option value="0.25" className="bg-[#121315] text-zinc-300">1/16 (0.25 Beats)</option>
-              <option value="0.125" className="bg-[#121315] text-zinc-300">1/32 (0.125 Beats)</option>
+              <option value="auto" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>Auto Snap</option>
+              <option value="4" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>1 Bar (4 Beats)</option>
+              <option value="1" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>1/4 (1 Beat)</option>
+              <option value="0.5" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>1/8 (0.5 Beats)</option>
+              <option value="0.25" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>1/16 (0.25 Beats)</option>
+              <option value="0.125" style={{ backgroundColor: DARK.bg3, color: DARK.textMid }}>1/32 (0.125 Beats)</option>
             </select>
           </div>
-          </div>
         </div>
+      </div>
 
       {/* TWO COLUMN BENTO LAYOUT */}
-      <div className="flex gap-3.5 flex-1 min-h-0">
+      <div
+        style={{
+          display: "flex",
+          gap: `${SPACE.md}px`,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
 
 
         {/* LEFT COLUMN: AVAILABLE SOURCE PICKER */}
@@ -741,29 +898,47 @@ export function Canvas({
         />
 
         {/* RIGHT COLUMN: ARRANGEMENT TIMELINE */}
-        <div className="flex-1 flex flex-col min-w-0 h-full relative">
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, height: "100%", position: "relative" }}>
 
-          <div ref={scrollContainerRef} onScroll={handleScroll} className="relative select-none border border-neutral-850 bg-[#0a0b0d] p-0 flex-1 overflow-auto scrollbar-thin">
-            <div className="relative space-y-0" style={{ width: `${130 + timelineWidth}px` }}>
+          <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            style={{
+              position: "relative",
+              userSelect: "none",
+              backgroundColor: DARK.bg0,
+              flex: 1,
+              overflow: "auto",
+              boxSizing: "border-box",
+              ...sunken(DARK),
+            }}
+          >
+            <div style={{ position: "relative", width: `${130 + timelineWidth}px` }}>
 
               <div
                 ref={playheadRef}
-                className="absolute top-0 bottom-0 w-[1.5px] bg-indigo-500 z-[25] pointer-events-none shadow-[0_0_12px_rgba(99,102,241,0.6)] overflow-visible"
                 style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  width: "1.5px",
+                  backgroundColor: DARK.accentMaster,
+                  zIndex: 25,
+                  pointerEvents: "none",
+                  overflow: "visible",
                   left: "130px",
                 }}
               >
                 {/* ── PLAYHEAD ARROW CARET ── */}
-                <div className="absolute top-[30px] -translate-y-full -translate-x-1/2 left-1/2">
+                <div style={{ position: "absolute", top: "30px", transform: "translateY(-100%) translateX(-50%)", left: "50%" }}>
                   <svg
                     width="10"
                     height="6"
                     viewBox="0 0 10 6"
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
-                    className="drop-shadow-[0_0_3px_rgba(99,102,241,0.85)]"
                   >
-                    <polygon points="0,0 10,0 5,6" fill="#6366f1" />
+                    <polygon points="0,0 10,0 5,6" fill={DARK.accentMaster} />
                   </svg>
                 </div>
               </div>
@@ -790,27 +965,74 @@ export function Canvas({
                 onPointerMove={handleGridPointerMove}
                 onPointerUp={handleGridPointerUp}
                 onContextMenu={(e) => e.preventDefault()}
-                className="relative select-none"
+                style={{ position: "relative", userSelect: "none" }}
               >
                 {listLanes.map((laneIdx) => (
                   <div
                     key={laneIdx}
-                    className="flex h-12 relative group items-center hover:bg-[#121316]/40 border-b border-[#14151a]"
+                    style={{
+                      display: "flex",
+                      height: `${LANE_HEIGHT_PX}px`,
+                      position: "relative",
+                      alignItems: "center",
+                      borderBottom: `1px solid ${DARK.bevelDark}`,
+                      boxSizing: "border-box",
+                    }}
                   >
                     {/* Visual Lane Header Label */}
-                    <div className="w-[130px] shrink-0 text-left pl-2 flex flex-col justify-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest group-hover:text-neutral-200">
+                    <div
+                      style={{
+                        width: "130px",
+                        flexShrink: 0,
+                        textAlign: "left",
+                        paddingLeft: `${SPACE.sm}px`,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        height: "100%",
+                        zIndex: 30,
+                        backgroundColor: DARK.bg2,
+                        position: "sticky",
+                        left: 0,
+                        borderRight: `1px solid ${DARK.bevelDark}`,
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "8px",
+                          fontWeight: "bold",
+                          color: DARK.textHi,
+                          fontFamily: DARK.font,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.1em",
+                        }}
+                      >
                         Lane {laneIdx + 1}
                       </span>
-                      <span className="text-[7px] font-mono text-zinc-600 uppercase">
+                      <span
+                        style={{
+                          fontSize: "7px",
+                          fontFamily: DARK.font,
+                          color: DARK.textMid,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
                         Arranger Slot
                       </span>
                     </div>
 
                     {/* Interactive grid track area */}
                     <div
-                      className={`flex-1 relative h-full bg-[#0d0e10]/80 ${activeTool === 'pencil' ? 'cursor-pencil' : 'cursor-default'}`}
-                      style={getGridStyle()}
+                      className={activeTool === 'pencil' ? 'cursor-pencil' : ''}
+                      style={{
+                        ...getGridStyle(),
+                        flex: 1,
+                        position: "relative",
+                        height: "100%",
+                        backgroundColor: DARK.bg0,
+                      }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "copy";
@@ -842,7 +1064,7 @@ export function Canvas({
                                 type: "pattern" as const,
                                 referenceId: patternId,
                                 name: patternName,
-                                color: "from-cyan-555/15 to-cyan-500/5 text-cyan-400 border-cyan-500/30",
+                                color: DARK.accentBlue,
                                 cropStart: 0,
                               };
 
@@ -943,7 +1165,7 @@ export function Canvas({
                               type: "sample" as const,
                               referenceId: targetChannelId,
                               name: getSampleName(id),
-                              color: "from-emerald-600/20 to-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                              color: DARK.accentGreen,
                               cropStart: 0,
                             };
 
@@ -1087,8 +1309,16 @@ export function Canvas({
 
                 {/* Flat absolute overlay for clips */}
                 <div
-                  className="absolute left-[130px] right-0 top-0 bottom-0 pointer-events-none z-10"
-                  style={{ width: `${timelineWidth}px` }}
+                  style={{
+                    position: "absolute",
+                    left: "130px",
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    pointerEvents: "none",
+                    zIndex: 10,
+                    width: `${timelineWidth}px`,
+                  }}
                 >
                   {canvasClips.map((clip) => {
                     const isSelected = selectedIds.includes(clip.id);
@@ -1117,7 +1347,7 @@ export function Canvas({
 
                   {/* Render the ghost clip in a slightly transparent state */}
                   {placingClip && (
-                    <div className="opacity-80 pointer-events-none select-none transition-all duration-75">
+                    <div style={{ opacity: 0.8, pointerEvents: "none", userSelect: "none" }}>
                       <ArrangerClip
                         clip={placingClip}
                         beatWidth={beatWidth}
@@ -1140,22 +1370,59 @@ export function Canvas({
                 </div>
 
                 {/* Sticky Add Lane row */}
-                <div className="flex h-12 relative items-center">
-                  <div className="w-[130px] shrink-0 text-left pl-2 flex items-center border-r border-[#17181c] h-full z-30 bg-[#0a0b0d] sticky left-0">
+                <div style={{ display: "flex", height: `${LANE_HEIGHT_PX}px`, position: "relative", alignItems: "center" }}>
+                  <div
+                    style={{
+                      width: "130px",
+                      flexShrink: 0,
+                      textAlign: "left",
+                      paddingLeft: `${SPACE.sm}px`,
+                      display: "flex",
+                      alignItems: "center",
+                      height: "100%",
+                      zIndex: 30,
+                      backgroundColor: DARK.bg2,
+                      position: "sticky",
+                      left: 0,
+                      borderRight: `1px solid ${DARK.bevelDark}`,
+                      boxSizing: "border-box",
+                    }}
+                  >
                     <button
                       onClick={() => setLaneCount((prev) => prev + 1)}
-                      className="w-full mr-2 py-1.5 px-1 border border-dashed border-neutral-800 bg-black/40 hover:bg-[#181d26] text-[9.5px] font-black uppercase tracking-wider text-zinc-400 hover:text-cyan-400 transition-all cursor-pointer select-none rounded-none text-center"
+                      style={{
+                        width: "100%",
+                        marginRight: `${SPACE.sm}px`,
+                        padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                        backgroundColor: DARK.bg3,
+                        color: DARK.textMid,
+                        fontFamily: DARK.font,
+                        fontSize: "8px",
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        cursor: "pointer",
+                        border: `1px dashed ${DARK.bevelMid}`,
+                        boxSizing: "border-box",
+                      }}
+                      title="Add Lane"
                     >
                       + Add Lane
                     </button>
                   </div>
-                  <div className="flex-1 h-full bg-transparent pointer-events-none" />
+                  <div style={{ flex: 1, height: "100%", backgroundColor: "transparent", pointerEvents: "none" }} />
                 </div>
 
                 <div
                   ref={lassoDivRef}
-                  className="absolute border border-dashed border-cyan-400 bg-cyan-500/10 pointer-events-none z-50 transition-none"
-                  style={{ display: "none" }}
+                  style={{
+                    position: "absolute",
+                    border: `1px dashed ${DARK.accentBlue}`,
+                    backgroundColor: "rgba(79, 195, 247, 0.1)",
+                    pointerEvents: "none",
+                    zIndex: 50,
+                    display: "none",
+                  }}
                 />
 
               </div>

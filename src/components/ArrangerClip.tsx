@@ -8,6 +8,15 @@ import { CanvasClip, PatternData } from "../types";
 import { LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX, AVAILABLE_SAMPLES } from "../config";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { Keyboard, Music } from "lucide-react";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE,
+  SIZE
+} from "../../public/Themes/Vintage Console/tokens";
 
 interface ArrangerClipProps {
   clip: CanvasClip;
@@ -30,6 +39,22 @@ interface ArrangerClipProps {
   handleResizeMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   handleResizeUp: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
+
+function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace("#", "");
+  const r = parseInt(cleanHex.substring(0, 2), 16);
+  const g = parseInt(cleanHex.substring(2, 4), 16);
+  const b = parseInt(cleanHex.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const getClipAccentColor = (clip: CanvasClip) => {
+  const color = clip.color;
+  if (color && color.startsWith("#")) {
+    return color;
+  }
+  return clip.type === "sample" ? DARK.accentGreen : DARK.accentBlue;
+};
 
 export function ArrangerClip({
   clip,
@@ -82,6 +107,8 @@ export function ArrangerClip({
   
   // High-resolution peak data caching keyed by sampleId
   const peaksCacheRef = useRef<Map<string, { mins: Float32Array; maxs: Float32Array }>>(new Map());
+
+  const accentColor = getClipAccentColor(clip);
 
   // Pixel-accurate canvas waveform rendering
   useEffect(() => {
@@ -198,7 +225,7 @@ export function ArrangerClip({
       const midY = headerHeight + bodyHeight / 2;
       const ampScale = 0.85;
 
-      ctx.strokeStyle = "rgba(34, 211, 238, 0.85)";
+      ctx.strokeStyle = hexToRgba(accentColor, 0.85);
       ctx.lineWidth = 1.2;
 
       for (let i = 0; i < widthPx; i++) {
@@ -243,7 +270,11 @@ export function ArrangerClip({
         ctx.stroke();
       }
     }
-  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, clip.cropStart, settings, beatWidth, engine]);
+  }, [clip.referenceId, clip.type, widthPx, heightPx, getSampleBuffer, clip.duration, clip.cropStart, settings, beatWidth, engine, accentColor]);
+
+  const clipBorder = isSelected
+    ? raised({ bevelLight: "#ffffff", bevelDark: "#ffffff" })
+    : raised({ bevelLight: accentColor, bevelDark: DARK.bevelDark });
 
   return (
     <div
@@ -271,17 +302,15 @@ export function ArrangerClip({
         e.stopPropagation();
         handleClipDoubleClick(clip);
       }}
-      className={`canvas-clip-body absolute border rounded-xs flex flex-col justify-between overflow-hidden shadow-lg cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto ${
-        clip.color
-      } ${
-        isSelected ? "border-white shadow-[inset_0_0_6px_rgba(255,255,255,0.3)] ring-1 ring-white/30" : "border-neutral-850"
-      }`}
+      className="canvas-clip-body absolute flex flex-col justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none touch-none pointer-events-auto"
       style={{
         left: `${leftPx}px`,
         width: `${widthPx}px`,
         top: `${topPx}px`,
         height: `${heightPx}px`,
-        background: "#0a0b0d",
+        backgroundColor: DARK.bg2,
+        boxSizing: "border-box",
+        ...clipBorder,
       }}
       title="Double-click to edit, Drag handles to crop, Right-click to delete"
     >
@@ -289,17 +318,48 @@ export function ArrangerClip({
       {clip.type === "sample" && (
         <canvas
           ref={canvasRef}
-          className={`absolute inset-0 w-full h-full pointer-events-none z-0 transition-opacity duration-300 ${isLoading ? "opacity-30" : "opacity-100"}`}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: 0,
+            opacity: isLoading ? 0.3 : 1,
+          }}
         />
       )}
 
       {/* Beautiful Loading State Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 pointer-events-none">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-            <span className="text-[8px] font-bold text-cyan-400 uppercase tracking-widest animate-pulse">Processing...</span>
-          </div>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.6)",
+            zIndex: 10,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "8px",
+              fontWeight: "bold",
+              fontFamily: DARK.font,
+              color: accentColor,
+              textTransform: "uppercase",
+              letterSpacing: "0.15em",
+            }}
+          >
+            Processing...
+          </span>
         </div>
       )}
 
@@ -308,7 +368,15 @@ export function ArrangerClip({
         onPointerDown={(e) => handleResizeDown(e, clip, "left")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="clip-resize-handle absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/10 z-20 flex items-center justify-center rounded-none"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: "6px",
+          cursor: "ew-resize",
+          zIndex: 20,
+        }}
         title="Drag left edge to crop start"
       />
 
@@ -317,27 +385,79 @@ export function ArrangerClip({
         onPointerDown={(e) => handleResizeDown(e, clip, "right")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
-        className="clip-resize-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-white/10 z-20 flex items-center justify-center rounded-none"
+        style={{
+          position: "absolute",
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: "6px",
+          cursor: "ew-resize",
+          zIndex: 20,
+        }}
         title="Drag right edge to crop end / change duration"
       />
 
       {/* Sleek Unified Header */}
-      <div className="w-full h-4 bg-[#14161a] border-b border-neutral-850 flex items-center px-1.5 gap-1.5 shrink-0 z-10 select-none pointer-events-none">
+      <div
+        style={{
+          width: "100%",
+          height: "16px",
+          backgroundColor: hexToRgba(accentColor, 0.15),
+          display: "flex",
+          alignItems: "center",
+          paddingLeft: `${SPACE.sm}px`,
+          paddingRight: `${SPACE.sm}px`,
+          gap: `${SPACE.xs}px`,
+          flexShrink: 0,
+          zIndex: 10,
+          borderBottom: `1px solid ${DARK.bevelDark}`,
+          boxSizing: "border-box",
+          userSelect: "none",
+          pointerEvents: "none",
+        }}
+      >
         {clip.type === "pattern" ? (
-          <Keyboard className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+          <Keyboard style={{ width: "10px", height: "10px", color: accentColor, flexShrink: 0 }} />
         ) : (
-          <Music className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+          <Music style={{ width: "10px", height: "10px", color: accentColor, flexShrink: 0 }} />
         )}
-        <span className="text-[7.5px] font-semibold uppercase tracking-wider text-neutral-300 truncate leading-none mt-px">
+        <span
+          style={{
+            fontSize: "8px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            fontFamily: DARK.font,
+            color: DARK.textHi,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            lineHeight: 1,
+            marginTop: "1px",
+          }}
+        >
           {resolvedName}
         </span>
       </div>
 
-      <div className="w-full flex-1 min-h-0 flex items-end pointer-events-none select-none z-10 pb-0.5">
+      <div
+        style={{
+          width: "100%",
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          alignItems: "flex-end",
+          pointerEvents: "none",
+          userSelect: "none",
+          zIndex: 10,
+          paddingBottom: "2px",
+          boxSizing: "border-box",
+        }}
+      >
         {clip.type === "sample" ? (
-          <div className="w-full h-5" />
+          <div style={{ width: "100%", height: "20px" }} />
         ) : (
-          <div className="w-full h-5 relative overflow-hidden pointer-events-none">
+          <div style={{ width: "100%", height: "20px", position: "relative", overflow: "hidden", pointerEvents: "none" }}>
             {(() => {
               const pattern = patterns.find((p) => p.id === clip.referenceId);
               if (!pattern) return null;
@@ -360,11 +480,13 @@ export function ArrangerClip({
                 return (
                   <div
                     key={idx}
-                    className="absolute h-[3px] bg-neutral-400/80 shadow-[0_0_2px_rgba(255,255,255,0.15)] rounded-xs"
                     style={{
+                      position: "absolute",
                       left: `${noteLeftPx}px`,
                       width: `${noteWidthPx}px`,
                       top: `${Math.min(85, Math.max(15, topPct))}%`,
+                      height: "3px",
+                      backgroundColor: accentColor,
                     }}
                   />
                 );
@@ -376,3 +498,4 @@ export function ArrangerClip({
     </div>
   );
 }
+
