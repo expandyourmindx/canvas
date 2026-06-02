@@ -68,7 +68,7 @@ export class Reverb {
       const noiseR = Math.random() * 2 - 1;
 
       // Exponential decay envelope
-      const decayEnv = Math.exp(-this.decay * t);
+      const decayEnv = Math.exp(-(1 / this.decay) * t);
 
       let valL = noiseL * decayEnv;
       let valR = noiseR * decayEnv;
