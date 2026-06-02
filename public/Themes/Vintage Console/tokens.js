@@ -175,4 +175,5 @@ export const SIZE = {
   vuSegCount: 12,
   faderThumbW: 22,
   faderThumbH: 14,
+  channelNameWidth: 96,
 };

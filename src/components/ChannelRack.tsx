@@ -768,8 +768,8 @@ export function ChannelRack({
             boxSizing: "border-box",
           }}
         >
-          {/* Transparent spacer corresponding to Grab Handle (14px) + Command Strip (205px) */}
-          <div style={{ width: "219px", flexShrink: 0 }} />
+          {/* Transparent spacer corresponding to Grab Handle (14px) + Command Strip (240px) */}
+          <div style={{ width: "254px", flexShrink: 0 }} />
 
           {/* Bulbs Grid */}
           <div 
@@ -981,7 +981,7 @@ export function ChannelRack({
                   display: "flex",
                   alignItems: "center",
                   gap: `${SPACE.sm}px`,
-                  width: "205px",
+                  width: "240px",
                   flexShrink: 0,
                   padding: "2px",
                   boxSizing: "border-box",
@@ -1173,8 +1173,9 @@ export function ChannelRack({
                       }
                     }
                   }}
-                  style={{
-                    flex: 1,
+                style={{
+                    width: `${SIZE.channelNameWidth}px`,
+                    flexShrink: 0,
                     textAlign: "left",
                     paddingLeft: `${SPACE.sm}px`,
                     paddingRight: `${SPACE.sm}px`,
@@ -1199,23 +1200,9 @@ export function ChannelRack({
                   }}
                   title={`${channel.name} Settings (Right-click for options)`}
                 >
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "4px" }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {channel.name}
                   </span>
-                  {isFocused && (
-                    <div
-                      style={{
-                        width: "4px",
-                        height: "4px",
-                        borderRadius: "50%",
-                        backgroundColor: DARK.accentMaster,
-                        border: `1px solid ${DARK.bevelLight}`,
-                        flexShrink: 0,
-                        boxSizing: "border-box",
-                      }}
-                      title="MIDI Target Focused"
-                    />
-                  )}
                 </button>
 
               </div>
