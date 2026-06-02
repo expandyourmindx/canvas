@@ -1,9 +1,17 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useAudioEngine } from "../audio/useAudioEngine";
-import { Knob } from "./ChannelRack";
-import { Volume2, VolumeX, Shield, Circle, Activity, Radio, Sparkles } from "lucide-react";
 import { ChannelRow } from "../types";
 import { MixerInsert } from "../audio/MixerManager";
+import { 
+  DARK, 
+  raised, 
+  sunken, 
+  flat, 
+  flush, 
+  SPACE, 
+  SIZE 
+} from "../../public/Themes/Vintage Console/tokens";
+import { Activity, Shield } from "lucide-react";
 
 interface MixerProps {
   channels?: ChannelRow[];
@@ -32,7 +40,6 @@ function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: bo
       const peak = isMuted ? 0 : levels.peak;
 
       // Map RMS to percentage
-      // Level representation is linear for simplicity, boost mathematically to make safe range more dynamic
       const rmsHeight = Math.min(100, Math.pow(rms, 0.6) * 100);
       
       // Decay peak hold line
@@ -43,9 +50,18 @@ function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: bo
       }
       const peakHeight = Math.min(100, Math.pow(peakHoldValue, 0.6) * 100);
 
-      // Render RMS solid bar
+      // Render RMS stacked segments
+      const activeSegments = Math.round((rmsHeight / 100) * 12);
       if (rawMeterRef.current) {
-        rawMeterRef.current.style.height = `${rmsHeight}%`;
+        const segments = rawMeterRef.current.children;
+        for (let i = 0; i < 12; i++) {
+          const segment = segments[11 - i] as HTMLDivElement; // index 11 is top, index 0 is bottom
+          if (segment) {
+            const isLit = i < activeSegments;
+            segment.style.backgroundColor = isLit ? DARK.vu[i] : DARK.vuOff;
+            segment.style.borderTop = isLit ? `1px solid rgba(255,255,255,0.12)` : `1px solid ${DARK.bevelDark}`;
+          }
+        }
       }
 
       // Render Peak Hold thin line
@@ -64,11 +80,9 @@ function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: bo
       if (clipLedRef.current) {
         const isClipping = (now - lastClipTime) < 1000;
         if (isClipping) {
-          clipLedRef.current.classList.add("bg-red-500", "shadow-[0_0_8px_#ef4444]");
-          clipLedRef.current.classList.remove("bg-red-950/40");
+          clipLedRef.current.style.backgroundColor = DARK.stateHot;
         } else {
-          clipLedRef.current.classList.remove("bg-red-500", "shadow-[0_0_8px_#ef4444]");
-          clipLedRef.current.classList.add("bg-red-950/40");
+          clipLedRef.current.style.backgroundColor = DARK.bg0;
         }
       }
 
@@ -83,41 +97,325 @@ function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: bo
   }, [engine, insertIndex, isMuted]);
 
   return (
-    <div className="flex flex-col items-center justify-between w-4.5 bg-black border border-neutral-900 rounded-none h-44 py-1.5 relative select-none">
-      
+    <div 
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "space-between",
+        width: "14px",
+        backgroundColor: DARK.bg0,
+        ...sunken(DARK),
+        height: "176px",
+        paddingTop: "6px",
+        paddingBottom: "6px",
+        position: "relative",
+        userSelect: "none",
+        boxSizing: "border-box",
+      }}
+    >
       {/* 1S Hold clipping LED */}
       <div 
         ref={clipLedRef} 
-        className="w-2.5 h-1 bg-red-950/40 rounded-none transition-all duration-100 mb-1 pointer-events-none" 
-        title="0dBFS Clip Indicator (Holds for 1s)"
+        style={{
+          width: "6px",
+          height: "4px",
+          backgroundColor: DARK.bg0,
+          marginBottom: "6px",
+        }}
+        title="0dBFS CLIP INDICATOR (HOLDS FOR 1S)"
       />
 
-      {/* Meter Cage with background tick lines */}
-      <div className="flex-1 w-2 relative bg-zinc-950 overflow-hidden flex items-end">
-        {/* dB markers drawn as absolute micro blocks */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between opacity-20">
-          <div className="h-[1px] w-full bg-white text-[5px]" />
-          <div className="h-[1px] w-full bg-white" />
-          <div className="h-[1px] w-full bg-white" />
-          <div className="h-[1px] w-full bg-white" />
-          <div className="h-[1px] w-full bg-white" />
-        </div>
-
-        {/* Dynamic Amplitude RMS Gradient Solid Bar */}
+      {/* Meter Cage */}
+      <div 
+        style={{
+          flex: 1,
+          width: "6px",
+          position: "relative",
+          backgroundColor: DARK.bg0,
+          overflow: "hidden",
+        }}
+      >
+        {/* Stacked segments container */}
         <div 
           ref={rawMeterRef}
-          className="w-full bg-gradient-to-t from-emerald-500 via-yellow-400 to-red-500 rounded-none transition-all duration-75 origin-bottom"
-          style={{ height: "0%" }}
-        />
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "1px",
+            height: "100%",
+            width: "6px",
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => {
+            const idx = 11 - i;
+            return (
+              <div 
+                key={idx}
+                style={{
+                  flex: 1,
+                  backgroundColor: DARK.vuOff,
+                  borderTop: `1px solid ${DARK.bevelDark}`,
+                }}
+              />
+            );
+          })}
+        </div>
 
-        {/* Single Peak Hold Line Indicator */}
+        {/* Peak Hold Line */}
         <div 
           ref={peakLineRef}
-          className="absolute left-0 right-0 h-0.5 bg-cyan-400/90 shadow-[0_0_2px_#22d3ee] pointer-events-none z-10"
-          style={{ bottom: "0%", display: "none" }}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            height: "2px",
+            backgroundColor: DARK.accentBlue,
+            pointerEvents: "none",
+            zIndex: 10,
+            display: "none",
+          }}
         />
       </div>
+    </div>
+  );
+}
 
+// Local custom PanKnob component following the spec perfectly
+interface PanKnobProps {
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  defaultValue?: number;
+  title?: string;
+}
+
+function PanKnob({ value, min, max, onChange, defaultValue = 0, title }: PanKnobProps) {
+  const knobRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startValue = value;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = startY - moveEvent.clientY;
+      const deltaValue = Math.round(deltaY * ((max - min) / 100));
+      const nextValue = Math.min(max, Math.max(min, startValue + deltaValue));
+      onChange(nextValue);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onChange(defaultValue);
+  };
+
+  const angleDeg = (value / 50) * 135;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  
+  const cx = 11;
+  const cy = 11;
+  const R = 6.5;
+  const dotX = cx + R * Math.sin(angleRad);
+  const dotY = cy - R * Math.cos(angleRad);
+
+  return (
+    <div 
+      ref={knobRef}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
+      title={title}
+      style={{
+        width: "22px",
+        height: "22px",
+        borderRadius: "50%",
+        backgroundColor: DARK.knobBody,
+        position: "relative",
+        cursor: "ns-resize",
+        userSelect: "none",
+        boxSizing: "border-box",
+        ...raised(DARK),
+      }}
+    >
+      {/* Highlight Ellipse */}
+      <div 
+        style={{
+          position: "absolute",
+          top: "2px",
+          left: "2px",
+          width: "8px",
+          height: "4px",
+          borderRadius: "50%",
+          backgroundColor: DARK.knobHighlight,
+          transform: "rotate(-30deg)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Indicator Dot */}
+      <svg 
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+      >
+        <circle cx={dotX} cy={dotY} r={1.5} fill={DARK.accentBlue} />
+      </svg>
+    </div>
+  );
+}
+
+// Local custom VerticalFader component following the spec perfectly
+interface VerticalFaderProps {
+  value: number;
+  onChange: (value: number) => void;
+  title?: string;
+}
+
+function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.altKey && e.button === 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange(80);
+      return;
+    }
+
+    e.preventDefault();
+    updateFromEvent(e.clientY);
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      updateFromEvent(moveEvent.clientY);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const updateFromEvent = (clientY: number) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const relativeY = clientY - rect.top;
+    const percentage = 100 - Math.min(100, Math.max(0, (relativeY / rect.height) * 100));
+    onChange(Math.round(percentage));
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onChange(80);
+  };
+
+  const trackHeight = 160;
+  const thumbHeight = SIZE.faderThumbH;
+  const topPx = ((100 - value) / 100) * (trackHeight - thumbHeight);
+
+  return (
+    <div 
+      ref={trackRef}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
+      title={title}
+      style={{
+        width: "12px",
+        height: `${trackHeight}px`,
+        backgroundColor: DARK.bg0,
+        position: "relative",
+        cursor: "ns-resize",
+        userSelect: "none",
+        boxSizing: "border-box",
+        ...sunken(DARK),
+      }}
+    >
+      {/* Center Rail */}
+      <div 
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "2px",
+          height: "100%",
+          backgroundColor: DARK.bg5,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Unity Notch */}
+      <div 
+        style={{
+          position: "absolute",
+          top: "44%",
+          left: 0,
+          right: 0,
+          height: "1px",
+          backgroundColor: DARK.accentBlue,
+          opacity: 0.2,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Fader Thumb */}
+      <div 
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          top: `${topPx}px`,
+          width: `${SIZE.faderThumbW}px`,
+          height: `${thumbHeight}px`,
+          backgroundColor: DARK.bg3,
+          pointerEvents: "none",
+          boxSizing: "border-box",
+          ...raised(DARK),
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Grip Lines */}
+        <div 
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            height: "6px",
+            width: "10px",
+          }}
+        >
+          {[1, 2, 3].map((i) => (
+            <div 
+              key={i} 
+              style={{ 
+                height: "1px", 
+                borderTop: `1px solid ${DARK.bevelDark}`, 
+                borderBottom: `1px solid ${DARK.bevelLight}`,
+                boxSizing: "border-box",
+              }} 
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -131,7 +429,6 @@ export function Mixer({
   const { engine, setInsertFXSlot, setInsertFXBypass } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   
-  // Mixer strips state - locally tracked for rapid visual response, synced to engine on mutations
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -261,7 +558,6 @@ export function Mixer({
   const handleToggleSolo = (index: number, currentSoloed: boolean) => {
     if (!engine) return;
     engine.updateInsertSolo(index, !currentSoloed);
-    // Solos trigger multi-strip changes, re-fetch state from solver
     const inserts = engine.getInserts();
     setInsertsState(
       inserts.map((ins) => ({
@@ -270,105 +566,243 @@ export function Mixer({
     );
   };
 
-  // Selected strip info
   const selectedInsert = insertsState[selectedInsertIndex] || insertsState[0];
+  const isMasterSelected = selectedInsertIndex === 0;
 
   return (
     <div 
       id="mixer-parent-container" 
-      className="w-full h-full bg-[#0a0b0d] flex text-zinc-300 font-mono text-[11px] select-none rounded-none border border-neutral-900 overflow-hidden relative"
+      style={{
+        width: "100%",
+        height: "100%",
+        backgroundColor: DARK.bg1,
+        display: "flex",
+        color: DARK.textMid,
+        fontFamily: DARK.font,
+        fontSize: "11px",
+        userSelect: "none",
+        position: "relative",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+        overflow: "hidden",
+        boxSizing: "border-box",
+        ...flat(DARK),
+      }}
     >
       {/* 1. SCROLLABLE INSERTS BANK */}
-      <div className="flex-1 h-full flex bg-[#08090a] overflow-hidden min-w-0">
+      <div 
+        style={{
+          flex: 1,
+          height: "100%",
+          display: "flex",
+          backgroundColor: DARK.bg1,
+          overflow: "hidden",
+          minWidth: 0,
+        }}
+      >
         
         {/* A. MASTER BUS PINNED LEFT */}
         {insertsState.length > 0 && (
           <div 
             onClick={() => setSelectedInsertIndex(0)}
-            className={`w-[68px] shrink-0 h-full border-r-2 border-neutral-950 flex flex-col justify-between py-2 text-center transition-all bg-gradient-to-b ${
-              selectedInsertIndex === 0 
-                ? "bg-[#141b25]/85 border-l-2 border-cyan-500/20" 
-                : "bg-neutral-900/40 hover:bg-neutral-900/75"
-            }`}
+            style={{
+              width: `${SIZE.channelStripMaster}px`,
+              flexShrink: 0,
+              height: "100%",
+              backgroundColor: isMasterSelected ? DARK.bg4 : DARK.bg3,
+              borderRight: `1px solid ${DARK.bg0}`,
+              borderLeft: `1px solid ${DARK.bg2}`,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              paddingTop: `${SPACE.sm}px`,
+              paddingBottom: `${SPACE.sm}px`,
+              boxSizing: "border-box",
+              textAlign: "center",
+              userSelect: "none",
+            }}
           >
             {/* Top Pinned Label */}
-            <div className="px-1 truncate">
-              <span className="text-[10px] filter saturate-150 font-black text-rose-500 tracking-wider">MASTER</span>
-              <div className="text-[7.5px] text-zinc-500 font-bold tracking-widest mt-0.5">OUT 0</div>
+            <div style={{ paddingLeft: `${SPACE.xs}px`, paddingRight: `${SPACE.xs}px` }}>
+              <span 
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "8px",
+                  fontWeight: "bold",
+                  color: DARK.textHi,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                MASTER
+              </span>
+              <div style={{ height: "2px", backgroundColor: DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+              <div 
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "7.5px",
+                  color: DARK.textLo,
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                OUT 0
+              </div>
             </div>
 
             {/* Panning knob */}
-            <div className="flex justify-center my-1.5 select-none scale-90">
-              <Knob
-                label="PAN"
+            <div 
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                margin: `${SPACE.xs}px 0`,
+              }}
+            >
+              <div 
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "7px",
+                  color: DARK.textLo,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: `${SPACE.xs}px`,
+                }}
+              >
+                PAN
+              </div>
+              <PanKnob
                 value={insertsState[0]?.pan ?? 0}
                 min={-50}
                 max={50}
-                color="cyan"
                 onChange={(v) => handlePanChange(0, v)}
-                title="Master Panning balance"
+                title="MASTER PANNING BALANCE"
                 defaultValue={0}
               />
             </div>
 
             {/* Fader section */}
-            <div className="flex-1 flex justify-center gap-2 items-center px-1 max-h-[220px]">
+            <div 
+              style={{
+                flex: 1,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: `${SPACE.sm}px`,
+                maxHeight: "220px",
+                paddingLeft: `${SPACE.xs}px`,
+                paddingRight: `${SPACE.xs}px`,
+              }}
+            >
               {/* RMS Peak Hold LED meter */}
               <LevelMeter insertIndex={0} isMuted={insertsState[0]?.isMuted} />
 
               {/* Vertical volume fader */}
-              <div className="relative flex flex-col items-center h-44 group select-none">
-                <input 
-                  type="range"
-                  min="0"
-                  max="100"
+              <div 
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  height: "176px",
+                }}
+              >
+                <VerticalFader
                   value={insertsState[0]?.volume ?? 80}
-                  onChange={(e) => handleVolumeChange(0, Number(e.target.value))}
-                  onDoubleClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleVolumeChange(0, 80);
-                  }}
-                  onPointerDown={(e) => {
-                    if (e.altKey && e.button === 0) {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleVolumeChange(0, 80);
-                    }
-                  }}
-                  {...{ orient: "vertical" }}
-                  className="accent-cyan-400 w-3.5 h-40 bg-zinc-950 hover:bg-zinc-900 border border-neutral-900 cursor-row-resize rounded-none select-none"
-                  style={{ WebkitAppearance: "slider-vertical" } as any}
-                  title="Master Volume Fader (Double-click or Alt-click to reset to 80%)"
+                  onChange={(v) => handleVolumeChange(0, v)}
+                  title="MASTER VOLUME FADER (DBL-CLICK/ALT-CLICK TO RESET TO 80%)"
                 />
-                <span className="text-[7.5px] text-cyan-400 font-bold mt-1.5">{insertsState[0]?.volume}%</span>
               </div>
             </div>
 
-            {/* Mute and Solo triggers */}
-            <div className="px-1.5 flex gap-1 mt-2.5">
-              <button
-                onClick={(e) => { e.stopPropagation(); handleToggleMute(0, insertsState[0]?.isMuted); }}
-                className={`flex-1 text-[8px] py-1 cursor-pointer select-none font-bold uppercase tracking-wider rounded-sm border ${
-                  insertsState[0]?.isMuted 
-                    ? "bg-red-500/10 text-red-400 border-red-500/40 shadow-[0_0_4px_rgba(239,68,68,0.15)]" 
-                    : "bg-zinc-950 border-[#181a1f] text-zinc-550 hover:text-zinc-400"
-                }`}
-                title="Mute Master Output"
+            {/* dB readout & M/S triggers */}
+            <div 
+              style={{
+                paddingLeft: `${SPACE.sm}px`,
+                paddingRight: `${SPACE.sm}px`,
+                display: "flex",
+                flexDirection: "column",
+                gap: `${SPACE.sm}px`,
+                marginTop: `${SPACE.sm}px`,
+              }}
+            >
+              {/* dB readout */}
+              <div
+                style={{
+                  ...sunken(DARK),
+                  backgroundColor: DARK.lcdBg,
+                  color: DARK.lcdText,
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  textAlign: "right",
+                  paddingRight: "4px",
+                  paddingLeft: "4px",
+                  height: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  boxSizing: "border-box",
+                  letterSpacing: "0.04em",
+                }}
               >
-                M
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); handleToggleSolo(0, insertsState[0]?.isSoloed); }}
-                className={`flex-1 text-[8px] py-1 cursor-pointer select-none font-bold uppercase tracking-wider rounded-sm border ${
-                  insertsState[0]?.isSoloed 
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/40 shadow-[0_0_4px_rgba(245,158,11,0.15)]" 
-                    : "bg-zinc-950 border-[#181a1f] text-zinc-550 hover:text-zinc-400"
-                }`}
-                title="Solo Master Bus"
-              >
-                S
-              </button>
+                {(insertsState[0]?.volume ?? 80)}%
+              </div>
+
+              {/* M/S triggers */}
+              <div style={{ display: "flex", gap: `${SPACE.xs}px` }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleToggleMute(0, insertsState[0]?.isMuted); }}
+                  style={{
+                    flex: 1,
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: DARK.font,
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    userSelect: "none",
+                    boxSizing: "border-box",
+                    ...(insertsState[0]?.isMuted 
+                      ? { ...sunken(DARK), backgroundColor: DARK.stateRed, color: "#ffffff" }
+                      : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                    )
+                  }}
+                  title="MUTE MASTER OUTPUT"
+                >
+                  M
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleToggleSolo(0, insertsState[0]?.isSoloed); }}
+                  style={{
+                    flex: 1,
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: DARK.font,
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    userSelect: "none",
+                    boxSizing: "border-box",
+                    ...(insertsState[0]?.isSoloed 
+                      ? { ...sunken(DARK), backgroundColor: DARK.stateGreen, color: "#ffffff" }
+                      : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                    )
+                  }}
+                  title="SOLO MASTER BUS"
+                >
+                  S
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -376,7 +810,15 @@ export function Mixer({
         {/* B. SCROLLING INSERTS BANK */}
         <div 
           ref={scrollContainerRef}
-          className="flex-1 overflow-x-auto h-full flex flex-row scrollbar-thin scrollbar-thumb-zinc-900 select-none bg-[#070809]"
+          style={{
+            flex: 1,
+            overflowX: "auto",
+            height: "100%",
+            display: "flex",
+            flexDirection: "row",
+            backgroundColor: DARK.bg1,
+            userSelect: "none",
+          }}
         >
           {insertsState.slice(1).map((ins) => {
             const isSelected = selectedInsertIndex === ins.index;
@@ -388,18 +830,37 @@ export function Mixer({
               <div 
                 key={ins.index}
                 onClick={() => setSelectedInsertIndex(ins.index)}
-                className={`w-[60px] shrink-0 h-full border-r border-neutral-950 flex flex-col justify-between py-2 text-center transition-all cursor-pointer ${
-                  isSelected 
-                    ? "bg-[#181d26]/90 border-t-2 border-t-cyan-400 p-px" 
-                    : "bg-neutral-900/10 hover:bg-[#0f1012]"
-                }`}
+                style={{
+                  width: `${SIZE.channelStrip}px`,
+                  flexShrink: 0,
+                  height: "100%",
+                  backgroundColor: isSelected ? DARK.bg4 : DARK.bg3,
+                  borderRight: `1px solid ${DARK.bg0}`,
+                  borderLeft: `1px solid ${DARK.bg2}`,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  paddingTop: `${SPACE.sm}px`,
+                  paddingBottom: `${SPACE.sm}px`,
+                  boxSizing: "border-box",
+                  textAlign: "center",
+                  userSelect: "none",
+                  cursor: "pointer",
+                }}
               >
                 {/* Channel Label */}
                 <div 
-                  className="px-0.5 truncate h-8.5 flex flex-col justify-center select-none"
                   onDoubleClick={(e) => {
                     e.stopPropagation();
                     startRename(ins.index, displayName);
+                  }}
+                  style={{
+                    paddingLeft: `${SPACE.xs}px`,
+                    paddingRight: `${SPACE.xs}px`,
+                    height: "36px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
                   }}
                 >
                   {renamingIndex === ins.index ? (
@@ -414,88 +875,201 @@ export function Mixer({
                         if (e.key === "Escape") setRenamingIndex(null);
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="bg-neutral-950 text-[8.5px] text-cyan-400 font-bold border border-cyan-500 rounded-none w-full text-center focus:outline-none animate-pulse"
+                      style={{
+                        backgroundColor: DARK.lcdBg,
+                        color: DARK.accentBlue,
+                        fontFamily: DARK.font,
+                        fontSize: "8.5px",
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        border: `1px solid ${DARK.accentBlue}`,
+                        borderRadius: 0,
+                        width: "100%",
+                        textAlign: "center",
+                        outline: "none",
+                        boxSizing: "border-box",
+                      }}
                     />
                   ) : (
-                    <span className={`text-[8.5px] font-bold tracking-tight uppercase leading-none truncate block ${
-                      isSelected ? "text-cyan-400 font-extrabold" : "text-zinc-450"
-                    }`}>
+                    <span 
+                      style={{
+                        fontFamily: DARK.font,
+                        fontSize: "8px",
+                        fontWeight: isSelected ? "bold" : "normal",
+                        color: isSelected ? DARK.textHi : DARK.textMid,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        display: "block",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
                       {displayName}
                     </span>
                   )}
-                  <div className="text-[7.5px] text-zinc-650 font-bold mt-0.5 uppercase">CH {ins.index}</div>
+                  <div style={{ height: "2px", backgroundColor: DARK.accentBlue, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+                  <div 
+                    style={{
+                      fontFamily: DARK.font,
+                      fontSize: "7.5px",
+                      color: DARK.textLo,
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    CH {ins.index}
+                  </div>
                 </div>
 
-                {/* Left-Right Panning rotary knob */}
-                <div className="flex justify-center my-1.5 select-none scale-85">
-                  <Knob
-                    label="PAN"
+                {/* Panning knob */}
+                <div 
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    margin: `${SPACE.xs}px 0`,
+                  }}
+                >
+                  <div 
+                    style={{
+                      fontFamily: DARK.font,
+                      fontSize: "7px",
+                      color: DARK.textLo,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: `${SPACE.xs}px`,
+                    }}
+                  >
+                    PAN
+                  </div>
+                  <PanKnob
                     value={ins.pan}
                     min={-50}
                     max={50}
-                    color="cyan"
                     onChange={(v) => handlePanChange(ins.index, v)}
-                    title={`Panner for Insert ${ins.index}`}
+                    title={`PANNER FOR INSERT ${ins.index}`}
                     defaultValue={0}
                   />
                 </div>
 
-                {/* Linear Fader elements */}
-                <div className="flex-1 flex justify-center gap-1.5 items-center px-0.5 max-h-[220px]">
+                {/* Fader section */}
+                <div 
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: `${SPACE.xs}px`,
+                    maxHeight: "220px",
+                    paddingLeft: `${SPACE.xs}px`,
+                    paddingRight: `${SPACE.xs}px`,
+                  }}
+                >
                   <LevelMeter insertIndex={ins.index} isMuted={ins.isMuted} />
 
-                  <div className="relative flex flex-col items-center h-44 group select-none">
-                    <input 
-                      type="range"
-                      min="0"
-                      max="100"
+                  <div 
+                    style={{
+                      position: "relative",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      height: "176px",
+                    }}
+                  >
+                    <VerticalFader
                       value={ins.volume}
-                      onChange={(e) => handleVolumeChange(ins.index, Number(e.target.value))}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleVolumeChange(ins.index, 80);
-                      }}
-                      onPointerDown={(e) => {
-                        if (e.altKey && e.button === 0) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleVolumeChange(ins.index, 80);
-                        }
-                      }}
-                      {...{ orient: "vertical" }}
-                      className="accent-zinc-400 w-3 h-40 bg-zinc-950 border border-neutral-900 hover:bg-zinc-900 cursor-row-resize rounded-none select-none"
-                      style={{ WebkitAppearance: "slider-vertical" } as any}
-                      title={`Fader for Insert ${ins.index} (Double-click or Alt-click to reset)`}
+                      onChange={(v) => handleVolumeChange(ins.index, v)}
+                      title={`FADER FOR INSERT ${ins.index} (DBL-CLICK/ALT-CLICK TO RESET)`}
                     />
-                    <span className={`text-[7.5px] font-bold mt-1.5 ${isSelected ? "text-cyan-400" : "text-zinc-550"}`}>{ins.volume}%</span>
                   </div>
                 </div>
 
-                {/* Solo/Mute switches */}
-                <div className="px-1 flex gap-1 mt-2.5 select-none">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleToggleMute(ins.index, ins.isMuted); }}
-                    className={`flex-1 text-[7.5px] py-1 cursor-pointer select-none font-bold uppercase tracking-wider rounded-sm border ${
-                      ins.isMuted 
-                        ? "bg-red-500/10 text-red-500 border-red-500/35 shadow-[0_0_4px_rgba(239,68,68,0.1)]" 
-                        : "bg-zinc-950 border-[#14151a]/60 text-zinc-600 hover:text-zinc-500"
-                    }`}
-                    title={`Mute Insert ${ins.index}`}
+                {/* dB readout & M/S triggers */}
+                <div 
+                  style={{
+                    paddingLeft: `${SPACE.sm}px`,
+                    paddingRight: `${SPACE.sm}px`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: `${SPACE.sm}px`,
+                    marginTop: `${SPACE.sm}px`,
+                  }}
+                >
+                  {/* dB readout */}
+                  <div
+                    style={{
+                      ...sunken(DARK),
+                      backgroundColor: DARK.lcdBg,
+                      color: DARK.lcdText,
+                      fontFamily: DARK.font,
+                      fontSize: "9px",
+                      textAlign: "right",
+                      paddingRight: "4px",
+                      paddingLeft: "4px",
+                      height: "14px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      boxSizing: "border-box",
+                      letterSpacing: "0.04em",
+                    }}
                   >
-                    M
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleToggleSolo(ins.index, ins.isSoloed); }}
-                    className={`flex-1 text-[7.5px] py-1 cursor-pointer select-none font-bold uppercase tracking-wider rounded-sm border ${
-                      ins.isSoloed 
-                        ? "bg-amber-500/10 text-amber-500 border-amber-500/35 shadow-[0_0_4px_rgba(245,158,11,0.1)]" 
-                        : "bg-zinc-950 border-[#14151a]/60 text-zinc-600 hover:text-zinc-500"
-                    }`}
-                    title={`Solo Insert ${ins.index}`}
-                  >
-                    S
-                  </button>
+                    {ins.volume}%
+                  </div>
+
+                  {/* Solo/Mute switches */}
+                  <div style={{ display: "flex", gap: `${SPACE.xs}px` }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggleMute(ins.index, ins.isMuted); }}
+                      style={{
+                        flex: 1,
+                        height: "18px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: DARK.font,
+                        fontSize: "8px",
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        userSelect: "none",
+                        boxSizing: "border-box",
+                        ...(ins.isMuted 
+                          ? { ...sunken(DARK), backgroundColor: DARK.stateRed, color: "#ffffff" }
+                          : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                        )
+                      }}
+                      title={`MUTE INSERT ${ins.index}`}
+                    >
+                      M
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggleSolo(ins.index, ins.isSoloed); }}
+                      style={{
+                        flex: 1,
+                        height: "18px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontFamily: DARK.font,
+                        fontSize: "8px",
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                        userSelect: "none",
+                        boxSizing: "border-box",
+                        ...(ins.isSoloed 
+                          ? { ...sunken(DARK), backgroundColor: DARK.stateGreen, color: "#ffffff" }
+                          : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                        )
+                      }}
+                      title={`SOLO INSERT ${ins.index}`}
+                    >
+                      S
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -508,33 +1082,91 @@ export function Mixer({
       {selectedInsert && (
         <div 
           id="mixer-fx-panel" 
-          className="w-56 shrink-0 h-full border-l border-neutral-950 bg-[#0e0f12] flex flex-col p-2.5 text-zinc-400 select-none"
+          style={{
+            width: "224px",
+            flexShrink: 0,
+            height: "100%",
+            borderLeft: `1px solid ${DARK.bevelMid}`,
+            backgroundColor: DARK.bg2,
+            display: "flex",
+            flexDirection: "column",
+            padding: `${SPACE.md}px`,
+            color: DARK.textMid,
+            userSelect: "none",
+            boxSizing: "border-box",
+          }}
         >
           {/* Header */}
-          <div className="border-b border-neutral-850 pb-2 mb-3">
-            <h4 className="text-[9.5px] text-cyan-400 font-extrabold uppercase tracking-widest flex items-center gap-1.5">
-              <Activity className="w-3.5 h-3.5" />
+          <div 
+            style={{
+              ...raised(DARK),
+              background: DARK.titleBarGradient,
+              height: `${SIZE.titleBarHeight}px`,
+              display: "flex",
+              alignItems: "center",
+              paddingLeft: `${SPACE.sm}px`,
+              marginBottom: `${SPACE.md}px`,
+              boxSizing: "border-box",
+            }}
+          >
+            <h4 
+              style={{
+                fontFamily: DARK.font,
+                fontSize: "9px",
+                color: DARK.textHi,
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                margin: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.xs}px`,
+              }}
+            >
+              <Activity style={{ width: "12px", height: "12px" }} />
               FX ROUTING PANEL
             </h4>
-            <div className="text-[7.5px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5 flex justify-between">
-              <span>
-                TARGET:{" "}
-                {selectedInsert.name && selectedInsert.name !== `Insert ${selectedInsert.index}`
-                  ? selectedInsert.name
-                  : (channels.filter(
-                      (c) => (channelMixers?.[c.id] ?? c.mixerTarget) === selectedInsert.index
-                    ).length > 0
-                      ? channels.filter(
-                          (c) => (channelMixers?.[c.id] ?? c.mixerTarget) === selectedInsert.index
-                        )[0].name
-                      : `Insert ${selectedInsert.index}`)}
-              </span>
-              <span>INDEX: {selectedInsert.index}</span>
-            </div>
+          </div>
+
+          <div 
+            style={{
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              color: DARK.textLo,
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              marginBottom: `${SPACE.lg}px`,
+              display: "flex",
+              justifyContent: "space-between",
+            }}
+          >
+            <span>
+              TARGET:{" "}
+              {selectedInsert.name && selectedInsert.name !== `Insert ${selectedInsert.index}`
+                ? selectedInsert.name
+                : (channels.filter(
+                    (c) => (channelMixers?.[c.id] ?? c.mixerTarget) === selectedInsert.index
+                  ).length > 0
+                    ? channels.filter(
+                        (c) => (channelMixers?.[c.id] ?? c.mixerTarget) === selectedInsert.index
+                      )[0].name
+                    : `Insert ${selectedInsert.index}`)}
+            </span>
+            <span>INDEX: {selectedInsert.index}</span>
           </div>
 
           {/* 8 Empty Visual FX Slots with high-contrast hardware look */}
-          <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-0.5 scrollbar-thin">
+          <div 
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: `${SPACE.sm}px`,
+              overflowY: "auto",
+              boxSizing: "border-box",
+            }}
+          >
             {selectedInsert.fxSlots.map((slotName: string, slotIdx: number) => {
               const isBypassed = selectedInsert.fxBypass?.[slotIdx] ?? false;
 
@@ -564,17 +1196,48 @@ export function Mixer({
                       });
                     }
                   }}
-                  className="group h-8.5 bg-black/55 hover:bg-black/85 border border-dashed border-neutral-800 hover:border-cyan-500/30 flex items-center justify-between px-2.5 transition-all relative rounded-none hover:shadow-[0_0_6px_rgba(34,211,238,0.03)] cursor-pointer"
+                  style={{
+                    height: `${SIZE.fxRowHeight}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingLeft: `${SPACE.md}px`,
+                    paddingRight: `${SPACE.md}px`,
+                    position: "relative",
+                    cursor: "pointer",
+                    boxSizing: "border-box",
+                    ...(slotName 
+                      ? { ...raised(DARK), backgroundColor: DARK.bg5, color: DARK.textMid }
+                      : { ...flush(DARK), backgroundColor: DARK.bg1, color: DARK.textDim }
+                    )
+                  }}
                 >
                   {/* Left slot indicator badge */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[8px] text-zinc-[600] font-black group-hover:text-cyan-500/70">{slotIdx + 1}</span>
-                    <span className={`text-[8.5px] font-black uppercase tracking-wider ${
-                      slotName 
-                        ? isBypassed ? "text-zinc-600 line-through" : "text-cyan-400" 
-                        : "text-zinc-550 group-hover:text-zinc-400"
-                    }`}>
-                      {slotName || "EMPTY SLOT"}
+                  <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+                    <span 
+                      style={{ 
+                        fontFamily: DARK.font,
+                        fontSize: "8px", 
+                        color: DARK.textLo,
+                        fontWeight: "bold" 
+                      }}
+                    >
+                      {slotIdx + 1}
+                    </span>
+                    <span 
+                      style={{
+                        fontFamily: DARK.font,
+                        fontSize: "8.5px",
+                        fontWeight: "bold",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.08em",
+                        textDecoration: (slotName && isBypassed) ? "line-through" : "none",
+                        color: slotName 
+                          ? (isBypassed ? DARK.textLo : DARK.textHi) 
+                          : DARK.textDim
+                      }}
+                    >
+                      {slotName ? slotName : "EMPTY SLOT"}
                     </span>
                   </div>
 
@@ -585,16 +1248,49 @@ export function Mixer({
                         e.stopPropagation();
                         setInsertFXBypass(selectedInsert.index, slotIdx, !isBypassed);
                       }}
-                      className="flex items-center gap-1.5 cursor-pointer group/bypass"
-                      title={isBypassed ? "Activate Effect" : "Bypass Effect"}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: `${SPACE.sm}px`,
+                        cursor: "pointer",
+                        border: "none",
+                        background: "none",
+                        padding: 0,
+                      }}
+                      title={isBypassed ? "ACTIVATE EFFECT" : "BYPASS EFFECT"}
                     >
-                      <span className="text-[6.5px] text-zinc-650 group-hover/bypass:text-zinc-450 uppercase tracking-tighter">BYPASS</span>
-                      <div className="w-2.5 h-2.5 rounded-full bg-zinc-950 border border-neutral-850 flex items-center justify-center">
-                        <div className={`w-1.5 h-1.5 rounded-full transition-all duration-150 ${
-                          isBypassed 
-                            ? "bg-neutral-800" 
-                            : "bg-emerald-400 shadow-[0_0_6px_#34d399]"
-                        }`} />
+                      <span 
+                        style={{ 
+                          fontFamily: DARK.font,
+                          fontSize: "7px", 
+                          color: DARK.textLo, 
+                          textTransform: "uppercase",
+                          letterSpacing: "0.04em"
+                        }}
+                      >
+                        BYPASS
+                      </span>
+                      <div 
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "50%",
+                          backgroundColor: DARK.bg0,
+                          ...sunken(DARK),
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <div 
+                          style={{
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "50%",
+                            backgroundColor: isBypassed ? DARK.bg2 : DARK.stateGreen,
+                          }} 
+                        />
                       </div>
                     </button>
                   )}
@@ -603,37 +1299,94 @@ export function Mixer({
                   {activePickerSlotIdx === slotIdx && (
                     <div 
                       ref={pickerRef}
-                      className="absolute left-0 right-0 top-full mt-1 bg-[#141519]/95 backdrop-blur-md border border-neutral-800 rounded-xs shadow-2xl py-1.5 z-[100] font-mono text-[9px] uppercase"
                       onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: "absolute",
+                        left: 0,
+                        right: 0,
+                        top: "100%",
+                        marginTop: "2px",
+                        backgroundColor: DARK.bg3,
+                        ...flat(DARK),
+                        zIndex: 100,
+                        fontFamily: DARK.font,
+                        fontSize: "9px",
+                        textTransform: "uppercase",
+                        boxSizing: "border-box",
+                      }}
                     >
-                      <div className="px-2.5 py-0.5 text-[7.5px] text-zinc-550 border-b border-neutral-900 mb-1.5 font-black tracking-wider">Select Effect</div>
+                      <div 
+                        style={{
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          fontSize: "7.5px",
+                          color: DARK.textLo,
+                          borderBottom: `1px solid ${DARK.bg0}`,
+                          fontWeight: "bold",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        SELECT EFFECT
+                      </div>
                       <button
                         onClick={() => {
                           setInsertFXSlot(selectedInsert.index, slotIdx, "EQ");
                           setActivePickerSlotIdx(null);
                         }}
-                        className="w-full text-left px-2.5 py-1 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          color: DARK.textHi,
+                          border: "none",
+                          backgroundColor: "transparent",
+                          cursor: "pointer",
+                          fontFamily: DARK.font,
+                          fontSize: "9px",
+                          fontWeight: "bold",
+                        }}
                       >
-                        EQ (Parametric)
+                        EQ (PARAMETRIC)
                       </button>
                       <button
                         onClick={() => {
                           setInsertFXSlot(selectedInsert.index, slotIdx, "Reverb");
                           setActivePickerSlotIdx(null);
                         }}
-                        className="w-full text-left px-2.5 py-1 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+                        style={{
+                          width: "100%",
+                          textAlign: "left",
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          color: DARK.textHi,
+                          border: "none",
+                          backgroundColor: "transparent",
+                          cursor: "pointer",
+                          fontFamily: DARK.font,
+                          fontSize: "9px",
+                          fontWeight: "bold",
+                        }}
                       >
-                        Reverb (Stub)
+                        REVERB (STUB)
                       </button>
-                      <div className="border-t border-neutral-900 mt-1.5 pt-1.5">
+                      <div style={{ borderTop: `1px solid ${DARK.bg0}`, marginTop: `${SPACE.xs}px`, paddingTop: `${SPACE.xs}px` }}>
                         <button
                           onClick={() => {
                             setInsertFXSlot(selectedInsert.index, slotIdx, "");
                             setActivePickerSlotIdx(null);
                           }}
-                          className="w-full text-left px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-red-950/20 cursor-pointer font-bold transition-colors"
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            padding: `${SPACE.sm}px ${SPACE.md}px`,
+                            color: DARK.stateHot,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            cursor: "pointer",
+                            fontFamily: DARK.font,
+                            fontSize: "9px",
+                            fontWeight: "bold",
+                          }}
                         >
-                          Clear Slot
+                          CLEAR SLOT
                         </button>
                       </div>
                     </div>
@@ -644,18 +1397,43 @@ export function Mixer({
           </div>
 
           {/* Bottom Diagnostics / Signal Flow Card */}
-          <div className="mt-3.5 bg-black/45 border border-neutral-900 px-2 py-1.5 flex flex-col gap-1 rounded-none text-[8px] text-zinc-550 font-bold leading-relaxed uppercase">
-            <div className="text-zinc-[600] border-b border-neutral-850/40 pb-0.5 flex justify-between items-center text-[7.5px]">
+          <div 
+            style={{
+              marginTop: `${SPACE.lg}px`,
+              backgroundColor: DARK.bg0,
+              ...flat(DARK),
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              display: "flex",
+              flexDirection: "column",
+              gap: `${SPACE.xs}px`,
+              fontSize: "8px",
+              color: DARK.textLo,
+              fontWeight: "bold",
+              lineHeight: "1.5",
+              textTransform: "uppercase",
+              boxSizing: "border-box",
+            }}
+          >
+            <div 
+              style={{
+                borderBottom: `1px solid ${DARK.bevelDark}`,
+                paddingBottom: `${SPACE.xs}px`,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                fontSize: "7.5px",
+              }}
+            >
               <span>OUT MODULES</span>
-              <Shield className="w-3.5 h-3.5 text-zinc-700 shrink-0" />
+              <Shield style={{ width: "12px", height: "12px", color: DARK.textLo }} />
             </div>
-            <div className="flex justify-between mt-0.5">
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: `${SPACE.xs}px` }}>
               <span>SIGNAL PATH:</span>
-              <span className="text-emerald-400 font-black">ANALOG CHAIN</span>
+              <span style={{ color: DARK.accentGreen }}>ANALOG CHAIN</span>
             </div>
-            <div className="flex justify-between">
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span>LATENCY:</span>
-              <span className="text-cyan-400 font-extrabold">0.00 MS (NATIVE)</span>
+              <span style={{ color: DARK.accentBlue }}>0.00 MS (NATIVE)</span>
             </div>
           </div>
         </div>
@@ -664,12 +1442,20 @@ export function Mixer({
       {slotContextMenu && (
         <div
           ref={contextMenuRef}
-          className="absolute bg-[#121316] border border-neutral-800 shadow-2xl py-1 z-[200] font-mono text-[9px] uppercase min-w-[70px] rounded-none select-none"
+          onClick={(e) => e.stopPropagation()}
           style={{
+            position: "absolute",
             left: `${slotContextMenu.x}px`,
             top: `${slotContextMenu.y}px`,
+            backgroundColor: DARK.bg3,
+            ...flat(DARK),
+            zIndex: 200,
+            fontFamily: DARK.font,
+            fontSize: "9px",
+            textTransform: "uppercase",
+            minWidth: "80px",
+            boxSizing: "border-box",
           }}
-          onClick={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => {
@@ -681,21 +1467,44 @@ export function Mixer({
               }
               setSlotContextMenu(null);
             }}
-            className="w-full text-left px-2 py-1.5 text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer font-bold transition-colors"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              color: DARK.textHi,
+              border: "none",
+              backgroundColor: "transparent",
+              cursor: "pointer",
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+            }}
           >
-            Open
+            OPEN
           </button>
           <button
             onClick={() => {
               setInsertFXSlot(selectedInsert.index, slotContextMenu.slotIdx, "");
               setSlotContextMenu(null);
             }}
-            className="w-full text-left px-2 py-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/20 cursor-pointer font-bold transition-colors border-t border-neutral-850/50"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              color: DARK.stateHot,
+              borderTop: `1px solid ${DARK.bg0}`,
+              backgroundColor: "transparent",
+              cursor: "pointer",
+              fontFamily: DARK.font,
+              fontSize: "9px",
+              fontWeight: "bold",
+            }}
           >
-            Remove
+            REMOVE
           </button>
         </div>
       )}
     </div>
   );
 }
+
