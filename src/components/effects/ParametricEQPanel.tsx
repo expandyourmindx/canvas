@@ -260,6 +260,7 @@ function EQKnob({
 export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: ParametricEQPanelProps) {
   const { engine, updateInsertEQBand } = useAudioEngine();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   
   const [selectedBandIdx, setSelectedBandIdx] = useState<number>(2); // Default to Band 3 (500Hz)
   const [draggedBandIdx, setDraggedBandIdx] = useState<number | null>(null);
@@ -309,6 +310,31 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
     return Math.max(-18, Math.min(18, Math.round(gain * 10) / 10));
   };
 
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const syncSize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      if (w === 0 || h === 0) return;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.scale(dpr, dpr);
+      }
+    };
+
+    syncSize();
+    const observer = new ResizeObserver(syncSize);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   // Draw loop for Spectrum Analyzer + EQ Grid/Curve/Points
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -323,7 +349,6 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
 
     const sampleRate = analyser?.context.sampleRate || 44100;
     const numBars = 64; // High density bars for background
-    const barWidth = canvas.width / numBars;
 
     // Logarithmic FFT mapping
     const minHz = 25;
@@ -351,8 +376,9 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
     const draw = () => {
       animationId = requestAnimationFrame(draw);
 
-      const W = canvas.width;
-      const H = canvas.height;
+      const W = canvas.width / (window.devicePixelRatio || 1);
+      const H = canvas.height / (window.devicePixelRatio || 1);
+      const barWidth = W / numBars;
 
       // 1. Draw solid dark background (trailing motion blur)
       ctx.fillStyle = hexToRgba(DARK.bg0, 0.35);
@@ -639,6 +665,7 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
       
       {/* 1. Curve Grid Display Area */}
       <div
+        ref={canvasContainerRef}
         style={{
           position: "relative",
           height: "60%",
@@ -650,9 +677,7 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
       >
         <canvas
           ref={canvasRef}
-          width="600"
-          height="224"
-          style={{ width: "100%", height: "100%", cursor: "crosshair" }}
+          style={{ width: "100%", height: "100%", cursor: "crosshair", display: "block" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
