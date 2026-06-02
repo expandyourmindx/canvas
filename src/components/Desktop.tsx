@@ -542,6 +542,7 @@ export function Desktop() {
           <Mixer
             channels={channels}
             channelMixers={channelMixers}
+            setChannelMixers={setChannelMixers}
             onOpenEQPanel={handleOpenEQPanel}
             onOpenReverbPanel={handleOpenReverbPanel}
             stripColors={stripColors}

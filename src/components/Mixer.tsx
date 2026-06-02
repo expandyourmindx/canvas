@@ -16,6 +16,7 @@ import { Activity, Shield } from "lucide-react";
 interface MixerProps {
   channels?: ChannelRow[];
   channelMixers?: Record<string, number>;
+  setChannelMixers?: (mixers: Record<string, number>) => void;
   onOpenEQPanel?: (insertIndex: number, slotIndex: number) => void;
   onOpenReverbPanel?: (insertIndex: number, slotIndex: number) => void;
   stripColors?: Record<number, string>;
@@ -425,12 +426,13 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
 export function Mixer({
   channels = [],
   channelMixers = {},
+  setChannelMixers = () => {},
   onOpenEQPanel,
   onOpenReverbPanel,
   stripColors = {},
   setStripColors = () => {},
 }: MixerProps) {
-  const { engine, setInsertFXSlot, setInsertFXBypass } = useAudioEngine();
+  const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
@@ -1602,6 +1604,38 @@ export function Mixer({
           >
             STRIP COLOR
           </div>
+
+          {/* Route focused channel */}
+          {focusedChannelId && (
+            <>
+              <div style={{
+                height: 1,
+                background: DARK.bevelDark,
+                margin: `${SPACE.xs}px 0`,
+              }} />
+              <div
+                onClick={() => {
+                  const newMixers = { ...channelMixers, [focusedChannelId]: colorMenu.insertIndex };
+                  setChannelMixers(newMixers);
+                  setColorMenu(null);
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = DARK.bg4)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = DARK.bg3)}
+                style={{
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  cursor: "pointer",
+                  background: DARK.bg3,
+                  fontSize: 8,
+                  fontFamily: DARK.font,
+                  color: DARK.accentGreen,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Route focused channel
+              </div>
+            </>
+          )}
 
           {/* Color options */}
           {ACCENT_OPTIONS.map((opt) => (
