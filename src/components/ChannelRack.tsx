@@ -608,111 +608,23 @@ export function ChannelRack({
             Channel Rack
           </span>
 
-          {/* LCD Selector Panel */}
-          <div style={{ display: "flex", alignItems: "center", gap: "1px", backgroundColor: DARK.bg2 }}>
-            <button
-              type="button"
-              onClick={prevPattern}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "18px",
-                height: "20px",
-                backgroundColor: DARK.bg3,
-                color: DARK.textMid,
-                cursor: "pointer",
-                border: "none",
-                boxSizing: "border-box",
-                ...raised(DARK),
-              }}
-              title="Previous Pattern"
-            >
-              <ChevronLeft size={12} />
-            </button>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: "20px",
-                minWidth: "80px",
-                backgroundColor: DARK.lcdBg,
-                ...sunken(DARK),
-                boxSizing: "border-box",
-                padding: `0 ${SPACE.sm}px`,
-              }}
-            >
-              {isRenaming ? (
-                <input
-                  type="text"
-                  autoFocus
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={handleRenameSubmit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRenameSubmit();
-                    if (e.key === 'Escape') setIsRenaming(false);
-                  }}
-                  style={{
-                    backgroundColor: "transparent",
-                    color: DARK.accentBlue,
-                    fontFamily: DARK.font,
-                    fontSize: "9px",
-                    fontWeight: "bold",
-                    border: "none",
-                    outline: "none",
-                    textAlign: "center",
-                    width: "70px",
-                  }}
-                />
-              ) : (
-                <span
-                  onDoubleClick={startRename}
-                  style={{
-                    color: DARK.lcdText,
-                    fontFamily: DARK.font,
-                    fontSize: "9px",
-                    fontWeight: "bold",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    width: "70px",
-                  }}
-                  title="Double click to rename"
-                >
-                  {patterns.find(p => p.id === activePatternId)?.name || activePatternId}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={nextPattern}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: "18px",
-                height: "20px",
-                backgroundColor: DARK.bg3,
-                color: DARK.textMid,
-                cursor: "pointer",
-                border: "none",
-                boxSizing: "border-box",
-                ...raised(DARK),
-              }}
-              title="Next Pattern"
-            >
-              <ChevronRight size={12} />
-            </button>
-          </div>
-
           {/* Selector select input */}
           <select
             value={activePatternId}
             onChange={(e) => setActivePatternId(e.target.value)}
+            onWheel={(e) => {
+              e.preventDefault();
+              const currentIndex = patterns.findIndex(p => p.id === activePatternId);
+              if (e.deltaY < 0) {
+                // Scroll up — go to previous pattern
+                const prevIndex = Math.max(0, currentIndex - 1);
+                setActivePatternId(patterns[prevIndex].id);
+              } else {
+                // Scroll down — go to next pattern
+                const nextIndex = Math.min(patterns.length - 1, currentIndex + 1);
+                setActivePatternId(patterns[nextIndex].id);
+              }
+            }}
             style={{
               backgroundColor: DARK.bg3,
               color: DARK.textMid,
