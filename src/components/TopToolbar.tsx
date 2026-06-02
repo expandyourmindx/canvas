@@ -11,19 +11,27 @@ import {
   Square,
   Volume2,
   VolumeX,
-  Activity,
-  Layers,
-  Music,
-  Maximize2,
-  Keyboard,
   ChevronDown,
-  Disc,
-  Zap,
   FolderOpen,
   Save,
-  Upload
+  Upload,
+  FolderTree,
+  LayoutTemplate,
+  AlignJustify,
+  Piano,
+  SlidersHorizontal,
+  FileAudio
 } from "lucide-react";
 import { CANVAS_VERSION } from "../config";
+import { 
+  DARK, 
+  raised, 
+  sunken, 
+  flat, 
+  flush, 
+  SPACE, 
+  SIZE 
+} from "../../public/Themes/Vintage Console/tokens";
 
 interface TopToolbarProps {
   activeWindows: {
@@ -73,6 +81,11 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
 
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false);
   const fileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Hover states for dropdown menus and buttons
+  const [hoveredFileItem, setHoveredFileItem] = useState<string | null>(null);
+  const [hoveredOctaveItem, setHoveredOctaveItem] = useState<number | null>(null);
+  const [hoveredDockBtn, setHoveredDockBtn] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -129,8 +142,8 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
       if (visModeRef.current === "waveform") {
         analyser.getByteTimeDomainData(dataArray);
 
-        // Solid dark background clear
-        ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
+        // Solid dark background clear matching DARK.bg0clear
+        ctx.fillStyle = "rgba(6, 10, 15, 0.25)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // Zero-crossing trigger search to stabilize the oscilloscope line
@@ -143,9 +156,8 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         }
 
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = "#34d399"; // Glowing Emerald
-        ctx.shadowColor = "#34d399";
-        ctx.shadowBlur = 4;
+        ctx.strokeStyle = DARK.accentBlue;
+        ctx.shadowBlur = 0; // No glow
         ctx.beginPath();
 
         const displayLength = Math.min(bufferLength - triggerIndex, 256); // show a clean window of 256 samples
@@ -164,12 +176,11 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         }
 
         ctx.stroke();
-        ctx.shadowBlur = 0; // reset
       } else {
         analyser.getByteFrequencyData(dataArray);
 
         // Trailing motion blur fade
-        ctx.fillStyle = "rgba(10, 10, 12, 0.25)";
+        ctx.fillStyle = "rgba(6, 10, 15, 0.25)";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         for (let i = 0; i < numBars; i++) {
@@ -182,10 +193,10 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
           const boost = 1 + (i / numBars) * 0.45;
           const barHeight = Math.min(canvas.height, amplitude * canvas.height * 0.95 * boost);
 
-          // Professional cyan-to-emerald gradient spectrum coloring
+          // Vintage Console Blue-to-Green gradient
           const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-          grad.addColorStop(0, "#06b6d4"); // cyan bottom
-          grad.addColorStop(1, "#34d399"); // emerald top
+          grad.addColorStop(0, DARK.accentBlue); // cyan-blue bottom
+          grad.addColorStop(1, DARK.accentGreen); // green top
 
           ctx.fillStyle = grad;
           const yPos = canvas.height - barHeight;
@@ -396,88 +407,215 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
     return String(num).padStart(targetLength, "0");
   };
 
+  // Configure Window Dock Buttons (excluding obsidian Zap button)
+  const dockButtons = [
+    ...(onToggleBrowser ? [{ id: "browser", title: "Sample Browser", active: !!browserOpen, onClick: onToggleBrowser, icon: FolderTree }] : []),
+    { id: "canvas", title: "Arranger Window", active: !!activeWindows.canvas, onClick: () => handleWindowClick("canvas"), icon: LayoutTemplate },
+    { id: "sequencer", title: "Channel Rack Window", active: !!activeWindows.sequencer, onClick: () => handleWindowClick("sequencer"), icon: AlignJustify },
+    { id: "pianoroll", title: "Piano Roll Window", active: !!activeWindows.pianoroll, onClick: () => handleWindowClick("pianoroll"), icon: Piano },
+    { id: "mixer", title: "Mixer Window", active: !!activeWindows.mixer, onClick: () => handleWindowClick("mixer"), icon: SlidersHorizontal },
+    { id: "export", title: "Export Window", active: !!activeWindows.export, onClick: () => handleWindowClick("export"), icon: FileAudio },
+  ];
+
   return (
     <header
       id="daw-top-toolbar"
-      className="fixed top-0 left-0 right-0 h-11 bg-[#16171a] border-b border-neutral-800 z-50 px-3 flex items-center justify-between select-none shadow-md"
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "32px",
+        backgroundColor: DARK.bg1,
+        borderBottom: `1px solid ${DARK.bevelDark}`,
+        zIndex: 50,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: `0 ${SPACE.lg}px`,
+        gap: `${SPACE.md}px`,
+        boxSizing: "border-box",
+        userSelect: "none",
+      }}
     >
       {/* LEFT BRAND SECTION & SAVE/LOAD BUTTONS */}
-      <div className="flex items-center gap-4 pl-1 select-none">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-sm font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-400 uppercase font-sans leading-none">
+      <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.xl}px`, paddingLeft: "4px" }}>
+        <div style={{ display: "flex", alignItems: "baseline" }}>
+          <h1 
+            style={{
+              fontFamily: DARK.font,
+              fontSize: "11px",
+              fontWeight: "bold",
+              color: DARK.textHi,
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              margin: 0,
+              lineHeight: 1,
+            }}
+          >
             CANVAS
           </h1>
-          <span className="text-[8px] font-mono tracking-wide text-indigo-400 font-bold opacity-80 mt-0.5">
+          <span style={{ color: DARK.textDim, fontSize: "8px", fontFamily: DARK.font, marginLeft: `${SPACE.xs}px` }}>
             v{CANVAS_VERSION}
           </span>
         </div>
 
         {/* File Menu Dropdown */}
-        <div className="relative ml-2" ref={fileMenuRef}>
+        <div style={{ position: "relative", marginLeft: `${SPACE.sm}px` }} ref={fileMenuRef}>
           <button
             onClick={() => setIsFileMenuOpen((prev) => !prev)}
-            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-sm hover:bg-neutral-850 text-[10px] uppercase font-mono tracking-wider font-extrabold text-neutral-450 hover:text-indigo-400 border border-neutral-800/80 hover:border-indigo-500/20 bg-[#0d0e10]/40 cursor-pointer active:scale-95 transition-all h-[24px]"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.xs}px`,
+              padding: `0 ${SPACE.md}px`,
+              height: "22px",
+              backgroundColor: isFileMenuOpen ? DARK.bg5 : DARK.bg3,
+              color: DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...(isFileMenuOpen ? sunken(DARK) : raised(DARK)),
+            }}
             title="File operations and autosave recovery"
           >
-            <FolderOpen className="h-3 w-3" />
+            <FolderOpen size={10} style={{ color: DARK.textMid }} />
             <span>File</span>
             {isDirty && (
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse ml-0.5" title="Unsaved changes" />
+              <span 
+                style={{
+                  width: "4px",
+                  height: "4px",
+                  backgroundColor: DARK.stateAmber,
+                  marginLeft: `${SPACE.xs}px`,
+                }} 
+                title="Unsaved changes" 
+              />
             )}
-            <ChevronDown className="h-2.5 w-2.5 opacity-60 ml-0.5" />
+            <ChevronDown size={8} style={{ color: DARK.textMid, marginLeft: `${SPACE.xs}px` }} />
           </button>
 
           {isFileMenuOpen && (
-            <div className="absolute left-0 mt-1 w-64 bg-[#141517]/95 backdrop-blur-md border border-neutral-800 rounded-md shadow-2xl py-1 z-[100] animate-in fade-in slide-in-from-top-2 duration-150">
+            <div 
+              style={{
+                position: "absolute",
+                left: 0,
+                top: "100%",
+                marginTop: "4px",
+                width: "160px",
+                backgroundColor: DARK.bg3,
+                ...flat(DARK),
+                zIndex: 200,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                boxSizing: "border-box",
+                padding: "2px",
+              }}
+            >
               <button
+                onMouseEnter={() => setHoveredFileItem("save")}
+                onMouseLeave={() => setHoveredFileItem(null)}
                 onClick={() => {
                   setIsFileMenuOpen(false);
                   saveProject();
                 }}
-                className="w-full flex items-center justify-between px-3 py-2 text-left text-[9px] text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer transition-colors"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: `${SPACE.md}px`,
+                  fontFamily: DARK.font,
+                  fontSize: "8px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: hoveredFileItem === "save" ? DARK.bg4 : DARK.bg3,
+                  color: hoveredFileItem === "save" ? DARK.textHi : DARK.textMid,
+                  boxSizing: "border-box",
+                }}
               >
-                <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-bold">
-                  <Save className="h-3.5 w-3.5 text-indigo-400" />
+                <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+                  <Save size={10} style={{ color: hoveredFileItem === "save" ? DARK.textHi : DARK.textMid }} />
                   <span>Save Project</span>
                 </div>
-                <span className="text-[8px] font-mono text-zinc-500">Ctrl+S</span>
+                <span style={{ fontSize: "7px", color: DARK.textDim }}>Ctrl+S</span>
               </button>
 
               <button
+                onMouseEnter={() => setHoveredFileItem("load")}
+                onMouseLeave={() => setHoveredFileItem(null)}
                 onClick={() => {
                   setIsFileMenuOpen(false);
                   loadProject();
                 }}
-                className="w-full flex items-center justify-between px-3 py-2 text-left text-[9px] text-zinc-300 hover:text-white hover:bg-indigo-600/10 cursor-pointer transition-colors border-b border-neutral-800/40"
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: `${SPACE.md}px`,
+                  fontFamily: DARK.font,
+                  fontSize: "8px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: hoveredFileItem === "load" ? DARK.bg4 : DARK.bg3,
+                  color: hoveredFileItem === "load" ? DARK.textHi : DARK.textMid,
+                  boxSizing: "border-box",
+                }}
               >
-                <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-bold">
-                  <Upload className="h-3.5 w-3.5 text-indigo-400" />
+                <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+                  <Upload size={10} style={{ color: hoveredFileItem === "load" ? DARK.textHi : DARK.textMid }} />
                   <span>Load Project</span>
                 </div>
-                <span className="text-[8px] font-mono text-zinc-500">Ctrl+O</span>
+                <span style={{ fontSize: "7px", color: DARK.textDim }}>Ctrl+O</span>
               </button>
 
               {autosaveProject && (
-                <button
-                  onClick={() => {
-                    setIsFileMenuOpen(false);
-                    restoreAutosave();
-                  }}
-                  className="w-full flex flex-col px-3 py-2.5 text-left hover:bg-emerald-600/10 cursor-pointer transition-colors group"
-                >
-                  <div className="flex items-center gap-2 font-mono uppercase tracking-wider font-extrabold text-emerald-400 group-hover:text-emerald-300">
-                    <Activity className="h-3.5 w-3.5 animate-pulse text-emerald-500" />
-                    <span>Recover Autosave</span>
-                  </div>
-                  <div className="mt-1 flex flex-col gap-0.5 text-[8px] text-zinc-400 leading-tight">
-                    <div className="truncate">
-                      Project: <span className="text-zinc-300 font-semibold font-mono">{autosaveProject.projectName || "Untitled"}</span>
+                <>
+                  <div style={{ height: "1px", backgroundColor: DARK.bevelDark, margin: "2px 0" }} />
+                  <button
+                    onMouseEnter={() => setHoveredFileItem("recover")}
+                    onMouseLeave={() => setHoveredFileItem(null)}
+                    onClick={() => {
+                      setIsFileMenuOpen(false);
+                      restoreAutosave();
+                    }}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      padding: `${SPACE.md}px`,
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      backgroundColor: hoveredFileItem === "recover" ? DARK.bg4 : DARK.bg3,
+                      color: hoveredFileItem === "recover" ? DARK.textHi : DARK.textMid,
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <span style={{ color: DARK.stateGreen }}>Recover Autosave</span>
+                    <div style={{ marginTop: `${SPACE.xs}px`, display: "flex", flexDirection: "column", gap: "1px", fontSize: "7px", color: DARK.textDim }}>
+                      <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        Project: {autosaveProject.projectName || "Untitled"}
+                      </span>
+                      <span>
+                        Saved: {new Date(autosaveProject.savedAt).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <div className="text-[7.5px] text-zinc-500">
-                      Saved: {new Date(autosaveProject.savedAt).toLocaleString()}
-                    </div>
-                  </div>
-                </button>
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -485,47 +623,94 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
       </div>
 
       {/* CENTER COMPACT TRANSPORT CONSOLE */}
-      <div className="flex items-center gap-3">
+      <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.md}px` }}>
         {/* Playback Buttons */}
-        <div className="flex items-center bg-[#0d0e10] p-0.5 rounded-sm border border-neutral-80/80">
+        <div 
+          style={{
+            display: "flex",
+            gap: "1px",
+            backgroundColor: DARK.bg2,
+            ...raised(DARK),
+            padding: "1px",
+            boxSizing: "border-box",
+          }}
+        >
           {/* Play/Pause Toggle */}
           <button
             onClick={playbackState === "playing" ? pause : play}
-            className={`p-1 rounded-sm cursor-pointer transition-colors ${playbackState === "playing"
-              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30"
-              : playbackState === "paused"
-                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                : "text-zinc-400 hover:text-white"
-              }`}
+            style={{
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: playbackState === "playing" ? DARK.bg5 : DARK.bg3,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...(playbackState === "playing" ? sunken(DARK) : raised(DARK)),
+            }}
             title={playbackState === "playing" ? "Pause Playback" : "Start Playback"}
           >
             {playbackState === "playing" ? (
-              <Pause className="h-3 w-3 fill-current" />
+               <Pause size={10} style={{ color: DARK.stateGreen, fill: "currentColor" }} />
             ) : (
-              <Play className="h-3 w-3 fill-current" />
+               <Play size={10} style={{ color: DARK.textMid, fill: "currentColor" }} />
             )}
           </button>
 
           {/* Stop */}
           <button
             onClick={stop}
-            className={`p-1 rounded-sm cursor-pointer text-zinc-400 hover:text-red-400 transition-colors ${playbackState === "stopped" ? "bg-zinc-800 text-zinc-300" : ""
-              }`}
+            style={{
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: playbackState === "stopped" ? DARK.bg5 : DARK.bg3,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...(playbackState === "stopped" ? sunken(DARK) : raised(DARK)),
+            }}
             title="Stop & Return to Zero"
           >
-            <Square className="h-3 w-3 fill-current" />
+            <Square size={8} style={{ color: DARK.textMid, fill: "currentColor" }} />
           </button>
         </div>
 
         {/* Dense Hardware-Style Playback Mode Toggle */}
-        <div className="flex items-center bg-[#0d0e10] p-0.5 rounded-sm border border-neutral-80/80 h-[26px] gap-[1px]">
+        <div 
+          style={{
+            display: "flex",
+            gap: "1px",
+            backgroundColor: DARK.bg2,
+            ...raised(DARK),
+            padding: "1px",
+            boxSizing: "border-box",
+          }}
+        >
           <button
             type="button"
             onClick={() => setPlaybackMode("pattern")}
-            className={`px-2 py-0.5 text-[8.5px] font-black tracking-wider uppercase transition-all duration-150 cursor-pointer rounded-xs select-none ${playbackMode === "pattern"
-              ? "bg-orange-500/25 text-orange-400 border border-orange-500/35 shadow-[0_0_6px_rgba(249,115,22,0.25)]"
-              : "text-neutral-500 hover:text-neutral-300 border border-transparent font-semibold"
-              }`}
+            style={{
+              padding: `0 ${SPACE.md}px`,
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              border: "none",
+              backgroundColor: playbackMode === "pattern" ? DARK.bg5 : DARK.bg3,
+              color: playbackMode === "pattern" ? DARK.accentMaster : DARK.textDim,
+              ...(playbackMode === "pattern" ? sunken(DARK) : raised(DARK)),
+              boxSizing: "border-box",
+            }}
             title="Pattern Mode (Sequencer sequence looper)"
           >
             PAT
@@ -533,10 +718,23 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
           <button
             type="button"
             onClick={() => setPlaybackMode("song")}
-            className={`px-2 py-0.5 text-[8.5px] font-black tracking-wider uppercase transition-all duration-150 cursor-pointer rounded-xs select-none ${playbackMode === "song"
-              ? "bg-orange-500/25 text-orange-400 border border-orange-500/35 shadow-[0_0_6px_rgba(249,115,22,0.25)]"
-              : "text-neutral-550 hover:text-neutral-300 border border-transparent font-semibold"
-              }`}
+            style={{
+              padding: `0 ${SPACE.md}px`,
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              border: "none",
+              backgroundColor: playbackMode === "song" ? DARK.bg5 : DARK.bg3,
+              color: playbackMode === "song" ? DARK.accentMaster : DARK.textDim,
+              ...(playbackMode === "song" ? sunken(DARK) : raised(DARK)),
+              boxSizing: "border-box",
+            }}
             title="Song Mode (Arrangement Timeline player)"
           >
             SONG
@@ -546,28 +744,33 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         {/* Real-time Combined Hardware LCD Display */}
         <button
           onClick={() => setDisplayMode(displayMode === "time" ? "beats" : "time")}
-          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 px-3 rounded-sm shadow-inner font-mono cursor-pointer select-none transition-all hover:border-neutral-700 hover:bg-[#121316] text-[10px]"
+          style={{
+            background: DARK.lcdBg,
+            ...sunken(DARK),
+            fontFamily: DARK.font,
+            fontSize: "11px",
+            color: DARK.lcdText,
+            padding: `${SPACE.xs}px ${SPACE.md}px`,
+            letterSpacing: "0.1em",
+            minWidth: "80px",
+            textAlign: "center",
+            cursor: "pointer",
+            border: "none",
+            boxSizing: "border-box",
+            height: "26px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
           title="Click to toggle display readout (Time / Beats)"
         >
           {displayMode === "time" ? (
-            <div className="flex items-baseline gap-1.5 text-cyan-400 tracking-wider">
-              <span className="text-cyan-500/40 text-[8px] font-bold">TIME:</span>
-              <span className="font-extrabold">{zeroPad(displayMin, 2)}</span>
-              <span className="text-cyan-900/60 font-extrabold">:</span>
-              <span className="font-extrabold">{zeroPad(displaySec, 2)}</span>
-              <span className="text-cyan-900/60 font-extrabold">.</span>
-              <span className="text-cyan-500/80 font-normal text-[8.5px]">{zeroPad(displayMs, 3)}</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "2px", color: DARK.lcdText }}>
+              <span>{zeroPad(displayMin, 2)}:{zeroPad(displaySec, 2)}.{zeroPad(displayMs, 3)}</span>
             </div>
           ) : (
-            <div className="flex items-baseline gap-1.5 text-emerald-400 tracking-wider">
-              <span className="text-emerald-500/40 text-[8px] font-bold">BEATS:</span>
-              <span className="font-extrabold">{zeroPad(bars, 2)}</span>
-              <span className="text-emerald-900/60 font-extrabold">:</span>
-              <span className="font-extrabold">{targetBeats}</span>
-              <span className="text-emerald-900/60 font-extrabold">:</span>
-              <span className="font-extrabold">{sixteenths}</span>
-              <span className="text-emerald-900/60 font-extrabold">:</span>
-              <span className="text-emerald-500/80 font-normal text-[8.5px]">{zeroPad(ticks, 3)}</span>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "2px", color: DARK.lcdText }}>
+              <span>{zeroPad(bars, 2)}:{targetBeats}:{sixteenths}:{zeroPad(ticks, 3)}</span>
             </div>
           )}
         </button>
@@ -575,14 +778,26 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         {/* Real-time Spectrogram/Waveform Visualizer */}
         <div 
           onClick={() => setVisMode(prev => prev === "spectrum" ? "waveform" : "spectrum")}
-          className="flex items-center justify-center bg-[#0a0a0c] border border-neutral-850 h-7.5 w-36 rounded-sm shadow-inner relative overflow-hidden select-none cursor-pointer hover:border-neutral-700 hover:bg-[#121316] transition-all"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: DARK.bg0,
+            ...sunken(DARK),
+            height: "26px",
+            width: "144px",
+            position: "relative",
+            overflow: "hidden",
+            cursor: "pointer",
+            boxSizing: "border-box",
+          }}
           title={`Click to toggle visualization mode (Current: ${visMode === "spectrum" ? "Spectrum" : "Waveform"})`}
         >
-          <canvas ref={canvasRef} width="144" height="30" className="w-full h-full pointer-events-none" />
+          <canvas ref={canvasRef} width="144" height="24" style={{ width: "100%", height: "100%", pointerEvents: "none" }} />
         </div>
 
         {/* BPM Input Setting */}
-        <form onSubmit={handleBpmSubmit} className="relative items-center hidden sm:flex">
+        <form onSubmit={handleBpmSubmit} style={{ position: "relative", display: "flex", alignItems: "center" }}>
           <input
             type="number"
             min="20"
@@ -591,9 +806,22 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
             value={bpmInput}
             onChange={(e) => setBpmInput(e.target.value)}
             onBlur={handleBpmBlur}
-            className="w-14 h-7 bg-[#0d0e10] border border-neutral-800 rounded-sm text-center font-mono text-[10px] font-bold text-neutral-200 focus:outline-none focus:border-indigo-500/50 px-1"
+            style={{
+              background: DARK.lcdBg,
+              ...sunken(DARK),
+              fontFamily: DARK.font,
+              fontSize: "11px",
+              color: DARK.lcdText,
+              width: "48px",
+              height: "26px",
+              textAlign: "center",
+              outline: "none",
+              border: "none",
+              boxSizing: "border-box",
+              paddingRight: "16px",
+            }}
           />
-          <span className="absolute right-1 text-[7px] font-mono text-zinc-500 pointer-events-none select-none uppercase">
+          <span style={{ position: "absolute", right: "4px", fontSize: "7px", fontFamily: DARK.font, color: DARK.textDim, pointerEvents: "none", userSelect: "none", textTransform: "uppercase" }}>
             BPM
           </span>
         </form>
@@ -602,13 +830,23 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         <button
           type="button"
           onClick={handleTap}
-          className={`h-7 px-2.5 rounded-sm items-center justify-center font-mono text-[9px] font-extrabold uppercase tracking-wider cursor-pointer border transition-all active:scale-95 duration-100 hidden sm:flex ${
-            isLocked
-              ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.35)]"
-              : isTapped
-                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.2)]"
-                : "border-neutral-800 bg-[#0d0e10]/40 text-neutral-400 hover:text-neutral-200 hover:bg-[#121316]/60"
-          }`}
+          style={{
+            height: "26px",
+            padding: `0 ${SPACE.md}px`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: DARK.font,
+            fontSize: "8px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            border: "none",
+            backgroundColor: (isTapped || isLocked) ? DARK.bg5 : DARK.bg3,
+            color: isLocked ? DARK.stateGreen : isTapped ? DARK.accentMaster : DARK.textMid,
+            ...((isTapped || isLocked) ? sunken(DARK) : raised(DARK)),
+            boxSizing: "border-box",
+          }}
           title="Tap Tempo (Stable tempo locks in automatically)"
         >
           Tap
@@ -617,43 +855,85 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
         {/* Metronome sounds trigger */}
         <button
           onClick={() => toggleMetronome()}
-          className={`h-7 px-2 rounded-sm flex items-center gap-1 cursor-pointer transition-colors border ${metronomeEnabled
-            ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-400 font-bold"
-            : "border-neutral-800 bg-[#0d0e10]/40 text-neutral-500 hover:text-neutral-300"
-            }`}
+          style={{
+            height: "26px",
+            padding: `0 ${SPACE.md}px`,
+            display: "flex",
+            alignItems: "center",
+            gap: `${SPACE.xs}px`,
+            fontFamily: DARK.font,
+            fontSize: "8px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            border: "none",
+            backgroundColor: metronomeEnabled ? DARK.bg5 : DARK.bg3,
+            color: metronomeEnabled ? DARK.accentMaster : DARK.textMid,
+            ...(metronomeEnabled ? sunken(DARK) : raised(DARK)),
+            boxSizing: "border-box",
+          }}
           title="Toggle Metronome Sound Click"
         >
           {metronomeEnabled ? (
-            <Volume2 className="h-3 w-3" />
+            <Volume2 size={12} />
           ) : (
-            <VolumeX className="h-3 w-3" />
+            <VolumeX size={12} />
           )}
-          <span className="text-[9px] uppercase font-mono tracking-wider hidden lg:block">Click</span>
+          <span>Click</span>
         </button>
 
         {/* PC Keyboard MIDI Toggle with Dropdown */}
-        <div id="pc-midi-button-group" className="relative flex items-center bg-[#0d0e10] p-0.5 rounded-sm border border-neutral-80/80 h-7">
+        <div 
+          id="pc-midi-button-group" 
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            backgroundColor: DARK.bg3,
+            ...raised(DARK),
+            height: "26px",
+            boxSizing: "border-box",
+            padding: "1px",
+          }}
+        >
           <button
             id="pc-keyboard-midi-toggle"
             type="button"
             onClick={() => setPcKeyboardMidiActive(!pcKeyboardMidiActive)}
             onContextMenu={(e) => {
               e.preventDefault();
-              setShowOctaveMenu(!showOctaveMenu);
+               setShowOctaveMenu(!showOctaveMenu);
             }}
-            className={`h-full px-2 rounded-xs flex items-center gap-1.5 cursor-pointer transition-all ${pcKeyboardMidiActive
-              ? "bg-amber-500/20 text-white border border-amber-500/30 text-amber-400 font-bold"
-              : "text-zinc-500 hover:text-neutral-300 font-semibold"
-              }`}
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: `${SPACE.sm}px`,
+              padding: `0 ${SPACE.md}px`,
+              cursor: "pointer",
+              border: "none",
+              backgroundColor: pcKeyboardMidiActive ? DARK.bg5 : DARK.bg3,
+              color: pcKeyboardMidiActive ? DARK.accentMaster : DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              ...(pcKeyboardMidiActive ? sunken(DARK) : {}),
+              boxSizing: "border-box",
+            }}
             title="Toggle PC Keyboard MIDI Input (Right-click or click arrow to set Base Octave)"
           >
             {/* LED style indicator */}
-            <span id="pc-midi-led" className={`w-1.5 h-1.5 rounded-full transition-shadow duration-150 ${pcKeyboardMidiActive
-              ? "bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.85)] animate-pulse"
-              : "bg-neutral-800"
-              }`} />
-            <span className="text-[8.5px] uppercase font-mono tracking-wider">KBD MIDI</span>
-            <span className="text-[7.5px] px-1 bg-black/40 text-zinc-500 rounded-xs font-mono font-bold">
+            <span 
+              id="pc-midi-led" 
+              style={{
+                width: "5px",
+                height: "5px",
+                backgroundColor: pcKeyboardMidiActive ? DARK.accentMaster : DARK.bg0,
+              }} 
+            />
+            <span>KBD MIDI</span>
+            <span style={{ fontSize: "7px", padding: `0 ${SPACE.xs}px`, backgroundColor: "rgba(0,0,0,0.4)", color: DARK.textDim, fontWeight: "bold" }}>
               OCT {baseOctave}
             </span>
           </button>
@@ -665,41 +945,92 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
               e.stopPropagation();
               setShowOctaveMenu(!showOctaveMenu);
             }}
-            className="h-full px-1 hover:bg-neutral-800 text-zinc-500 hover:text-neutral-300 transition-colors border-l border-neutral-850/80"
+            style={{
+              height: "100%",
+              padding: `0 ${SPACE.xs}px`,
+              cursor: "pointer",
+              border: "none",
+              borderLeft: `1px solid ${DARK.bevelDark}`,
+              backgroundColor: showOctaveMenu ? DARK.bg5 : DARK.bg3,
+              color: DARK.textMid,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxSizing: "border-box",
+            }}
             title="Choose Base Octave"
           >
-            <ChevronDown className="h-3 w-3 shrink-0" />
+            <ChevronDown size={10} />
           </button>
 
           {/* Retro Hardware Dropdown Context Menu for Base Octaves */}
           {showOctaveMenu && (
             <>
               {/* Backing dismiss overlay */}
-              <div id="octave-menu-backdrop" className="fixed inset-0 z-45 bg-transparent" onClick={() => setShowOctaveMenu(false)} />
+              <div id="octave-menu-backdrop" style={{ position: "fixed", inset: 0, zIndex: 45, backgroundColor: "transparent" }} onClick={() => setShowOctaveMenu(false)} />
               <div
                 id="octave-dropdown-menu"
-                className="absolute right-0 top-full mt-1.5 bg-[#0e1013] border border-neutral-800 rounded-sm shadow-2xl p-1 z-50 min-w-[130px] font-mono text-[9px] text-[#eceff4]"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "100%",
+                  marginTop: "4px",
+                  backgroundColor: DARK.bg3,
+                  ...flat(DARK),
+                  zIndex: 200,
+                  minWidth: "120px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                  boxSizing: "border-box",
+                  padding: "2px",
+                }}
               >
-                <div className="px-2 py-1 text-[7px] text-zinc-550 border-b border-zinc-900 mb-1 font-black tracking-widest uppercase text-center">
+                <div 
+                  style={{
+                    padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                    fontSize: "7px",
+                    color: DARK.textDim,
+                    borderBottom: `1px solid ${DARK.bevelDark}`,
+                    marginBottom: "2px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.1em",
+                    textAlign: "center",
+                    fontFamily: DARK.font,
+                  }}
+                >
                   BASE OCTAVE SELECTOR
                 </div>
                 {[1, 2, 3, 4, 5, 6, 7, 8].map((oct) => (
                   <button
                     key={oct}
                     id={`octave-select-${oct}`}
+                    onMouseEnter={() => setHoveredOctaveItem(oct)}
+                    onMouseLeave={() => setHoveredOctaveItem(null)}
                     onClick={() => {
                       setBaseOctave(oct);
                       setShowOctaveMenu(false);
                     }}
-                    className={`w-full text-left px-2 py-1 flex items-center justify-between rounded-xs transition-colors hover:bg-amber-500/10 hover:text-amber-400 ${baseOctave === oct
-                      ? "text-amber-400 font-extrabold bg-amber-500/5 border-l-2 border-amber-500"
-                      : "text-zinc-400 border-l-2 border-transparent"
-                      }`}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: `${SPACE.sm}px`,
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      fontWeight: baseOctave === oct ? "bold" : "normal",
+                      textTransform: "uppercase",
+                      border: "none",
+                      backgroundColor: baseOctave === oct ? DARK.bg4 : hoveredOctaveItem === oct ? DARK.bg4 : DARK.bg3,
+                      color: baseOctave === oct ? DARK.accentMaster : hoveredOctaveItem === oct ? DARK.textHi : DARK.textMid,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxSizing: "border-box",
+                    }}
                   >
                     <span>Octave {oct}</span>
-                    {oct === 4 && <span className="text-[7px] text-zinc-650 font-normal">(Default)</span>}
+                    {oct === 4 && <span style={{ fontSize: "7px", color: DARK.textDim, fontWeight: "normal" }}>(Default)</span>}
                     {baseOctave === oct && (
-                      <div className="w-1.5 h-1.5 bg-amber-400 rounded-full shadow-[0_0_6px_rgba(245,158,11,0.85)]" />
+                      <span style={{ width: "5px", height: "5px", backgroundColor: DARK.accentMaster }} />
                     )}
                   </button>
                 ))}
@@ -710,69 +1041,45 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
       </div>
 
       {/* RIGHT SIDE COMPONENT WINDOWS DOCK */}
-      <div className="flex items-center gap-1 bg-[#0d0e10] p-0.5 rounded-sm border border-neutral-80/80">
-        {/* Sample Browser Toggle */}
-        {onToggleBrowser && (
-          <button
-            onClick={onToggleBrowser}
-            className={`w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 active:scale-90 transition-all duration-100 cursor-pointer ${
-              browserOpen
-                ? "text-cyan-400 bg-cyan-500/10"
-                : "text-zinc-400 hover:text-indigo-400"
-            }`}
-            title="Sample Browser"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          onClick={() => handleWindowClick("canvas")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Arranger Window"
-        >
-          <Layers className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => handleWindowClick("sequencer")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Channel Rack Window"
-        >
-          <Music className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => handleWindowClick("pianoroll")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Piano Roll Window"
-        >
-          <Keyboard className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => handleWindowClick("obsidian")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Synth Window"
-        >
-          <Zap className="h-4 w-4" />
-        </button>
-
-        <button
-          onClick={() => handleWindowClick("mixer")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Mixer Window"
-        >
-          <Activity className="h-4 w-4" />
-        </button>
-
-        <button
-          id="toolbar-export-btn"
-          onClick={() => handleWindowClick("export")}
-          className="w-8 h-8 flex items-center justify-center rounded-sm hover:bg-neutral-800/60 text-zinc-400 hover:text-indigo-400 active:scale-90 transition-all duration-100 cursor-pointer"
-          title="Export Window"
-        >
-          <Disc className="h-4 w-4" />
-        </button>
+      <div 
+        style={{
+          display: "flex",
+          gap: "1px",
+          backgroundColor: DARK.bg2,
+          ...raised(DARK),
+          padding: "1px",
+          boxSizing: "border-box",
+          height: "30px",
+        }}
+      >
+        {dockButtons.map((btn) => {
+          const IconComponent = btn.icon;
+          const isHovered = hoveredDockBtn === btn.id;
+          return (
+            <button
+              key={btn.id}
+              onMouseEnter={() => setHoveredDockBtn(btn.id)}
+              onMouseLeave={() => setHoveredDockBtn(null)}
+              onClick={btn.onClick}
+              style={{
+                width: "28px",
+                height: "28px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                border: "none",
+                backgroundColor: btn.active ? DARK.bg0 : isHovered ? DARK.bg3 : DARK.bg2,
+                color: btn.active ? DARK.textHi : isHovered ? DARK.textMid : DARK.textLo,
+                ...(btn.active ? sunken(DARK) : {}),
+                boxSizing: "border-box",
+              }}
+              title={btn.title}
+            >
+              <IconComponent size={14} style={{ color: "inherit" }} />
+            </button>
+          );
+        })}
       </div>
     </header>
   );
