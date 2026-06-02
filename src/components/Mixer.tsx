@@ -18,6 +18,8 @@ interface MixerProps {
   channelMixers?: Record<string, number>;
   onOpenEQPanel?: (insertIndex: number, slotIndex: number) => void;
   onOpenReverbPanel?: (insertIndex: number, slotIndex: number) => void;
+  stripColors?: Record<number, string>;
+  setStripColors?: React.Dispatch<React.SetStateAction<Record<number, string>>>;
 }
 
 // The LevelMeter component uses requestAnimationFrame and direct DOM updates for high performance
@@ -425,6 +427,8 @@ export function Mixer({
   channelMixers = {},
   onOpenEQPanel,
   onOpenReverbPanel,
+  stripColors = {},
+  setStripColors = () => {},
 }: MixerProps) {
   const { engine, setInsertFXSlot, setInsertFXBypass } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
@@ -442,6 +446,35 @@ export function Mixer({
     slotIdx: number;
   } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  const [colorMenu, setColorMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    insertIndex: number;
+  } | null>(null);
+  const colorMenuRef = useRef<HTMLDivElement>(null);
+
+  const ACCENT_OPTIONS = [
+    { label: "BLUE",   value: DARK.accentBlue },
+    { label: "GREEN",  value: DARK.accentGreen },
+    { label: "PURPLE", value: DARK.accentPurple },
+    { label: "ORANGE", value: DARK.accentOrange },
+    { label: "MASTER", value: DARK.accentMaster },
+  ];
+
+  // Close color menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (colorMenuRef.current && !colorMenuRef.current.contains(e.target as Node)) {
+        setColorMenu(null);
+      }
+    };
+    if (colorMenu !== null) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [colorMenu]);
 
   // Close picker when clicking outside
   useEffect(() => {
@@ -604,6 +637,18 @@ export function Mixer({
         {insertsState.length > 0 && (
           <div 
             onClick={() => setSelectedInsertIndex(0)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const parent = document.getElementById("mixer-parent-container");
+              const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
+              setColorMenu({
+                visible: true,
+                x: e.clientX - parentRect.left,
+                y: e.clientY - parentRect.top,
+                insertIndex: 0,
+              });
+            }}
             style={{
               width: `${SIZE.channelStripMaster}px`,
               flexShrink: 0,
@@ -639,7 +684,7 @@ export function Mixer({
               >
                 MASTER
               </span>
-              <div style={{ height: "2px", backgroundColor: DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+              <div style={{ height: "2px", backgroundColor: stripColors[0] ?? DARK.accentMaster, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
               <div 
                 style={{
                   fontFamily: DARK.font,
@@ -830,6 +875,18 @@ export function Mixer({
               <div 
                 key={ins.index}
                 onClick={() => setSelectedInsertIndex(ins.index)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const parent = document.getElementById("mixer-parent-container");
+                  const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
+                  setColorMenu({
+                    visible: true,
+                    x: e.clientX - parentRect.left,
+                    y: e.clientY - parentRect.top,
+                    insertIndex: ins.index,
+                  });
+                }}
                 style={{
                   width: `${SIZE.channelStrip}px`,
                   flexShrink: 0,
@@ -908,7 +965,7 @@ export function Mixer({
                       {displayName}
                     </span>
                   )}
-                  <div style={{ height: "2px", backgroundColor: DARK.accentBlue, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
+                  <div style={{ height: "2px", backgroundColor: stripColors[ins.index] ?? DARK.accentBlue, marginTop: `${SPACE.xs}px`, marginBottom: `${SPACE.xs}px` }} />
                   <div 
                     style={{
                       fontFamily: DARK.font,
@@ -1502,6 +1559,78 @@ export function Mixer({
           >
             REMOVE
           </button>
+        </div>
+      )}
+
+      {colorMenu && (
+        <div
+          ref={colorMenuRef}
+          style={{
+            position: "absolute",
+            left: `${colorMenu.x}px`,
+            top: `${colorMenu.y}px`,
+            backgroundColor: DARK.bg3,
+            ...flat(DARK),
+            zIndex: 200,
+            fontFamily: DARK.font,
+            minWidth: "100px",
+            boxSizing: "border-box",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div 
+            style={{
+              padding: `${SPACE.xs}px ${SPACE.md}px`,
+              background: DARK.titleBarGradient,
+              ...raised(DARK),
+              fontSize: "8px",
+              color: DARK.textHi, // textHi has better contrast for a title bar header!
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontFamily: DARK.font,
+              boxSizing: "border-box",
+            }}
+          >
+            STRIP COLOR
+          </div>
+
+          {/* Color options */}
+          {ACCENT_OPTIONS.map((opt) => (
+            <div
+              key={opt.label}
+              onClick={() => {
+                setStripColors(prev => ({ ...prev, [colorMenu.insertIndex]: opt.value }));
+                setColorMenu(null);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: `${SPACE.sm}px`,
+                padding: `${SPACE.sm}px ${SPACE.md}px`,
+                cursor: "pointer",
+                backgroundColor: DARK.bg3,
+                fontSize: "8px",
+                color: DARK.textMid,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontFamily: DARK.font,
+                boxSizing: "border-box",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+            >
+              <div 
+                style={{
+                  width: "20px",
+                  height: "4px",
+                  backgroundColor: opt.value,
+                  boxSizing: "border-box",
+                }} 
+              />
+              {opt.label}
+            </div>
+          ))}
         </div>
       )}
     </div>

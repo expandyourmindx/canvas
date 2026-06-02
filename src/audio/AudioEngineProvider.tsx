@@ -107,11 +107,13 @@ export interface AudioEngineContextType {
     getChannelVols: () => Record<string, number>;
     getChannelPans: () => Record<string, number>;
     getChannelMixers: () => Record<string, number>;
+    getStripColors?: () => Record<number, string>;
     setChannels: (channels: ChannelRow[]) => void;
     setChannelVols: (vols: Record<string, number>) => void;
     setChannelPans: (pans: Record<string, number>) => void;
     setChannelMixers: (mixers: Record<string, number>) => void;
     setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
+    setStripColors?: (colors: Record<number, string>) => void;
   }) => void;
   autosaveProject: CanvasProject | null;
   restoreAutosave: () => void;
@@ -155,11 +157,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     getChannelVols: () => Record<string, number>;
     getChannelPans: () => Record<string, number>;
     getChannelMixers: () => Record<string, number>;
+    getStripColors?: () => Record<number, string>;
     setChannels: (channels: ChannelRow[]) => void;
     setChannelVols: (vols: Record<string, number>) => void;
     setChannelPans: (pans: Record<string, number>) => void;
     setChannelMixers: (mixers: Record<string, number>) => void;
     setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
+    setStripColors?: (colors: Record<number, string>) => void;
   } | null>(null);
 
   const registerDesktopSync = useCallback((sync: any) => {
@@ -553,6 +557,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       channelVols: desktopStateRef.current.getChannelVols(),
       channelPans: desktopStateRef.current.getChannelPans(),
       channelMixers: desktopStateRef.current.getChannelMixers(),
+      stripColors: desktopStateRef.current.getStripColors ? desktopStateRef.current.getStripColors() : undefined,
       events: engine.getEvents(),
       canvasClips: engine.getCanvasClips(),
       patterns: engine.getPatternsList(),
@@ -649,6 +654,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     desktopStateRef.current.setChannelPans(project.channelPans);
     desktopStateRef.current.setChannelMixers(project.channelMixers);
     desktopStateRef.current.setSamplerSettings(project.samplerSettings || {});
+    if (project.stripColors && desktopStateRef.current.setStripColors) {
+      desktopStateRef.current.setStripColors(project.stripColors);
+    }
 
     // 4. channel routing / engine volume/panning/routing sync
     project.channels.forEach((chan) => {

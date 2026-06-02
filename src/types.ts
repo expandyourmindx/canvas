@@ -160,6 +160,7 @@ export interface CanvasProject {
   channelVols: Record<string, number>;
   channelPans: Record<string, number>;
   channelMixers: Record<string, number>;
+  stripColors?: Record<number, string>;
   events: DAWEvent[];
   canvasClips: CanvasClip[];
   patterns: PatternData[];

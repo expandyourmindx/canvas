@@ -93,13 +93,16 @@ export function Desktop() {
     registerSetChannels(setChannels, channels);
   }, [registerSetChannels, setChannels]);
 
+  const [stripColors, setStripColors] = useState<Record<number, string>>({});
+
   // Lifted state synchronization reference to avoid stale state capture
   const stateRef = useRef({
     channels,
     channelVols: {} as Record<string, number>,
     channelPans: {} as Record<string, number>,
     channelMixers: {} as Record<string, number>,
-    samplerSettings: {} as Record<string, SamplerSettings>
+    samplerSettings: {} as Record<string, SamplerSettings>,
+    stripColors: {} as Record<number, string>
   });
 
   const [channelMixers, setChannelMixers] = useState<Record<string, number>>({
@@ -122,7 +125,7 @@ export function Desktop() {
   // New sampler plugin settings
   const [samplerSettings, setSamplerSettings] = useState<Record<string, SamplerSettings>>({});
 
-  stateRef.current = { channels, channelVols, channelPans, channelMixers, samplerSettings };
+  stateRef.current = { channels, channelVols, channelPans, channelMixers, samplerSettings, stripColors };
 
   useEffect(() => {
     if (registerDesktopSync) {
@@ -131,11 +134,13 @@ export function Desktop() {
         getChannelVols: () => stateRef.current.channelVols,
         getChannelPans: () => stateRef.current.channelPans,
         getChannelMixers: () => stateRef.current.channelMixers,
+        getStripColors: () => stateRef.current.stripColors,
         setChannels: (c: ChannelRow[]) => setChannels(c),
         setChannelVols: (v: Record<string, number>) => setChannelVols(v),
         setChannelPans: (p: Record<string, number>) => setChannelPans(p),
         setChannelMixers: (m: Record<string, number>) => setChannelMixers(m),
-        setSamplerSettings: (s: Record<string, SamplerSettings>) => setSamplerSettings(s)
+        setSamplerSettings: (s: Record<string, SamplerSettings>) => setSamplerSettings(s),
+        setStripColors: (colors: Record<number, string>) => setStripColors(colors)
       });
     }
   }, [registerDesktopSync]);
@@ -539,6 +544,8 @@ export function Desktop() {
             channelMixers={channelMixers}
             onOpenEQPanel={handleOpenEQPanel}
             onOpenReverbPanel={handleOpenReverbPanel}
+            stripColors={stripColors}
+            setStripColors={setStripColors}
           />
         </DraggableWindow>
 
