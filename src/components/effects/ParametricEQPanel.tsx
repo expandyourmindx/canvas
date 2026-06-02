@@ -1,7 +1,15 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useAudioEngine } from "../../audio/useAudioEngine";
 import { EQBandSettings } from "../../types";
-import { Power, Activity, RefreshCw } from "lucide-react";
+import {
+  DARK,
+  raised,
+  sunken,
+  flat,
+  flush,
+  SPACE,
+  SIZE,
+} from "../../../public/Themes/Vintage Console/tokens";
 
 interface ParametricEQPanelProps {
   insertIndex: number;
@@ -10,19 +18,244 @@ interface ParametricEQPanelProps {
 }
 
 const BAND_COLORS = [
-  "#ef4444", // Band 1: Red (Low Cut)
-  "#f97316", // Band 2: Orange (Low Shelf)
-  "#eab308", // Band 3: Yellow (Peak 1)
-  "#22c55e", // Band 4: Green (Peak 2)
-  "#06b6d4", // Band 5: Cyan (Peak 3)
-  "#3b82f6", // Band 6: Blue (High Shelf)
-  "#a855f7", // Band 7: Purple (High Cut)
+  DARK.accentOrange, // Band 1: Orange
+  DARK.accentMaster, // Band 2: Amber (Master Accent)
+  DARK.accentMaster, // Band 3: Amber (Master Accent)
+  DARK.accentGreen,  // Band 4: Green
+  DARK.accentBlue,   // Band 5: Blue
+  DARK.accentBlue,   // Band 6: Blue
+  DARK.accentPurple, // Band 7: Purple
 ];
 
 const BAND_LABELS = ["1", "2", "3", "4", "5", "6", "7"];
 
 const FREQ_GRID = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 const GAIN_GRID = [12, 6, 0, -6, -12];
+
+const DEFAULT_BAND_PARAMS = [
+  { frequency: 80, q: 0.707, gain: 0 },
+  { frequency: 200, q: 0.707, gain: 0 },
+  { frequency: 500, q: 1.0, gain: 0 },
+  { frequency: 1000, q: 1.0, gain: 0 },
+  { frequency: 4000, q: 1.0, gain: 0 },
+  { frequency: 8000, q: 0.707, gain: 0 },
+  { frequency: 16000, q: 0.707, gain: 0 },
+];
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+interface EQKnobProps {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  defaultValue: number;
+  disabled?: boolean;
+  dotColor: string;
+  formatValue: (v: number) => string;
+  onChange: (val: number) => void;
+}
+
+function EQKnob({
+  label,
+  value,
+  min,
+  max,
+  defaultValue,
+  disabled = false,
+  dotColor,
+  formatValue,
+  onChange,
+}: EQKnobProps) {
+  const knobRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const startY = useRef(0);
+  const startValue = useRef(0);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (disabled) return;
+    if (e.altKey && e.button === 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange(defaultValue);
+      return;
+    }
+    e.preventDefault();
+    isDragging.current = true;
+    startY.current = e.clientY;
+    startValue.current = value;
+    knobRef.current?.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+    const deltaY = startY.current - e.clientY; // drag up increases
+    const range = max - min;
+    const dragDistance = 150; // pixels for full sweep
+    const valueDelta = (deltaY / dragDistance) * range;
+    let newValue = startValue.current + valueDelta;
+    newValue = Math.max(min, Math.min(max, newValue));
+
+    if (label === "FREQUENCY") {
+      newValue = Math.round(newValue);
+    } else if (label === "GAIN") {
+      newValue = Math.round(newValue * 10) / 10;
+    } else if (label === "BAND Q") {
+      newValue = Math.round(newValue * 100) / 100;
+    }
+
+    onChange(newValue);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      knobRef.current?.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -1 : 1;
+    let step = 1;
+    if (label === "FREQUENCY") {
+      step = value >= 1000 ? 100 : 10;
+    } else if (label === "GAIN") {
+      step = 0.5;
+    } else if (label === "BAND Q") {
+      step = 0.05;
+    }
+    const newValue = Math.max(min, Math.min(max, value + dir * step));
+    onChange(newValue);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onChange(defaultValue);
+  };
+
+  // Convert value to degrees for rotation (sweep from -135deg to +135deg)
+  const percent = (value - min) / (max - min);
+  const angleDeg = -135 + percent * 270;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  
+  // Size-specific dimensions for knobMd (26px)
+  const knobSize = SIZE.knobMd; // 26px
+  const cx = knobSize / 2; // 13
+  const cy = knobSize / 2; // 13
+  const R = 8;
+  const dotX = cx + R * Math.sin(angleRad);
+  const dotY = cy - R * Math.cos(angleRad);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", userSelect: "none" }}>
+      {/* Label above */}
+      <span
+        style={{
+          fontFamily: DARK.font,
+          fontSize: "7px",
+          color: disabled ? DARK.textDim : DARK.textLo,
+          fontWeight: "bold",
+          textTransform: "uppercase",
+          marginBottom: `${SPACE.xs}px`,
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </span>
+
+      {/* Knob Body */}
+      <div
+        ref={knobRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        style={{
+          width: `${knobSize}px`,
+          height: `${knobSize}px`,
+          borderRadius: "50%",
+          backgroundColor: disabled ? DARK.bg4 : DARK.knobBody,
+          position: "relative",
+          cursor: disabled ? "not-allowed" : "ns-resize",
+          boxSizing: "border-box",
+          ...raised(DARK),
+        }}
+        title={`${label}: ${formatValue(value)}${disabled ? " (Disabled)" : " (Double-click to reset)"}`}
+      >
+        {/* Highlight Ellipse */}
+        {!disabled && (
+          <div
+            style={{
+              position: "absolute",
+              top: "2px",
+              left: "2px",
+              width: "10px",
+              height: "5px",
+              borderRadius: "50%",
+              backgroundColor: DARK.knobHighlight,
+              transform: "rotate(-30deg)",
+              pointerEvents: "none",
+            }}
+          />
+        )}
+
+        {/* Indicator Dot */}
+        {!disabled && (
+          <svg
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              pointerEvents: "none",
+            }}
+          >
+            <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
+          </svg>
+        )}
+      </div>
+
+      {/* LCD Readout below */}
+      <div
+        style={{
+          marginTop: `${SPACE.sm}px`,
+          width: "64px",
+          height: "16px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: DARK.bg0,
+          boxSizing: "border-box",
+          padding: `0 ${SPACE.xs}px`,
+          ...sunken(DARK),
+        }}
+      >
+        <span
+          style={{
+            fontFamily: DARK.font,
+            fontSize: "8px",
+            color: disabled ? DARK.textDim : DARK.lcdText,
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {formatValue(value)}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: ParametricEQPanelProps) {
   const { engine, updateInsertEQBand } = useAudioEngine();
@@ -122,7 +355,7 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
       const H = canvas.height;
 
       // 1. Draw solid dark background (trailing motion blur)
-      ctx.fillStyle = "rgba(10, 11, 14, 0.35)";
+      ctx.fillStyle = hexToRgba(DARK.bg0, 0.35);
       ctx.fillRect(0, 0, W, H);
 
       // 2. Draw Real-time Spectrum Analyzer behind
@@ -136,8 +369,8 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
           const barHeight = Math.min(H, amplitude * H * 0.9 * boost);
 
           const grad = ctx.createLinearGradient(0, H, 0, H - barHeight);
-          grad.addColorStop(0, "rgba(6, 182, 212, 0.03)"); // Cyan soft base
-          grad.addColorStop(1, "rgba(52, 211, 153, 0.18)"); // Emerald glowing top
+          grad.addColorStop(0, hexToRgba(DARK.accentBlue, 0.02)); // accentBlue soft base
+          grad.addColorStop(1, hexToRgba(DARK.accentBlue, 0.15)); // accentBlue top
 
           ctx.fillStyle = grad;
           ctx.fillRect(i * barWidth, H - barHeight, barWidth - 1, barHeight);
@@ -145,10 +378,12 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
       }
 
       // 3. Draw Grid Lines & Labels
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+      ctx.strokeStyle = DARK.bevelDark;
       ctx.lineWidth = 1;
-      ctx.font = "8px monospace";
-      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.font = `7px ${DARK.font}`;
+      ctx.fillStyle = DARK.textDim;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
 
       // Frequency Grid Lines (Logarithmic)
       FREQ_GRID.forEach(hz => {
@@ -159,7 +394,7 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
         ctx.stroke();
 
         // Label
-        const lbl = hz >= 1000 ? `${hz / 1000}kHz` : `${hz}Hz`;
+        const lbl = hz >= 1000 ? `${hz / 1000}KHZ` : `${hz}HZ`;
         ctx.fillText(lbl, x + 3, H - 6);
       });
 
@@ -167,25 +402,38 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
       GAIN_GRID.forEach(g => {
         const y = gainToY(g, H);
         
-        ctx.strokeStyle = g === 0 ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.04)";
         ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(W, y);
         ctx.stroke();
 
         // Label
-        const lbl = g > 0 ? `+${g}dB` : `${g}dB`;
+        const lbl = g > 0 ? `+${g}DB` : `${g}DB`;
         ctx.fillText(lbl, 6, y - 4);
       });
 
       // 4. Calculate and Draw Cumulative EQ Curve Response
       eqInstance.getFrequencyResponseData(curveFrequencies, magResponse);
 
+      // Path for fill
       ctx.beginPath();
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = "#34d399"; // High-fidelity emerald curve
-      ctx.shadowColor = "#34d399";
-      ctx.shadowBlur = 6;
+      ctx.moveTo(0, H);
+      for (let i = 0; i < numCurvePoints; i++) {
+        const mag = magResponse[i];
+        const db = 20 * Math.log10(Math.max(0.0001, mag));
+        const y = gainToY(db, H);
+        const x = (i / (numCurvePoints - 1)) * W;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = hexToRgba(DARK.accentBlue, 0.1);
+      ctx.fill();
+
+      // Path for stroke
+      ctx.beginPath();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = DARK.accentBlue;
 
       for (let i = 0; i < numCurvePoints; i++) {
         const mag = magResponse[i];
@@ -200,7 +448,6 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
         }
       }
       ctx.stroke();
-      ctx.shadowBlur = 0; // Reset shadow glow
 
       // 5. Draw Draggable Control Points
       eqInstance.bands.forEach((band: EQBandSettings, idx: number) => {
@@ -211,22 +458,22 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
 
         // Draw outer selector ring if focused/selected
         if (isSelected) {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = DARK.bevelLight;
+          ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.arc(x, y, 9, 0, 2 * Math.PI);
           ctx.stroke();
         }
 
         // Draw solid band circle
-        ctx.fillStyle = band.bypass ? "rgba(71, 85, 105, 0.8)" : color;
+        ctx.fillStyle = band.bypass ? hexToRgba(DARK.textDim, 0.8) : color;
         ctx.beginPath();
         ctx.arc(x, y, 6, 0, 2 * Math.PI);
         ctx.fill();
 
         // Draw band identifier label text
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 8px sans-serif";
+        ctx.fillStyle = DARK.bg0;
+        ctx.font = `bold 7px ${DARK.font}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(BAND_LABELS[idx], x, y + 0.5);
@@ -354,9 +601,20 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
 
   if (!eqInstance || !activeBand) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-zinc-500 font-mono py-20 gap-3">
-        <RefreshCw className="h-6 w-6 animate-spin text-indigo-500" />
-        <span>Instantiating parametric EQ hardware...</span>
+      <div 
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100%",
+          backgroundColor: DARK.bg2,
+          fontFamily: DARK.font,
+          color: DARK.textDim,
+          textTransform: "uppercase"
+        }}
+      >
+        <span>Instantiating parametric EQ...</span>
       </div>
     );
   }
@@ -364,15 +622,37 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
   const isGainDisabled = ["lowcut", "highcut", "notch", "bandpass"].includes(activeBand.type);
 
   return (
-    <div className="flex flex-col h-full bg-[#0d0e12] select-none p-1 font-mono text-[10px] text-zinc-300">
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        backgroundColor: DARK.bg2,
+        color: DARK.textMid,
+        fontFamily: DARK.font,
+        fontSize: "10px",
+        userSelect: "none",
+        padding: `${SPACE.sm}px`,
+        boxSizing: "border-box",
+      }}
+    >
       
       {/* 1. Curve Grid Display Area */}
-      <div className="relative border border-neutral-850 h-56 bg-zinc-950/80 rounded-none overflow-hidden select-none">
+      <div
+        style={{
+          position: "relative",
+          height: "60%",
+          backgroundColor: DARK.bg0,
+          boxSizing: "border-box",
+          overflow: "hidden",
+          ...sunken(DARK),
+        }}
+      >
         <canvas
           ref={canvasRef}
           width="600"
           height="224"
-          className="w-full h-full cursor-crosshair"
+          style={{ width: "100%", height: "100%", cursor: "crosshair" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -380,70 +660,189 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
         />
         
         {/* Helper instructions overlay */}
-        <div className="absolute top-2 right-2 text-[7.5px] text-zinc-600 bg-black/60 px-2 py-0.5 rounded-none border border-neutral-900 pointer-events-none select-none uppercase tracking-wider">
+        <div
+          style={{
+            position: "absolute",
+            top: "8px",
+            right: "8px",
+            fontFamily: DARK.font,
+            fontSize: "7px",
+            color: DARK.textDim,
+            backgroundColor: hexToRgba(DARK.bg0, 0.75),
+            padding: `${SPACE.xs}px ${SPACE.sm}px`,
+            pointerEvents: "none",
+            userSelect: "none",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            ...flush(DARK)
+          }}
+        >
           Drag Point = Freq / Gain • Wheel = Q Factor
         </div>
       </div>
 
-      {/* 2. Hardware Controls Block */}
-      <div className="flex gap-2.5 mt-2 flex-1 items-stretch min-h-0 select-none">
+      {/* 2. Bottom section — restructured into two columns */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: `${SPACE.sm}px`,
+          marginTop: `${SPACE.sm}px`,
+          height: "calc(40% - 4px)",
+          minHeight: "0",
+        }}
+      >
         
-        {/* A. 7-Band Matrix selector deck */}
-        <div className="w-40 border border-neutral-850 bg-black/35 p-2 flex flex-col gap-1 rounded-none justify-between">
-          <div className="text-[8px] text-zinc-550 border-b border-neutral-850/50 pb-1 mb-1 font-extrabold uppercase tracking-widest text-center">
-            Band Selectors
-          </div>
-          <div className="grid grid-cols-7 gap-1">
-            {bandsState.map((band, idx) => (
-              <button
-                key={idx}
-                onClick={() => setSelectedBandIdx(idx)}
-                className={`h-7 flex flex-col items-center justify-center rounded-none border text-[10px] font-black cursor-pointer transition-all ${
-                  selectedBandIdx === idx
-                    ? "bg-zinc-800 border-zinc-300 text-white shadow-inner"
-                    : band.bypass
-                      ? "bg-neutral-950 border-neutral-900 text-zinc-700"
-                      : "bg-[#16171d]/60 border-neutral-800 hover:border-zinc-700 hover:bg-[#1f202a]"
-                }`}
-                style={{ borderTopColor: selectedBandIdx === idx ? BAND_COLORS[idx] : undefined, borderTopWidth: selectedBandIdx === idx ? 2 : undefined }}
-                title={`Select Band ${idx + 1}`}
-              >
-                <div style={{ color: band.bypass ? "#475569" : BAND_COLORS[idx] }}>{idx + 1}</div>
-              </button>
-            ))}
+        {/* Left column — BAND SELECTORS + ACTIVE */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            width: "180px",
+            backgroundColor: DARK.bg1,
+            padding: `${SPACE.md}px`,
+            boxSizing: "border-box",
+            ...flat(DARK),
+          }}
+        >
+          {/* Band selectors block */}
+          <div style={{ display: "flex", flexDirection: "column", gap: `${SPACE.sm}px` }}>
+            <span
+              style={{
+                fontFamily: DARK.font,
+                fontSize: "7px",
+                color: DARK.textMid,
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+              }}
+            >
+              Band Selectors
+            </span>
+            <div style={{ display: "flex", gap: "2px", flexWrap: "wrap" }}>
+              {bandsState.map((band, idx) => {
+                const isSelected = selectedBandIdx === idx;
+                const accentColor = BAND_COLORS[idx];
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setSelectedBandIdx(idx)}
+                    style={{
+                      width: "22px",
+                      height: "22px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: DARK.font,
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      cursor: "pointer",
+                      borderRadius: 0,
+                      boxSizing: "border-box",
+                      border: "none",
+                      ...(isSelected
+                        ? {
+                            ...sunken(DARK),
+                            backgroundColor: DARK.bg0,
+                            color: accentColor,
+                          }
+                        : {
+                            ...raised(DARK),
+                            backgroundColor: DARK.bg3,
+                            color: DARK.textMid,
+                          }),
+                    }}
+                    title={`Select Band ${idx + 1}`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex gap-1.5 mt-2">
-            <button
-              onClick={() => {
-                updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { bypass: !activeBand.bypass });
-                setBandsState([...eqInstance.bands]);
-              }}
-              className={`flex-1 h-6.5 flex items-center justify-center gap-1 cursor-pointer font-extrabold tracking-wider border rounded-none text-[8.5px] uppercase ${
-                activeBand.bypass
-                  ? "bg-red-500/10 border-red-500/30 text-red-500"
-                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/15"
-              }`}
-            >
-              <Power className="h-3 w-3" />
-              <span>{activeBand.bypass ? "BYPASS" : "ACTIVE"}</span>
-            </button>
-          </div>
+          {/* ACTIVE button */}
+          <button
+            onClick={() => {
+              updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { bypass: !activeBand.bypass });
+              setBandsState([...eqInstance.bands]);
+            }}
+            style={{
+              height: "22px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontFamily: DARK.font,
+              fontSize: "8px",
+              fontWeight: "bold",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              cursor: "pointer",
+              borderRadius: 0,
+              boxSizing: "border-box",
+              border: "none",
+              ...raised(DARK),
+              backgroundColor: DARK.bg3,
+              color: activeBand.bypass ? DARK.textDim : DARK.stateGreen,
+            }}
+          >
+            ACTIVE
+          </button>
         </div>
 
-        {/* B. Parameter Adjustment Dashboard */}
-        <div className="flex-1 border border-neutral-850 bg-black/35 p-2.5 rounded-none flex flex-col gap-2 relative">
-          <div className="text-[8px] text-zinc-550 border-b border-neutral-850/50 pb-1 font-extrabold uppercase tracking-widest flex justify-between">
-            <span>Band {selectedBandIdx + 1} Parameters</span>
-            <span style={{ color: BAND_COLORS[selectedBandIdx] }} className="font-black">
-              {activeBand.type.toUpperCase()}
+        {/* Right column — BAND PARAMETERS */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            gap: `${SPACE.sm}px`,
+            padding: `${SPACE.md}px`,
+            backgroundColor: DARK.bg1,
+            boxSizing: "border-box",
+            ...flat(DARK),
+          }}
+        >
+          {/* Header Row */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              borderBottom: `1px solid ${DARK.bevelDark}`,
+              paddingBottom: `${SPACE.sm}px`,
+              marginBottom: `${SPACE.sm}px`,
+            }}
+          >
+            {/* Section label */}
+            <span
+              style={{
+                fontFamily: DARK.font,
+                fontSize: "7px",
+                color: DARK.textMid,
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+              }}
+            >
+              Band {selectedBandIdx + 1} Parameters
             </span>
-          </div>
 
-          <div className="grid grid-cols-3 gap-2 flex-1 items-center">
-            {/* 1. Band Type Selector */}
-            <div className="flex flex-col gap-1 select-none">
-              <label className="text-[7.5px] text-zinc-550 font-bold uppercase tracking-wider">Filter Type</label>
+            {/* Filter type selector container */}
+            <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+              <span
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "7px",
+                  color: DARK.accentMaster,
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Filter Type
+              </span>
               <select
                 value={activeBand.type}
                 onChange={(e) => {
@@ -451,94 +850,92 @@ export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: Parametri
                   const hasGain = !["lowcut", "highcut", "notch", "bandpass"].includes(type);
                   updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, {
                     type,
-                    gain: hasGain ? activeBand.gain : 0
+                    gain: hasGain ? activeBand.gain : 0,
                   });
                   setBandsState([...eqInstance.bands]);
                 }}
-                className="h-6.5 bg-[#121316] border border-neutral-800 rounded-none text-zinc-300 text-[9px] uppercase px-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                style={{
+                  height: "18px",
+                  backgroundColor: DARK.bg0,
+                  color: DARK.lcdText,
+                  fontFamily: DARK.font,
+                  fontSize: "8px",
+                  textTransform: "uppercase",
+                  padding: `0 ${SPACE.sm}px`,
+                  outline: "none",
+                  border: "none",
+                  borderRadius: 0,
+                  cursor: "pointer",
+                  boxSizing: "border-box",
+                  ...sunken(DARK),
+                }}
               >
-                <option value="lowcut">Low Cut (Highpass)</option>
-                <option value="lowshelf">Low Shelf</option>
-                <option value="peaking">Peak (Bell)</option>
-                <option value="highshelf">High Shelf</option>
-                <option value="highcut">High Cut (Lowpass)</option>
-                <option value="notch">Notch</option>
-                <option value="bandpass">Band Pass</option>
+                <option value="lowcut">LOW CUT (HIGHPASS)</option>
+                <option value="lowshelf">LOW SHELF</option>
+                <option value="peaking">PEAK (BELL)</option>
+                <option value="highshelf">HIGH SHELF</option>
+                <option value="highcut">HIGH CUT (LOWPASS)</option>
+                <option value="notch">NOTCH</option>
+                <option value="bandpass">BAND PASS</option>
               </select>
             </div>
+          </div>
 
-            {/* 2. Frequency Control */}
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between items-baseline text-[7.5px] text-zinc-550 font-bold uppercase tracking-wider">
-                <span>Frequency</span>
-                <span className="text-zinc-400 font-mono">
-                  {activeBand.frequency >= 1000
-                    ? `${(activeBand.frequency / 1000).toFixed(2)} kHz`
-                    : `${activeBand.frequency} Hz`}
-                </span>
-              </div>
-              <input
-                type="range"
-                min="20"
-                max="20000"
-                value={activeBand.frequency}
-                onChange={(e) => {
-                  updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { frequency: Number(e.target.value) });
-                  setBandsState([...eqInstance.bands]);
-                }}
-                className="w-full accent-emerald-400 bg-neutral-900 border border-neutral-850 h-1.5 rounded-none cursor-ew-resize"
-              />
-            </div>
+          {/* Knobs side-by-side */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "space-around",
+              alignItems: "center",
+              flex: 1,
+            }}
+          >
+            <EQKnob
+              label="FREQUENCY"
+              value={activeBand.frequency}
+              min={20}
+              max={20000}
+              defaultValue={DEFAULT_BAND_PARAMS[selectedBandIdx].frequency}
+              dotColor={DARK.accentBlue}
+              formatValue={(val) => `${Math.round(val)} HZ`}
+              onChange={(val) => {
+                updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { frequency: val });
+                setBandsState([...eqInstance.bands]);
+              }}
+            />
 
-            {/* 3. Gain and Q factors */}
-            <div className="flex gap-2">
-              {/* Gain */}
-              <div className="flex-1 flex flex-col gap-1">
-                <div className="flex justify-between items-baseline text-[7.5px] text-zinc-550 font-bold uppercase tracking-wider">
-                  <span>Gain</span>
-                  <span className={`font-mono ${isGainDisabled ? "text-zinc-650" : "text-zinc-400"}`}>
-                    {isGainDisabled ? "0.0dB" : `${activeBand.gain > 0 ? "+" : ""}${activeBand.gain.toFixed(1)}dB`}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="-18"
-                  max="18"
-                  step="0.1"
-                  disabled={isGainDisabled}
-                  value={activeBand.gain}
-                  onChange={(e) => {
-                    updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { gain: Number(e.target.value) });
-                    setBandsState([...eqInstance.bands]);
-                  }}
-                  className={`w-full h-1.5 rounded-none cursor-ew-resize ${
-                    isGainDisabled
-                      ? "accent-zinc-700 bg-neutral-950/20 opacity-30 cursor-not-allowed"
-                      : "accent-indigo-400 bg-neutral-900 border border-neutral-850"
-                  }`}
-                />
-              </div>
+            <EQKnob
+              label="GAIN"
+              value={activeBand.gain}
+              min={-18}
+              max={18}
+              defaultValue={DEFAULT_BAND_PARAMS[selectedBandIdx].gain}
+              disabled={isGainDisabled}
+              dotColor={DARK.accentMaster}
+              formatValue={(val) => {
+                if (isGainDisabled) return "0.0 DB";
+                return `${val > 0 ? "+" : ""}${val.toFixed(1)} DB`;
+              }}
+              onChange={(val) => {
+                updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { gain: val });
+                setBandsState([...eqInstance.bands]);
+              }}
+            />
 
-              {/* Q Factor */}
-              <div className="flex-1 flex flex-col gap-1">
-                <div className="flex justify-between items-baseline text-[7.5px] text-zinc-550 font-bold uppercase tracking-wider">
-                  <span>Band Q</span>
-                  <span className="text-zinc-400 font-mono">{activeBand.q.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="15.0"
-                  step="0.05"
-                  value={activeBand.q}
-                  onChange={(e) => {
-                    updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { q: Number(e.target.value) });
-                    setBandsState([...eqInstance.bands]);
-                  }}
-                  className="w-full accent-cyan-400 bg-neutral-900 border border-[#1d1f25] h-1.5 rounded-none cursor-ew-resize"
-                />
-              </div>
-            </div>
+            <EQKnob
+              label="BAND Q"
+              value={activeBand.q}
+              min={0.1}
+              max={15.0}
+              defaultValue={DEFAULT_BAND_PARAMS[selectedBandIdx].q}
+              dotColor={DARK.accentGreen}
+              formatValue={(val) => val.toFixed(2)}
+              onChange={(val) => {
+                updateInsertEQBand(insertIndex, slotIndex, selectedBandIdx, { q: val });
+                setBandsState([...eqInstance.bands]);
+              }}
+            />
           </div>
         </div>
 
