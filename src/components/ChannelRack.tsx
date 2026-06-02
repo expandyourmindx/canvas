@@ -28,7 +28,7 @@ import {
 } from "../../public/Themes/Vintage Console/tokens";
 
 const DEFAULT_CHANNELS: ChannelRow[] = [
-  { id: "sampler_default", name: "Sampler", type: "sample", sampleId: "sampler_default_sample", mixerTarget: 1, instrumentType: "sampler" }
+  { id: "sampler_default", name: "Sampler", type: "sample", sampleId: "sampler_default_sample", mixerTarget: 0, instrumentType: "sampler" }
 ];
 
 interface KnobProps {
@@ -353,7 +353,7 @@ export function ChannelRack({
       type: instrumentType === "sampler" ? "sample" : "pitch",
       sampleId: instrumentType === "sampler" ? `sample_${newChanId}` : undefined,
       pitch: instrumentType === "obsidian" ? 60 : undefined,
-      mixerTarget: Math.min(99, nextIndex),
+      mixerTarget: 0,
       instrumentType: instrumentType
     };
 
@@ -362,13 +362,13 @@ export function ChannelRack({
 
     // Initializer maps matching this new unique key
     setChannelVols(prev => ({ ...prev, [newChanId]: 80 }));
-    setChannelMixers(prev => ({ ...prev, [newChanId]: Math.min(99, nextIndex) }));
+    setChannelMixers(prev => ({ ...prev, [newChanId]: 0 }));
 
     // Update the audio engine registry on new channel creation
     if (engine) {
       engine.updateChannelVolume(newChanId, 80);
       engine.updateChannelPan(newChanId, 0);
-      engine.updateChannelMixerTarget(newChanId, Math.min(99, nextIndex));
+      engine.updateChannelMixerTarget(newChanId, 0);
       if (engine.updateChannelInstrumentType) {
         engine.updateChannelInstrumentType(newChanId, instrumentType);
       }
@@ -1031,14 +1031,14 @@ export function ChannelRack({
                     const dir = e.deltaY > 0 ? -1 : 1;
                     setChannelMixers(prev => ({
                       ...prev,
-                      [channel.id]: Math.max(1, Math.min(99, (prev[channel.id] ?? channel.mixerTarget) + dir))
+                      [channel.id]: Math.max(0, Math.min(99, (prev[channel.id] ?? channel.mixerTarget) + dir))
                     }));
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setChannelMixers(prev => ({
                       ...prev,
-                      [channel.id]: Math.max(1, Math.min(99, (prev[channel.id] ?? channel.mixerTarget) + 1))
+                      [channel.id]: Math.max(0, Math.min(99, (prev[channel.id] ?? channel.mixerTarget) + 1))
                     }));
                   }}
                   style={{
