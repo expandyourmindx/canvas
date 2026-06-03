@@ -79,6 +79,7 @@ export function ArrangerClip({
   // Clip frame width always = clip.duration (set by drag handles). Never changes due to stretch.
   const settings = clip.type === "sample" ? engine.getChannelSamplerSettings(clip.referenceId) : undefined;
   const widthPx = clip.duration * beatWidth;
+  const handleWidth = Math.min(6, Math.max(3, widthPx * 0.08));
   
   const topPx = clip.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
   const heightPx = CLIP_HEIGHT_PX;
@@ -373,7 +374,7 @@ export function ArrangerClip({
           left: 0,
           top: 0,
           bottom: 0,
-          width: "6px",
+          width: `${handleWidth}px`,
           cursor: "ew-resize",
           zIndex: 20,
         }}
@@ -390,7 +391,7 @@ export function ArrangerClip({
           right: 0,
           top: 0,
           bottom: 0,
-          width: "6px",
+          width: `${handleWidth}px`,
           cursor: "ew-resize",
           zIndex: 20,
         }}
