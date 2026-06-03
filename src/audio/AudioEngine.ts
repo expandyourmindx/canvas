@@ -441,10 +441,23 @@ export class AudioEngine {
    */
   public updateChannelVolume(channelId: string, vol: number) {
     this.channelVols[channelId] = vol;
+    const nodes = this.channelNodes.get(channelId);
+    if (nodes) {
+      const gainVal = vol / 100;
+      const now = this.audioContext.currentTime;
+      nodes.gain.gain.cancelScheduledValues(now);
+      nodes.gain.gain.linearRampToValueAtTime(gainVal, now + 0.01);
+    }
   }
 
   public updateChannelPan(channelId: string, pan: number) {
     this.channelPans[channelId] = pan;
+    const nodes = this.channelNodes.get(channelId);
+    if (nodes?.panner) {
+      const now = this.audioContext.currentTime;
+      nodes.panner.pan.cancelScheduledValues(now);
+      nodes.panner.pan.linearRampToValueAtTime(pan / 50, now + 0.01);
+    }
   }
 
   public updateChannelSamplerSettings(channelId: string, settings: SamplerSettings) {

@@ -1141,7 +1141,10 @@ export function ChannelRack({
                     min={-50}
                     max={50}
                     color="cyan"
-                    onChange={(val) => setChannelPans(prev => ({ ...prev, [channel.id]: val }))}
+                    onChange={(val) => {
+                      setChannelPans(prev => ({ ...prev, [channel.id]: val }));
+                      engine.updateChannelPan(channel.id, val);
+                    }}
                     title="Pan"
                     defaultValue={0}
                   />
@@ -1151,7 +1154,10 @@ export function ChannelRack({
                     min={0}
                     max={100}
                     color="amber"
-                    onChange={(val) => setChannelVols(prev => ({ ...prev, [channel.id]: val }))}
+                    onChange={(val) => {
+                      setChannelVols(prev => ({ ...prev, [channel.id]: val }));
+                      engine.updateChannelVolume(channel.id, val);
+                    }}
                     title="Volume"
                     defaultValue={80}
                   />
