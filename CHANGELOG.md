@@ -6,6 +6,43 @@ The Canvas DAW is a free, open-source Digital Audio Workstation (DAW) built with
 
 The Canvas DAW is developed and maintained by an independent developer for the community of people that want this specific workflow in a web based daw. This project is not sponsored or endorsed by any company or organization. Any similarities to any other DAWs are purely coincidental. 
 
+## [0.20.0] - June 3, 2026
+
+### Audio Engine
+- **Export Engine**: Export engine now renders time-stretched samples correctly — `RESAMPLE` mode sets proper `playbackRate`, `STRETCH` mode waits for worker completion before rendering.
+- **BPM Cache Invalidation**: Stretch buffer cache invalidates on BPM change and re-queues at new tempo, with playhead position preserved mid-change.
+- **Sample Browser Preview**: Sample browser preview moved into `AudioEngine` facade — routes through master gain, stops unconditionally on transport stop including repeated stop presses.
+- **Channel Controls**: Channel rack volume and pan knobs wired to live Web Audio nodes.
+
+### Mixer
+- **16-Channel Mixer**: Full 16-channel mixer signal chain implemented.
+- **Accent Colors**: Custom channel strip accent colors with context menu picker.
+- **Mute & Solo**: Mute and solo visual states.
+- **Fader & Pan Knobs**: Fader and pan knob refinements.
+
+### Effects
+- **7-band Parametric EQ**: 7-band Parametric EQ with spectrum analyzer — sharp canvas rendering at any DPI via `ResizeObserver`.
+- **Convolution Reverb**: Convolution Reverb with corrected decay time constant.
+
+### Arrangement
+- **Clip Frame & Waveform**: Clip frame driven by `clip.duration` as single source of truth — waveform scale independent of frame width.
+- **Resize Handles**: Clip resize handles scale with zoom level.
+- **Resample Clips**: `RESAMPLE` clips visually resize using `effectiveBeats` correctly.
+
+### Code Quality
+- **Typed Voices**: `SamplerVoice` interface replaces `any[]` voice map throughout `SamplerEngine`.
+- **O(1) Sample Cache**: `SampleRegistry` LRU cache migrated to Map-based O(1) operations.
+- **Lifecycle Cleanup**: RAF lifecycle cleanup fixed — `rafIdRef` nulled and `rafPendingRef` reset on unmount.
+
+### UI — Vintage Console Dark Theme Pass
+- **Theme Pass**: Full theme applied across: `TopToolbar`, `ChannelRack`, `Mixer`, `Canvas`, `ArrangerClip`, `ArrangerRuler`, `ArrangerSourcePicker`, `DraggableWindow`, `SampleBrowser`, `PianoRoll`, `ExportWindow`, `Sampler`, `ParametricEQPanel`, `ReverbPanel`.
+
+### Project
+- **New Project**: New Project — clears session with unsaved changes prompt.
+- **Saves & Guards**: Save, Load, Auto-save, dirty flag, `beforeunload` guard.
+
+---
+
 ## [0.18.0] - May 25, 2026
 
 ### Added
