@@ -1056,6 +1056,10 @@ export class AudioEngine {
     return this.samplerEngine.isClipLoading(clipId);
   }
 
+  public awaitStretchJob(clipId: string): Promise<void> {
+    return this.samplerEngine.awaitStretchJob(clipId);
+  }
+
   public getAllSamplerSettings(): Record<string, SamplerSettings> {
     return this.samplerEngine.getAllSamplerSettings();
   }

@@ -41,6 +41,7 @@ export class SamplerEngine {
   private processingClipIds: Set<string> = new Set();
   private clipLoadingStates: Record<string, boolean> = {};
   private loadingStateTimeouts: Record<string, any> = {};
+  private stretchResolvers: Map<string, Array<() => void>> = new Map();
 
   constructor(
     audioContext: AudioContext,
@@ -72,6 +73,11 @@ export class SamplerEngine {
 
         if (error) {
           console.error("SoundStretch Web Worker error:", error);
+          const resolvers = this.stretchResolvers.get(clipId);
+          if (resolvers) {
+            resolvers.forEach(r => r());
+            this.stretchResolvers.delete(clipId);
+          }
           if (this.delegate.notifySampleLoaded) {
             this.delegate.notifySampleLoaded();
           }
@@ -103,6 +109,12 @@ export class SamplerEngine {
         const stretchedId = `${clipId}_stretched`;
         this.sampleRegistry.setSampleBuffer(stretchedId, buffer);
 
+        const resolvers = this.stretchResolvers.get(clipId);
+        if (resolvers) {
+          resolvers.forEach(r => r());
+          this.stretchResolvers.delete(clipId);
+        }
+
         console.log(`Stretched buffer registered for clip ${clipId}: duration=${buffer.duration.toFixed(2)}s`);
 
         // Update clip duration in React state to match actual stretched buffer length
@@ -123,6 +135,21 @@ export class SamplerEngine {
 
   public isClipLoading(clipId: string): boolean {
     return !!this.clipLoadingStates[clipId];
+  }
+
+  public awaitStretchJob(clipId: string): Promise<void> {
+    if (this.sampleRegistry.getSampleBuffer(`${clipId}_stretched`)) {
+      return Promise.resolve();
+    }
+    if (!this.processingClipIds.has(clipId)) {
+      return Promise.resolve();
+    }
+    return new Promise<void>(resolve => {
+      if (!this.stretchResolvers.has(clipId)) {
+        this.stretchResolvers.set(clipId, []);
+      }
+      this.stretchResolvers.get(clipId)!.push(resolve);
+    });
   }
 
   public ensureClipStretched(clip: CanvasClip, forceRecompute: boolean = false) {

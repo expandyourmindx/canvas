@@ -13,6 +13,7 @@ export interface ExportableEngine {
   getChannelSamplerSettings?(channelId: string): any;
   getMixerInserts?(): any[];
   getChannelMixerTarget?(channelId: string): number;
+  awaitStretchJob?(clipId: string): Promise<void>;
   obsidian: {
     obsidianSettings: Record<string, any>;
   };
@@ -209,19 +210,19 @@ export class ExportEngine {
 
         if (clip.type === "sample") {
           let sampleId = clip.referenceId;
-          if (engine.resolveChannelId && engine.getChannelSamplerSettings) {
-            const channelId = engine.resolveChannelId(clip.referenceId);
-            const settings = channelId ? engine.getChannelSamplerSettings(channelId) : null;
-            const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
+          const clipChannelId = engine.resolveChannelId ? engine.resolveChannelId(clip.referenceId) : undefined;
+          const clipSettings = (clipChannelId && engine.getChannelSamplerSettings)
+            ? engine.getChannelSamplerSettings(clipChannelId)
+            : null;
+          const stretchMode = clipSettings?.stretchMode?.toUpperCase();
 
-            if (isStretchActive) {
-              const stretchedId = `${clip.id}_stretched`;
-              if (engine.getSampleBuffer(stretchedId)) {
-                sampleId = stretchedId;
-                console.log(`[ExportEngine] Using cached stretched buffer for clip ${clip.id}: ${stretchedId}`);
-              } else {
-                console.warn(`[ExportEngine] Stretched buffer not found for clip ${clip.id}, falling back to original: ${clip.referenceId}`);
-              }
+          if (stretchMode === "STRETCH") {
+            const stretchedId = `${clip.id}_stretched`;
+            if (engine.getSampleBuffer(stretchedId)) {
+              sampleId = stretchedId;
+              console.log(`[ExportEngine] Using cached stretched buffer for clip ${clip.id}: ${stretchedId}`);
+            } else {
+              console.warn(`[ExportEngine] Stretched buffer not found for clip ${clip.id}, falling back to original: ${clip.referenceId}`);
             }
           }
 
@@ -229,15 +230,26 @@ export class ExportEngine {
           if (buffer) {
             const source = offlineCtx.createBufferSource();
             source.buffer = buffer;
-            
-            const gainNode = offlineCtx.createGain();
-            // Default track volume sync
-            gainNode.gain.value = 0.8;
 
+            // Mirror SamplerEngine.triggerCanvasSample: apply playbackRate for RESAMPLE mode
+            if (stretchMode === "RESAMPLE" && clipSettings) {
+              const stretchPitchSemitones = (clipSettings.stretchPitch || 0) / 100;
+              const canvasPitchRate = Math.pow(2, stretchPitchSemitones / 12);
+              const timeInBeats = clipSettings.stretchTime || 0;
+              const multiplier = clipSettings.stretchMul || 1.0;
+              let baseTempoRatio = 1.0;
+              if (timeInBeats > 0) {
+                const targetDurationSecs = (timeInBeats / bpm) * 60;
+                baseTempoRatio = buffer.duration / targetDurationSecs;
+              }
+              source.playbackRate.value = canvasPitchRate * (baseTempoRatio * multiplier);
+            }
+
+            const gainNode = offlineCtx.createGain();
+            gainNode.gain.value = 0.8;
             source.connect(gainNode);
-            const channelId = engine.resolveChannelId ? engine.resolveChannelId(clip.referenceId) : undefined;
-            const targetMixerIndex = (channelId && engine.getChannelMixerTarget)
-              ? engine.getChannelMixerTarget(channelId)
+            const targetMixerIndex = (clipChannelId && engine.getChannelMixerTarget)
+              ? engine.getChannelMixerTarget(clipChannelId)
               : 1;
             gainNode.connect(offlineInserts[targetMixerIndex].inputNode);
 
@@ -351,6 +363,19 @@ export class ExportEngine {
           }
         }
       }
+    }
+
+    if (engine.awaitStretchJob) {
+      const stretchWaits: Promise<void>[] = [];
+      for (const clip of canvasClips) {
+        if (clip.type !== "sample") continue;
+        const ch = engine.resolveChannelId?.(clip.referenceId);
+        const cs = ch ? engine.getChannelSamplerSettings?.(ch) : null;
+        if (cs?.stretchMode?.toUpperCase() === "STRETCH") {
+          stretchWaits.push(engine.awaitStretchJob(clip.id));
+        }
+      }
+      if (stretchWaits.length > 0) await Promise.all(stretchWaits);
     }
 
     const renderedBuffer = await offlineCtx.startRendering();
