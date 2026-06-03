@@ -108,18 +108,12 @@ export function SampleBrowser({
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { playbackState } = useAudioEngine();
+  useAudioEngine();
 
   // ── Preview Source Tracking ──
   const previewSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const localPreviewCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
 
-  // Stop active preview when transport plays or stops
-  useEffect(() => {
-    if (playbackState === "playing" || playbackState === "stopped") {
-      stopActivePreview();
-    }
-  }, [playbackState]);
 
   // Load sample index and subscribe to library changes
   useEffect(() => {
@@ -161,37 +155,11 @@ export function SampleBrowser({
   }, []);
 
   const stopActivePreview = () => {
-    if (previewSourceRef.current) {
-      try {
-        previewSourceRef.current.stop();
-      } catch (e) {}
-      previewSourceRef.current = null;
-    }
+    engine.stopSampleBrowserPreview();
   };
 
   const playBufferDirect = (buffer: AudioBuffer) => {
-    stopActivePreview();
-
-    const ctx = engine.audioContext as AudioContext;
-    if (ctx.state === "suspended") {
-      ctx.resume();
-    }
-
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-
-    // Route to master gain node so DAW volume applies, or fallback to destination
-    const destinationNode = (engine as any).masterGainNode || ctx.destination;
-    source.connect(destinationNode);
-
-    source.start(0);
-    previewSourceRef.current = source;
-
-    source.onended = () => {
-      if (previewSourceRef.current === source) {
-        previewSourceRef.current = null;
-      }
-    };
+    engine.playSampleBrowserPreview(buffer);
   };
 
   // On-demand load and decode of a single built-in sample for preview (does not register in engine timeline state)

@@ -73,6 +73,7 @@ export class AudioEngine {
   public mixerManager: MixerManager;
   public onSampleLoadedCallback: (() => void) | null = null;
   public onClipDurationChangedCallback: ((clipId: string, durationBeats: number) => void) | null = null;
+  private sampleBrowserPreviewSource: AudioBufferSourceNode | null = null;
 
   constructor(options: AudioEngineOptions = {}) {
     const bpm = options.bpm ?? 120;
@@ -188,11 +189,35 @@ export class AudioEngine {
     this.scheduler.stop();
     this.obsidian.stopAll();
     this.samplerEngine.stopAll();
-    this.samplerEngine.stopPreview(); // stop any in-flight preview
+    this.samplerEngine.stopPreview(); // stop any in-flight channel preview
+    this.stopSampleBrowserPreview();  // stop any in-flight browser preview
   }
 
   public stopPreview(): void {
     this.samplerEngine.stopPreview();
+  }
+
+  public playSampleBrowserPreview(buffer: AudioBuffer): void {
+    this.stopSampleBrowserPreview();
+    if (this.audioContext.state === "suspended") this.audioContext.resume();
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.masterGainNode);
+    source.start(0);
+    this.sampleBrowserPreviewSource = source;
+    source.onended = () => {
+      if (this.sampleBrowserPreviewSource === source) {
+        this.sampleBrowserPreviewSource = null;
+      }
+    };
+  }
+
+  public stopSampleBrowserPreview(): void {
+    if (this.sampleBrowserPreviewSource) {
+      try { this.sampleBrowserPreviewSource.stop(); } catch (_) {}
+      try { this.sampleBrowserPreviewSource.disconnect(); } catch (_) {}
+      this.sampleBrowserPreviewSource = null;
+    }
   }
 
   public setPlayheadPosition(beats: number) {
