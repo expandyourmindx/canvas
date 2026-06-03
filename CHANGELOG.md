@@ -9,67 +9,65 @@ The Canvas DAW is developed and maintained by an independent developer for the c
 ## [0.20.0] - June 3, 2026
 
 ### Audio Engine
-- **Export Engine**: Export engine now renders time-stretched samples correctly — `RESAMPLE` mode sets proper `playbackRate`, `STRETCH` mode waits for worker completion before rendering.
-- **BPM Cache Invalidation**: Stretch buffer cache invalidates on BPM change and re-queues at new tempo, with playhead position preserved mid-change.
-- **Sample Browser Preview**: Sample browser preview moved into `AudioEngine` facade — routes through master gain, stops unconditionally on transport stop including repeated stop presses.
-- **Channel Controls**: Channel rack volume and pan knobs wired to live Web Audio nodes.
+- **Audio Export Improvements**: Exporting songs now renders time-stretched audio clips correctly. If a clip is stretched, the exporter will wait for the audio to finish processing before saving.
+- **BPM Changes**: Changing the tempo (BPM) mid-song will immediately update all stretched audio clips to match the new speed, without losing your current playback position.
+- **Sample Browser Previews**: Previews inside the sample browser now route through the master volume. Previews also stop immediately when you press the main stop button.
+- **Channel Controls**: Channel rack volume and panning knobs are now fully connected and adjust the audio in real-time.
 
 ### Mixer
-- **16-Channel Mixer**: Full 16-channel mixer signal chain implemented.
-- **Accent Colors**: Custom channel strip accent colors with context menu picker.
-- **Mute & Solo**: Mute and solo visual states.
-- **Fader & Pan Knobs**: Fader and pan knob refinements.
+- **16-Channel Mixer**: A complete 16-channel mixer is now fully functional.
+- **Mixer Track Colors**: You can customize track strip accent colors via a right-click color picker menu.
+- **Mute & Solo**: Added visual indicators for muted and soloed tracks.
+- **Fader & Pan Knobs**: Improved the behavior and look of volume sliders and panning knobs.
 
 ### Effects
-- **7-band Parametric EQ**: 7-band Parametric EQ with spectrum analyzer — sharp canvas rendering at any DPI via `ResizeObserver`.
-- **Convolution Reverb**: Convolution Reverb with corrected decay time constant.
+- **7-Band EQ**: Added an equalizer to sculpt your sound with a built-in frequency analyzer. The EQ display remains perfectly sharp and clean when you resize the window.
+- **Convolution Reverb**: Added a reverb effect for realistic space and echo sounds, with realistic decay timing.
 
 ### Arrangement
-- **Clip Frame & Waveform**: Clip frame driven by `clip.duration` as single source of truth — waveform scale independent of frame width.
-- **Resize Handles**: Clip resize handles scale with zoom level.
-- **Resample Clips**: `RESAMPLE` clips visually resize using `effectiveBeats` correctly.
+- **Clip & Waveform Editing**: Rebuilt the clip resizing system so clip waveforms stretch and scale cleanly when resized.
+- **Resize Handles**: Resize handles at the edges of clips now scale automatically with your zoom level, making them easier to grab.
 
-### Code Quality
-- **Typed Voices**: `SamplerVoice` interface replaces `any[]` voice map throughout `SamplerEngine`.
-- **O(1) Sample Cache**: `SampleRegistry` LRU cache migrated to Map-based O(1) operations.
-- **Lifecycle Cleanup**: RAF lifecycle cleanup fixed — `rafIdRef` nulled and `rafPendingRef` reset on unmount.
+### Under the Hood
+- **CPU & Memory Optimizations**: Rewrote how audio voices and sample clips are cached in memory to speed up load times and prevent slowdowns.
+- **Stability Fixes**: Fixed background timer loops to prevent memory leaks and browser lag.
 
 ### UI — Vintage Console Dark Theme Pass
-- **Theme Pass**: Full theme applied across: `TopToolbar`, `ChannelRack`, `Mixer`, `Canvas`, `ArrangerClip`, `ArrangerRuler`, `ArrangerSourcePicker`, `DraggableWindow`, `SampleBrowser`, `PianoRoll`, `ExportWindow`, `Sampler`, `ParametricEQPanel`, `ReverbPanel`.
+- **Vintage Console Dark Theme**: Applied a beautiful dark hardware theme across the entire application, including the toolbar, channel rack, mixer, arranger timeline, sample browser, piano roll, export window, and all effects panels.
 
 ### Project
-- **New Project**: New Project — clears session with unsaved changes prompt.
-- **Saves & Guards**: Save, Load, Auto-save, dirty flag, `beforeunload` guard.
+- **New Project Option**: Start a fresh project from the File menu, with a warning if you have unsaved changes.
+- **Project Protection**: Full support for saving and loading projects, automatic backups, and warning prompts to prevent accidentally closing the tab and losing work.
 
 ---
 
 ## [0.19.0] - May 27, 2026
 
 ### Project & State Management
-- **Native Save/Load**: Added native system file save picker (`showSaveFilePicker`) for `.cnv` project files with traditional download fallback.
-- **Auto-Save & Recovery**: Automatic background saving to `localStorage` with a recovery banner in the toolbar.
-- **Auto Sample Resolution**: Automatically scans and restores missing project samples from authorized library folders on load.
-- **Dirty State Guard**: Track project dirty status and alert users before unloading the page.
+- **Native Project Saving**: Added a standard system file picker to save `.cnv` project files directly to your computer, with traditional download fallback.
+- **Auto-Save**: The DAW now automatically backs up your project in the background so you can recover your work from the File menu if the browser crashes.
+- **Automatic Sample Finder**: When loading a project, the DAW automatically searches your authorized folders to find and load missing audio samples.
+- **Unsaved Work Warning**: Warns you if you try to close or refresh the page with unsaved changes.
 
 ### Audio Engine & Transport
-- **Spectrogram & Oscilloscope**: Integrated a real-time logarithmic spectrogram and waveform oscilloscope into the TopToolbar (click-to-toggle).
-- **Transport Safeguards**: Solved loop-end click stutters by scheduling cutoff at precise hardware times and implemented a 30ms fade-out on loop wrap.
-- **Channel Rack State History**: Integrated the channel rack controls into the undo/redo history state serialization.
-- **Eviction Cache**: Added LRU cache eviction to the `SampleRegistry` to release memory and prevent leaks during long sessions.
+- **Visualizer Display**: Added a real-time frequency visualizer and oscilloscope in the top toolbar to see your audio's waveform and frequencies (click the visualizer to toggle views).
+- **Smoother Looping**: Fixed clicking noises and audio stutters when the song loops back to the beginning.
+- **Undo for Channel Rack**: Moving knobs or sliders in the channel rack is now saved in your undo/redo history (Ctrl+Z / Ctrl+Y).
+- **Memory Optimization**: Automatically clears unused audio files from memory behind the scenes to keep the DAW running fast.
 
 ### Arrangement & Piano Roll
-- **Infinite Timelines**: Implemented infinite dynamic viewport bounds and virtualized ruler lines for both timeline and piano roll.
-- **Alternating Shading**: Added alternating background shading for every group of 4 bars on grids.
-- **Lasso & Selection Polish**: Standardized additive selection (`Ctrl+Shift+Click`), lasso groups, terracotta highlighting, and group resizing.
-- **Pencil Brush Memory**: Pencil tool now remembers the duration of the last clicked or resized note/clip to replicate on subsequent draws.
-- **Drag-and-Drop Placement**: Supports drag-to-place timeline clips with ghost placement preview and auto-selection.
+- **Infinite Scrolling**: Timelines in both the Arranger and Piano Roll now scroll infinitely and dynamically as you drag clips or notes.
+- **Grid Background Shading**: Added alternating background shading every 4 bars to make reading the timeline grid much easier.
+- **Improved Selecting & Lassoing**: Highlight multiple clips by holding Shift, drag selection boxes, and resize groups of notes/clips together easily.
+- **Smart Pencil Tool**: The pencil tool now automatically remembers the length of the last note or clip you clicked or resized, so you can draw identical ones without adjusting.
+- **Drag-to-Place Preview**: Shows a ghost preview of where a clip will land on the timeline before you drop it.
 
 ### Sample Browser
-- **Miniature Waveforms**: Displays miniature canvas waveforms next to sample library file nodes.
-- **Interruption Auditions**: Moving to a new preview or starting host transport instantly halts current browser sample play.
+- **Mini Waveforms**: Shows small visual waveforms next to audio files in the Sample Browser.
+- **Smart Preview Cutoff**: Previews automatically stop playing when you select a different sample or start playing the song.
 
 ### Effects
-- **7-Band Parametric EQ**: Added a fully featured 7-band parametric EQ with interactive SVG control curve, real-time analyzer background, and mixer integration.
+- **Visual Equalizer**: Added a 7-band visual EQ panel where you can drag EQ points over an active frequency analyzer.
 
 ---
 
