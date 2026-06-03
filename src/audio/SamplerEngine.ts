@@ -9,6 +9,16 @@ import { CanvasClip, SamplerSettings } from "../types";
 // @ts-expect-error Vite worker import query suffix is not declared in TS
 import StretchWorker from "../workers/soundstretch.worker.ts?worker";
 
+export interface SamplerVoice {
+  channelId: string;
+  midiNote: number;
+  noteId: string;
+  source: AudioBufferSourceNode;
+  gainNode: GainNode;
+  settings: Partial<SamplerSettings>;
+  startTime: number;
+}
+
 export interface SamplerEngineDelegate {
   getChannelNodes: (channelId: string) => { gain: GainNode; panner: StereoPannerNode | null };
   getMixerInsertGainNode: (index: number) => GainNode;
@@ -29,7 +39,7 @@ export class SamplerEngine {
   private delegate: SamplerEngineDelegate;
 
   // Sampler state and voice tracking
-  private activeSamplerVoices: Map<string, any[]> = new Map();
+  private activeSamplerVoices: Map<string, SamplerVoice[]> = new Map();
   private samplerSettings: Record<string, SamplerSettings> = {};
   private channelSampleIds: Record<string, string> = {};
   private originalChannelSampleIds: Record<string, string> = {};
@@ -892,7 +902,7 @@ export class SamplerEngine {
   public stopAll(fadeOutSeconds: number = 0.05, stopTime?: number): void {
     const now = stopTime !== undefined ? stopTime : this.audioContext.currentTime;
     this.activeSamplerVoices.forEach((voices) => {
-      voices.forEach((voice: any) => {
+      voices.forEach((voice) => {
         try {
           voice.gainNode.gain.cancelScheduledValues(now);
           voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
