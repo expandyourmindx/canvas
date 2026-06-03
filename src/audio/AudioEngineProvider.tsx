@@ -351,7 +351,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       unsubscribeTick();
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
       }
+      rafPendingRef.current = false;
     };
   }, [engine]);
 
