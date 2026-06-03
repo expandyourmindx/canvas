@@ -188,6 +188,11 @@ export class AudioEngine {
     this.scheduler.stop();
     this.obsidian.stopAll();
     this.samplerEngine.stopAll();
+    this.samplerEngine.stopPreview(); // stop any in-flight preview
+  }
+
+  public stopPreview(): void {
+    this.samplerEngine.stopPreview();
   }
 
   public setPlayheadPosition(beats: number) {

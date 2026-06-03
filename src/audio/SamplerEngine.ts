@@ -35,6 +35,7 @@ export class SamplerEngine {
   private originalChannelSampleIds: Record<string, string> = {};
   private stretchWorker: Worker | null = null;
   private stretchDebounceTimers: Record<string, any> = {};
+  private previewSource: AudioBufferSourceNode | null = null;
 
   // Pre-processing and loading visual states for arranger sample clips
   private processingClipIds: Set<string> = new Set();
@@ -489,8 +490,16 @@ export class SamplerEngine {
     const now = this.audioContext.currentTime;
     const nodes = this.delegate.getChannelNodes(channelId);
 
+    // Stop any currently playing preview before starting a new one
+    if (this.previewSource) {
+      try { this.previewSource.stop(); } catch (_) {}
+      try { this.previewSource.disconnect(); } catch (_) {}
+      this.previewSource = null;
+    }
+
     // Create custom trigger buffer source
     const source = this.audioContext.createBufferSource();
+    this.previewSource = source;
     source.buffer = buffer;
 
     // Route: source -> channel Gain (enveloped) -> channel Panner
@@ -842,6 +851,14 @@ export class SamplerEngine {
       if (durationSecondsRemaining < buffer.duration - offset) {
         source.stop(playStartTime + durationSecondsRemaining);
       }
+    }
+  }
+
+  public stopPreview(): void {
+    if (this.previewSource) {
+      try { this.previewSource.stop(); } catch (_) {}
+      try { this.previewSource.disconnect(); } catch (_) {}
+      this.previewSource = null;
     }
   }
 
