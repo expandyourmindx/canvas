@@ -43,6 +43,36 @@ The Canvas DAW is developed and maintained by an independent developer for the c
 
 ---
 
+## [0.19.0] - May 27, 2026
+
+### Project & State Management
+- **Native Save/Load**: Added native system file save picker (`showSaveFilePicker`) for `.cnv` project files with traditional download fallback.
+- **Auto-Save & Recovery**: Automatic background saving to `localStorage` with a recovery banner in the toolbar.
+- **Auto Sample Resolution**: Automatically scans and restores missing project samples from authorized library folders on load.
+- **Dirty State Guard**: Track project dirty status and alert users before unloading the page.
+
+### Audio Engine & Transport
+- **Spectrogram & Oscilloscope**: Integrated a real-time logarithmic spectrogram and waveform oscilloscope into the TopToolbar (click-to-toggle).
+- **Transport Safeguards**: Solved loop-end click stutters by scheduling cutoff at precise hardware times and implemented a 30ms fade-out on loop wrap.
+- **Channel Rack State History**: Integrated the channel rack controls into the undo/redo history state serialization.
+- **Eviction Cache**: Added LRU cache eviction to the `SampleRegistry` to release memory and prevent leaks during long sessions.
+
+### Arrangement & Piano Roll
+- **Infinite Timelines**: Implemented infinite dynamic viewport bounds and virtualized ruler lines for both timeline and piano roll.
+- **Alternating Shading**: Added alternating background shading for every group of 4 bars on grids.
+- **Lasso & Selection Polish**: Standardized additive selection (`Ctrl+Shift+Click`), lasso groups, terracotta highlighting, and group resizing.
+- **Pencil Brush Memory**: Pencil tool now remembers the duration of the last clicked or resized note/clip to replicate on subsequent draws.
+- **Drag-and-Drop Placement**: Supports drag-to-place timeline clips with ghost placement preview and auto-selection.
+
+### Sample Browser
+- **Miniature Waveforms**: Displays miniature canvas waveforms next to sample library file nodes.
+- **Interruption Auditions**: Moving to a new preview or starting host transport instantly halts current browser sample play.
+
+### Effects
+- **7-Band Parametric EQ**: Added a fully featured 7-band parametric EQ with interactive SVG control curve, real-time analyzer background, and mixer integration.
+
+---
+
 ## [0.18.0] - May 25, 2026
 
 ### Added
