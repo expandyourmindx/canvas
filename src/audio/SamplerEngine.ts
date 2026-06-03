@@ -162,6 +162,20 @@ export class SamplerEngine {
     });
   }
 
+  public invalidateStretchCacheForBpmChange(): void {
+    if (!this.delegate.getCanvasClips) return;
+    const clips = this.delegate.getCanvasClips();
+    for (const clip of clips) {
+      if (clip.type !== "sample") continue;
+      const channelId = this.resolveChannelId(clip.referenceId);
+      const settings = channelId ? this.samplerSettings[channelId] : null;
+      if (settings?.stretchMode?.toUpperCase() !== "STRETCH") continue;
+      const stretchedId = `${clip.id}_stretched`;
+      this.sampleRegistry.removeSample(stretchedId);
+      this.ensureClipStretched(clip);
+    }
+  }
+
   public ensureClipStretched(clip: CanvasClip, forceRecompute: boolean = false) {
     if (clip.type !== "sample") return;
 

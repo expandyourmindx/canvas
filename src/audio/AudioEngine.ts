@@ -169,6 +169,7 @@ export class AudioEngine {
 
   public setBpm(newBpm: number) {
     this.scheduler.setBpm(newBpm);
+    this.samplerEngine.invalidateStretchCacheForBpmChange();
   }
 
   public getBpm(): number {
