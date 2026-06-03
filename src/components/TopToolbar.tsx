@@ -20,7 +20,8 @@ import {
   AlignJustify,
   Piano,
   SlidersHorizontal,
-  FileAudio
+  FileAudio,
+  FilePlus
 } from "lucide-react";
 import { CANVAS_VERSION } from "../config";
 import { 
@@ -68,6 +69,7 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
     setPcKeyboardMidiActive,
     baseOctave,
     setBaseOctave,
+    newProject,
     saveProject,
     loadProject,
     autosaveProject,
@@ -516,6 +518,43 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
                 padding: "2px",
               }}
             >
+              <button
+                onMouseEnter={() => setHoveredFileItem("new")}
+                onMouseLeave={() => setHoveredFileItem(null)}
+                onClick={() => {
+                  setIsFileMenuOpen(false);
+                  if (isDirty) {
+                    const confirmed = window.confirm(
+                      "You have unsaved changes. Start a new project anyway?"
+                    );
+                    if (!confirmed) return;
+                  }
+                  newProject();
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: `${SPACE.md}px`,
+                  fontFamily: DARK.font,
+                  fontSize: "8px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                  border: "none",
+                  cursor: "pointer",
+                  backgroundColor: hoveredFileItem === "new" ? DARK.bg4 : DARK.bg3,
+                  color: hoveredFileItem === "new" ? DARK.textHi : DARK.textMid,
+                  boxSizing: "border-box",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: `${SPACE.sm}px` }}>
+                  <FilePlus size={10} style={{ color: hoveredFileItem === "new" ? DARK.textHi : DARK.textMid }} />
+                  <span>New Project</span>
+                </div>
+              </button>
+              <div style={{ height: "1px", backgroundColor: DARK.bevelDark, margin: "2px 0" }} />
+
               <button
                 onMouseEnter={() => setHoveredFileItem("save")}
                 onMouseLeave={() => setHoveredFileItem(null)}

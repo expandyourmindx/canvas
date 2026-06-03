@@ -99,6 +99,7 @@ export interface AudioEngineContextType {
   updateInsertReverbParam: (insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => void;
 
   // Project Save & Load Actions
+  newProject: () => void;
   saveProject: () => void;
   loadProject: () => void;
   isDirty: boolean;
@@ -114,6 +115,7 @@ export interface AudioEngineContextType {
     setChannelMixers: (mixers: Record<string, number>) => void;
     setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
     setStripColors?: (colors: Record<number, string>) => void;
+    resetChannels?: () => void;
   }) => void;
   autosaveProject: CanvasProject | null;
   restoreAutosave: () => void;
@@ -164,6 +166,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setChannelMixers: (mixers: Record<string, number>) => void;
     setSamplerSettings: (settings: Record<string, SamplerSettings>) => void;
     setStripColors?: (colors: Record<number, string>) => void;
+    resetChannels?: () => void;
   } | null>(null);
 
   const registerDesktopSync = useCallback((sync: any) => {
@@ -825,6 +828,52 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setMissingSamples(null);
   }, []);
 
+  const newProject = useCallback(() => {
+    engine.stop();
+
+    // Reset engine state
+    engine.setCanvasClips([]);
+    engine.setEvents([]);
+    engine.setPatternsList([{
+      id: "pattern1",
+      name: "Pattern 1",
+      notes: [],
+      color: "from-cyan-500/10 to-cyan-500/20 text-cyan-400 border-cyan-500/30"
+    }]);
+    engine.setBpm(120);
+    engine.setPlaybackMode("song");
+    engine.setLoop(false, 0, 4);
+
+    // Reset React state
+    setCanvasClipsState([]);
+    setEventsState([]);
+    setPatternsState(engine.getPatternsList());
+    setActivePatternIdState(engine.getActivePatternId());
+    setPlaybackModeState("song");
+    setBpmState(120);
+    setLoopSettings(engine.getLoopSettings());
+    setPosition({ seconds: 0, beats: 0 });
+    latestPositionRef.current = { seconds: 0, beats: 0 };
+
+    // Reset channel rack if Desktop has registered a reset callback
+    if (desktopStateRef.current?.resetChannels) {
+      desktopStateRef.current.resetChannels();
+    }
+
+    // Clear history and project meta
+    const blankState: ProjectState = {
+      events: [],
+      canvasClips: [],
+      patterns: engine.getPatternsList(),
+      channels: [],
+    };
+    historyRef.current = [blankState];
+    historyIndexRef.current = 0;
+
+    setProjectName("Untitled");
+    setIsDirty(false);
+  }, [engine, setIsDirty]);
+
   const lastSavedJsonRef = useRef<string>("");
 
   // Debounced auto-save effect
@@ -962,6 +1011,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setInsertFXBypass,
     updateInsertEQBand,
     updateInsertReverbParam,
+    newProject,
     saveProject,
     loadProject,
     isDirty,
