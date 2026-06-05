@@ -619,6 +619,29 @@ export class AudioEngine {
     return result;
   }
 
+  public getWAMChannels(): Array<{
+    channelId: string;
+    url: string;
+    state: any;
+    mixerTarget: number;
+  }> {
+    const result: Array<{
+      channelId: string;
+      url: string;
+      state: any;
+      mixerTarget: number;
+    }> = [];
+    this.wamInstances.forEach((instance, channelId) => {
+      result.push({
+        channelId,
+        url: this.wamUrls.get(channelId)!,
+        state: instance.getState(),
+        mixerTarget: this.getChannelMixerTarget(channelId),
+      });
+    });
+    return result;
+  }
+
 
   /**
    * Triggers a musical note on a channel interactively via MIDI (PC Keyboard or USB).

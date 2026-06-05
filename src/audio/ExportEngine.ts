@@ -13,6 +13,12 @@ export interface ExportableEngine {
   getMixerInserts?(): any[];
   getChannelMixerTarget?(channelId: string): number;
   awaitStretchJob?(clipId: string): Promise<void>;
+  getWAMChannels?(): Array<{
+    channelId: string;
+    url: string;
+    state: any;
+    mixerTarget: number;
+  }>;
 }
 
 export interface ExportSettings {
@@ -173,6 +179,34 @@ export class ExportEngine {
       }
     }
 
+    const { initializeWamHost } = await import('@webaudiomodules/sdk');
+    const [offlineGroupId] = await initializeWamHost(
+      offlineCtx as unknown as AudioContext
+    );
+
+    const wamChannels = engine.getWAMChannels?.() ?? [];
+    const offlineWAMNodes = new Map<string, AudioNode>();
+
+    for (const wamChan of wamChannels) {
+      try {
+        const { default: WAMClass } = await import(
+          /* @vite-ignore */ wamChan.url
+        );
+        const offlineInstance = await WAMClass.createInstance(
+          offlineGroupId, 
+          offlineCtx as unknown as AudioContext
+        );
+        if (wamChan.state) {
+          await offlineInstance.setState(wamChan.state);
+        }
+        const target = Math.max(0, Math.min(15, wamChan.mixerTarget ?? 1));
+        offlineInstance.audioNode.connect(offlineInserts[target].inputNode);
+        offlineWAMNodes.set(wamChan.channelId, offlineInstance.audioNode);
+      } catch (err) {
+        console.error(`[ExportEngine] WAM offline init failed for ${wamChan.channelId}:`, err);
+      }
+    }
+
     // Helper mapping beats to absolute offline seconds
     const beatToTime = (beat: number) => {
       if (settings.range === "loop") {
@@ -281,7 +315,32 @@ export class ExportEngine {
                 source.start(noteStartTime);
               }
             } else if (note.pitch !== undefined) {
-              // Pitch notes from WAM/other instruments cannot be rendered offline directly yet
+              const nChannelId = note.channelId;
+              if (nChannelId) {
+                const offlineNode = offlineWAMNodes.get(nChannelId);
+                if (offlineNode) {
+                  const velocity = Math.round((note.velocity ?? 0.8) * 127);
+                  const durSecs = noteDurBeats * (60 / bpm);
+                  (offlineNode as AudioWorkletNode).port.postMessage({
+                    type: 'scheduleNote',
+                    data: {
+                      time: noteStartTime,
+                      noteType: 'noteOn',
+                      note: note.pitch,
+                      velocity,
+                    }
+                  });
+                  (offlineNode as AudioWorkletNode).port.postMessage({
+                    type: 'scheduleNote',
+                    data: {
+                      time: noteStartTime + durSecs,
+                      noteType: 'noteOff',
+                      note: note.pitch,
+                      velocity: 0,
+                    }
+                  });
+                }
+              }
             }
           }
         }
@@ -298,6 +357,7 @@ export class ExportEngine {
           if (noteBeat < loopStart || noteBeat >= endLimit) {
             continue;
           }
+          const noteDurBeats = note.duration ?? 0.5;
           const noteStartTime = beatToTime(noteBeat);
 
           if (note.sampleId) {
@@ -316,7 +376,32 @@ export class ExportEngine {
               source.start(noteStartTime);
             }
           } else if (note.pitch !== undefined) {
-            // Pitch notes from WAM/other instruments cannot be rendered offline directly yet
+            const nChannelId = note.channelId;
+            if (nChannelId) {
+              const offlineNode = offlineWAMNodes.get(nChannelId);
+              if (offlineNode) {
+                const velocity = Math.round((note.velocity ?? 0.8) * 127);
+                const durSecs = noteDurBeats * (60 / bpm);
+                (offlineNode as AudioWorkletNode).port.postMessage({
+                  type: 'scheduleNote',
+                  data: {
+                    time: noteStartTime,
+                    noteType: 'noteOn',
+                    note: note.pitch,
+                    velocity,
+                  }
+                });
+                (offlineNode as AudioWorkletNode).port.postMessage({
+                  type: 'scheduleNote',
+                  data: {
+                    time: noteStartTime + durSecs,
+                    noteType: 'noteOff',
+                    note: note.pitch,
+                    velocity: 0,
+                  }
+                });
+              }
+            }
           }
         }
       }
