@@ -604,6 +604,11 @@ export class AudioEngine {
     return this.wamInstances.get(channelId)?.getState() ?? null;
   }
 
+  public getWAMInstance(channelId: string): any {
+    return this.wamInstances.get(channelId) ?? null;
+  }
+
+
   public async setWAMState(channelId: string, state: any): Promise<void> {
     await this.wamInstances.get(channelId)?.setState(state);
   }

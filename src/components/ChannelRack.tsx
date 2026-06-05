@@ -192,6 +192,7 @@ export interface ChannelRackProps {
   onOpenSampler?: (channelId: string) => void;
   onOpenPianoRoll?: (channelId: string) => void;
   onOpenObsidian?: (channelId: string) => void;
+  onOpenWAM?: (channelId: string) => void;
 }
 
 // TODO: remove — WAM integration test
@@ -266,6 +267,7 @@ export function ChannelRack({
   onOpenSampler,
   onOpenPianoRoll,
   onOpenObsidian,
+  onOpenWAM,
 }: ChannelRackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const {
@@ -1223,14 +1225,12 @@ export function ChannelRack({
                   onContextMenu={(e) => handleRightClick(e, channel.id)}
                   onClick={() => {
                     setActiveInstrumentId(channel.id);
-                    if (channel.instrumentType === "obsidian") {
-                      if (onOpenObsidian) {
-                        onOpenObsidian(channel.id);
-                      }
+                    if (channel.instrumentType === "wam") {
+                      if (onOpenWAM) onOpenWAM(channel.id);
+                    } else if (channel.instrumentType === "obsidian") {
+                      if (onOpenObsidian) onOpenObsidian(channel.id);
                     } else {
-                      if (onOpenSampler) {
-                        onOpenSampler(channel.id);
-                      }
+                      if (onOpenSampler) onOpenSampler(channel.id);
                     }
                   }}
                 style={{

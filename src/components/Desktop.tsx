@@ -7,6 +7,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { TopToolbar } from "./TopToolbar";
 import { DraggableWindow } from "./DraggableWindow";
 import { Canvas } from "./Canvas";
+declare module "./Canvas" {
+  export interface CanvasProps {
+    onOpenWAM?: (channelId: string) => void;
+  }
+}
 import { ChannelRack } from "./ChannelRack";
 import { Sampler } from "../plugins/Sampler";
 import { PianoRoll } from "./PianoRoll";
@@ -53,11 +58,12 @@ export function Desktop() {
     export: false, // Export window initially closed
     eqpanel: false, // EQ Panel window initially closed
     reverbpanel: false, // Reverb Panel window initially closed
+    wam: false, // WAM window initially closed
   });
 
   // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
-  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel" | "reverbpanel";
-  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel", "reverbpanel"]);
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel" | "reverbpanel" | "wam";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel", "reverbpanel", "wam"]);
 
   const [eqPanelIndex, setEqPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
     insertIndex: 0,
@@ -151,6 +157,10 @@ export function Desktop() {
 
   // New Piano Roll state
   const [activePianoRollChannelId, setActivePianoRollChannelId] = useState<string>("obsidian_default");
+
+  // New WAM state
+  const [activeWAMChannelId, setActiveWAMChannelId] = useState<string | null>(null);
+
 
   // ── Sample Browser State ──
   const [browserOpen, setBrowserOpen] = useState(true);
@@ -267,6 +277,13 @@ export function Desktop() {
     setActiveWindows((prev) => ({ ...prev, pianoroll: true }));
     handleSetFocus("pianoroll");
   };
+
+  const handleOpenWAM = (channelId: string) => {
+    setActiveWAMChannelId(channelId);
+    setActiveWindows((prev) => ({ ...prev, wam: true }));
+    handleSetFocus("wam");
+  };
+
 
   // Base z-index calculations from order position
   const getZIndex = (winId: WindowId) => {
@@ -425,6 +442,7 @@ export function Desktop() {
             onOpenPianoRoll={handleOpenPianoRoll}
             onOpenSampler={handleOpenSampler}
             onOpenObsidian={handleOpenObsidian}
+            onOpenWAM={handleOpenWAM}
             onOpenChannelRack={() => {
               setActiveWindows((prev) => ({ ...prev, sequencer: true }));
               handleSetFocus("sequencer");
@@ -465,6 +483,7 @@ export function Desktop() {
             onOpenSampler={handleOpenSampler}
             onOpenPianoRoll={handleOpenPianoRoll}
             onOpenObsidian={handleOpenObsidian}
+            onOpenWAM={handleOpenWAM}
           />
         </DraggableWindow>
 
@@ -567,6 +586,25 @@ export function Desktop() {
         >
           <Obsidian channelId={activeObsidianChannelId || undefined} />
         </DraggableWindow>
+
+        {activeWindows.wam && activeWAMChannelId && (
+          <DraggableWindow
+            id="wam"
+            title={`Obsidian — ${channels.find(c => c.id === activeWAMChannelId)?.name || "Instrument"}`}
+            isVisible={activeWindows.wam}
+            onClose={() => toggleWindow("wam")}
+            onFocus={() => handleSetFocus("wam")}
+            zIndex={getZIndex("wam")}
+            defaultX={180}
+            defaultY={100}
+            defaultWidth={700}
+            defaultHeight={680}
+            minWidth={400}
+            minHeight={400}
+          >
+            <WAMGuiMount channelId={activeWAMChannelId} />
+          </DraggableWindow>
+        )}
 
         {/* 3. Floating window wrapper: Export Window */}
         {activeWindows.export && (
@@ -682,6 +720,41 @@ export function Desktop() {
       )}
 
     </div>
+  );
+}
+
+function WAMGuiMount({ channelId }: { channelId: string }) {
+  const { engine } = useAudioEngine();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!channelId || !containerRef.current) return;
+    if (mountedRef.current === channelId) return;
+
+    containerRef.current.innerHTML = '';
+    mountedRef.current = null;
+
+    const instance = engine.getWAMInstance(channelId);
+    if (!instance) return;
+
+    instance.createGUI().then((gui: HTMLElement) => {
+      if (!containerRef.current) return;
+      containerRef.current.appendChild(gui);
+      mountedRef.current = channelId;
+    });
+
+    return () => {
+      if (containerRef.current) containerRef.current.innerHTML = '';
+      mountedRef.current = null;
+    };
+  }, [channelId, engine]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', overflow: 'auto', background: '#131010' }}
+    />
   );
 }
 
