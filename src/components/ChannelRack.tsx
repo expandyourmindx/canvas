@@ -194,6 +194,60 @@ export interface ChannelRackProps {
   onOpenObsidian?: (channelId: string) => void;
 }
 
+// TODO: remove — WAM integration test
+function WamTestButton({ channelId }: { channelId: string }) {
+  const { engine } = useAudioEngine();
+  const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setStatus("loading");
+    try {
+      await engine.loadWAM(channelId, "https://expandyourmindx.github.io/obsidian-wam/index.js");
+      setStatus("loaded");
+    } catch (err) {
+      console.error(`[WAM Integration Test] Error loading WAM for channel ${channelId}:`, err);
+      setStatus("error");
+    }
+  };
+
+  const getLabel = () => {
+    switch (status) {
+      case "loading": return "Loading...";
+      case "loaded": return "Loaded ✓";
+      case "error": return "Error";
+      default: return "WAM v2";
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      type="button"
+      style={{
+        padding: `0 ${SPACE.sm}px`,
+        height: "20px",
+        backgroundColor: status === "error" ? DARK.stateRed : status === "loaded" ? DARK.stateGreen : DARK.bg3,
+        color: DARK.textHi,
+        fontFamily: DARK.font,
+        fontSize: "8px",
+        fontWeight: "bold",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        cursor: "pointer",
+        border: "none",
+        marginLeft: `${SPACE.sm}px`,
+        marginRight: `${SPACE.sm}px`,
+        flexShrink: 0,
+        boxSizing: "border-box",
+        ...(status === "loading" ? sunken(DARK) : raised(DARK)),
+      }}
+    >
+      {getLabel()}
+    </button>
+  );
+}
+
 export function ChannelRack({
   channels = DEFAULT_CHANNELS,
   setChannels = () => { },
@@ -1212,6 +1266,11 @@ export function ChannelRack({
                 </button>
 
               </div>
+
+              {/* TODO: remove — WAM integration test */}
+              {channel.instrumentType === "obsidian" && (
+                <WamTestButton channelId={channel.id} />
+              )}
 
               {/* RIGHT SIDE 16-STEP GRID OR MINI PIANO ROLL PREVIEW */}
               <div style={{ flex: 1, paddingLeft: "6px", paddingRight: "6px", height: "100%", display: "flex", alignItems: "center", minWidth: 0, boxSizing: "border-box" }}>
