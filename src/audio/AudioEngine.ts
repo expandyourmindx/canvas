@@ -153,6 +153,9 @@ export class AudioEngine {
           this.wamInstances.forEach(instance => {
             try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
           });
+          this.wamInstances.forEach(instance => {
+            try { instance.clearSchedule(); } catch (_) {}
+          });
           this.samplerEngine.stopAll(0.03, loopEndHardwareTime);
         }
       },
@@ -190,6 +193,9 @@ export class AudioEngine {
     this.wamInstances.forEach(instance => {
       try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
     });
+    this.wamInstances.forEach(instance => {
+      try { instance.clearSchedule(); } catch (_) {}
+    });
     this.samplerEngine.stopAll();
   }
 
@@ -197,6 +203,9 @@ export class AudioEngine {
     this.scheduler.stop();
     this.wamInstances.forEach(instance => {
       try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+    });
+    this.wamInstances.forEach(instance => {
+      try { instance.clearSchedule(); } catch (_) {}
     });
     this.samplerEngine.stopAll();
     this.samplerEngine.stopPreview(); // stop any in-flight channel preview
@@ -745,21 +754,9 @@ export class AudioEngine {
     if (isWam && channelId) {
       const instance = this.wamInstances.get(channelId)!;
       const durationSeconds = this.beatsToSeconds(event.duration);
-      
-      // Schedule note on as a WamMidiEvent at the precise hardware time
-      instance.scheduleEvents({
-        type: 'wam-midi',
-        time: absoluteContextTime,
-        data: { bytes: [0x90, event.pitch, Math.round((event.velocity ?? 0.8) * 127)] }
-      });
-      
-      // Schedule note off at note end time
-      instance.scheduleEvents({
-        type: 'wam-midi',
-        time: absoluteContextTime + durationSeconds,
-        data: { bytes: [0x80, event.pitch, 0] }
-      });
-      
+      const velocity = Math.round((event.velocity ?? 0.8) * 127);
+      instance.scheduleNote(absoluteContextTime, event.pitch, velocity);
+      instance.scheduleNoteOff(absoluteContextTime + durationSeconds, event.pitch);
       return;
     }
 
