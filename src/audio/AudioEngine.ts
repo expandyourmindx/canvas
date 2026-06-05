@@ -743,11 +743,23 @@ export class AudioEngine {
 
     const isWam = channelId ? this.wamInstances.has(channelId) : false;
     if (isWam && channelId) {
-      const durationSeconds = this.beatsToSeconds(event.duration);
       const instance = this.wamInstances.get(channelId)!;
-      instance.noteOn(event.pitch, (event.velocity ?? 0.8) * 127);
-      const stopAt = absoluteContextTime + durationSeconds - this.audioContext.currentTime;
-      setTimeout(() => instance.noteOff(event.pitch), Math.max(0, stopAt * 1000));
+      const durationSeconds = this.beatsToSeconds(event.duration);
+      
+      // Schedule note on as a WamMidiEvent at the precise hardware time
+      instance.scheduleEvents({
+        type: 'wam-midi',
+        time: absoluteContextTime,
+        data: { bytes: [0x90, event.pitch, Math.round((event.velocity ?? 0.8) * 127)] }
+      });
+      
+      // Schedule note off at note end time
+      instance.scheduleEvents({
+        type: 'wam-midi',
+        time: absoluteContextTime + durationSeconds,
+        data: { bytes: [0x80, event.pitch, 0] }
+      });
+      
       return;
     }
 
