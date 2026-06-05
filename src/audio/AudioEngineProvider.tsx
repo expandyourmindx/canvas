@@ -571,6 +571,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       mixerInserts: engine.getMixerInserts(),
       loopSettings: engine.getLoopSettings(),
       sampleIds: engine.getLoadedSampleIds(),
+      wamChannels: engine.getWamChannels(),
     };
   }, [engine, projectName]);
 
@@ -682,6 +683,17 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     }
     if (project.obsidianSettings) {
       engine.obsidian.obsidianSettings = { ...project.obsidianSettings };
+    }
+
+    if (project.wamChannels) {
+      for (const [channelId, wamData] of Object.entries(project.wamChannels)) {
+        try {
+          await engine.loadWAM(channelId, wamData.url);
+          if (wamData.state) await engine.setWAMState(channelId, wamData.state);
+        } catch (err) {
+          console.error(`[WAM Restore] Failed to restore WAM for channel ${channelId}:`, err);
+        }
+      }
     }
 
     // 6. mixer console
