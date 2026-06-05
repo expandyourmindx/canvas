@@ -19,6 +19,7 @@ export interface ExportableEngine {
     state: any;
     mixerTarget: number;
   }>;
+  getWAMInstance?(channelId: string): any;
 }
 
 export interface ExportSettings {
@@ -179,31 +180,49 @@ export class ExportEngine {
       }
     }
 
-    const { initializeWamHost } = await import('@webaudiomodules/sdk');
-    const [offlineGroupId] = await initializeWamHost(
-      offlineCtx as unknown as AudioContext
-    );
+    const wamChannels = engine.getWAMChannels?.() 
+      ?? (engine as any).getWamChannels?.() 
+      ?? [];
+    const offlineWAMNodes = new Map<string, AudioWorkletNode>();
 
-    const wamChannels = engine.getWAMChannels?.() ?? [];
-    const offlineWAMNodes = new Map<string, AudioNode>();
-
-    for (const wamChan of wamChannels) {
+    if (wamChannels.length > 0) {
       try {
-        const { default: WAMClass } = await import(
-          /* @vite-ignore */ wamChan.url
+        const { initializeWamHost } = await import(
+          '@webaudiomodules/sdk'
         );
-        const offlineInstance = await WAMClass.createInstance(
-          offlineGroupId, 
+        const [offlineGroupId] = await initializeWamHost(
           offlineCtx as unknown as AudioContext
         );
-        if (wamChan.state) {
-          await offlineInstance.setState(wamChan.state);
+        for (const wamChan of wamChannels) {
+          try {
+            const { default: WAMClass } = await import(
+              /* @vite-ignore */ wamChan.url
+            );
+            const offlineInstance = await WAMClass.createInstance(
+              offlineGroupId,
+              offlineCtx as unknown as AudioContext
+            );
+            if (wamChan.state) {
+              await offlineInstance.setState(wamChan.state);
+            }
+            const target = Math.max(0, Math.min(15, 
+              wamChan.mixerTarget ?? 1
+            ));
+            offlineInstance.audioNode.connect(
+              offlineInserts[target].inputNode
+            );
+            offlineWAMNodes.set(wamChan.channelId, 
+              offlineInstance.audioNode
+            );
+            console.log(`[ExportEngine] WAM loaded for 
+              ${wamChan.channelId}`);
+          } catch (err) {
+            console.error(`[ExportEngine] WAM failed for 
+              ${wamChan.channelId}:`, err);
+          }
         }
-        const target = Math.max(0, Math.min(15, wamChan.mixerTarget ?? 1));
-        offlineInstance.audioNode.connect(offlineInserts[target].inputNode);
-        offlineWAMNodes.set(wamChan.channelId, offlineInstance.audioNode);
       } catch (err) {
-        console.error(`[ExportEngine] WAM offline init failed for ${wamChan.channelId}:`, err);
+        console.error('[ExportEngine] WAM host init failed:', err);
       }
     }
 
@@ -320,6 +339,7 @@ export class ExportEngine {
                 const offlineNode = offlineWAMNodes.get(nChannelId);
                 if (offlineNode) {
                   const velocity = Math.round((note.velocity ?? 0.8) * 127);
+                  const noteDurBeats = note.duration ?? 0.5;
                   const durSecs = noteDurBeats * (60 / bpm);
                   (offlineNode as AudioWorkletNode).port.postMessage({
                     type: 'scheduleNote',
@@ -381,6 +401,7 @@ export class ExportEngine {
               const offlineNode = offlineWAMNodes.get(nChannelId);
               if (offlineNode) {
                 const velocity = Math.round((note.velocity ?? 0.8) * 127);
+                const noteDurBeats = note.duration ?? 0.5;
                 const durSecs = noteDurBeats * (60 / bpm);
                 (offlineNode as AudioWorkletNode).port.postMessage({
                   type: 'scheduleNote',
