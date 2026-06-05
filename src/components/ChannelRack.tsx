@@ -1225,7 +1225,8 @@ export function ChannelRack({
                   onContextMenu={(e) => handleRightClick(e, channel.id)}
                   onClick={() => {
                     setActiveInstrumentId(channel.id);
-                    if (channel.instrumentType === "wam") {
+                    const isWamLoaded = !!engine.getWAMInstance(channel.id);
+                    if (isWamLoaded) {
                       if (onOpenWAM) onOpenWAM(channel.id);
                     } else if (channel.instrumentType === "obsidian") {
                       if (onOpenObsidian) onOpenObsidian(channel.id);
