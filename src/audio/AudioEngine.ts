@@ -75,6 +75,11 @@ export class AudioEngine {
   public onClipDurationChangedCallback: ((clipId: string, durationBeats: number) => void) | null = null;
   private sampleBrowserPreviewSource: AudioBufferSourceNode | null = null;
 
+  private wamInstances: Map<string, any> = new Map();
+  private wamUrls: Map<string, string> = new Map();
+  private wamGroupId: string | null = null;
+
+
   constructor(options: AudioEngineOptions = {}) {
     const bpm = options.bpm ?? 120;
     const lookaheadMs = options.lookaheadMs ?? 100;
@@ -558,6 +563,15 @@ export class AudioEngine {
     }
     return nodes;
   }
+
+  private async ensureWamGroupInitialized(): Promise<string> {
+    if (this.wamGroupId) return this.wamGroupId;
+    const { initializeWamHost } = await import('@webaudiomodules/sdk');
+    const [groupId] = await initializeWamHost(this.audioContext);
+    this.wamGroupId = groupId;
+    return groupId;
+  }
+
 
   /**
    * Triggers a musical note on a channel interactively via MIDI (PC Keyboard or USB).
