@@ -191,63 +191,9 @@ export interface ChannelRackProps {
   setActiveInstrumentId?: (id: string) => void;
   onOpenSampler?: (channelId: string) => void;
   onOpenPianoRoll?: (channelId: string) => void;
-  onOpenObsidian?: (channelId: string) => void;
   onOpenWAM?: (channelId: string) => void;
 }
 
-// TODO: remove — WAM integration test
-function WamTestButton({ channelId }: { channelId: string }) {
-  const { engine } = useAudioEngine();
-  const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
-
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setStatus("loading");
-    try {
-      await engine.loadWAM(channelId, "https://expandyourmindx.github.io/obsidian-wam/index.js");
-      setStatus("loaded");
-    } catch (err) {
-      console.error(`[WAM Integration Test] Error loading WAM for channel ${channelId}:`, err);
-      setStatus("error");
-    }
-  };
-
-  const getLabel = () => {
-    switch (status) {
-      case "loading": return "Loading...";
-      case "loaded": return "Loaded ✓";
-      case "error": return "Error";
-      default: return "WAM v2";
-    }
-  };
-
-  return (
-    <button
-      onClick={handleClick}
-      type="button"
-      style={{
-        padding: `0 ${SPACE.sm}px`,
-        height: "20px",
-        backgroundColor: status === "error" ? DARK.stateRed : status === "loaded" ? DARK.stateGreen : DARK.bg3,
-        color: DARK.textHi,
-        fontFamily: DARK.font,
-        fontSize: "8px",
-        fontWeight: "bold",
-        textTransform: "uppercase",
-        letterSpacing: "0.05em",
-        cursor: "pointer",
-        border: "none",
-        marginLeft: `${SPACE.sm}px`,
-        marginRight: `${SPACE.sm}px`,
-        flexShrink: 0,
-        boxSizing: "border-box",
-        ...(status === "loading" ? sunken(DARK) : raised(DARK)),
-      }}
-    >
-      {getLabel()}
-    </button>
-  );
-}
 
 export function ChannelRack({
   channels = DEFAULT_CHANNELS,
@@ -266,7 +212,6 @@ export function ChannelRack({
   setActiveInstrumentId = () => { },
   onOpenSampler,
   onOpenPianoRoll,
-  onOpenObsidian,
   onOpenWAM,
 }: ChannelRackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -381,7 +326,7 @@ export function ChannelRack({
   const playPitchPreview = (pitch: number, channelId: string) => {
     try {
       const channel = channels.find(c => c.id === channelId);
-      if (channel && channel.instrumentType === "obsidian") {
+      if (channel && channel.instrumentType === "wam") {
         engine.previewChannel(
           channelId,
           undefined,
@@ -400,17 +345,18 @@ export function ChannelRack({
   };
 
   // Add a dynamic channel builder for the selected instrument type
-  const addChannelWithInstrument = (instrumentType: "sampler" | "obsidian") => {
+  const addChannelWithInstrument = async (instrumentType: "sampler" | "wam") => {
     const nextIndex = channels.length + 1;
     const newChanId = `${instrumentType}_${Date.now()}`;
     const newChannel: ChannelRow = {
       id: newChanId,
-      name: instrumentType === "sampler" ? `Sampler ${nextIndex}` : `Obsidian ${nextIndex}`,
+      name: instrumentType === "sampler" ? `Sampler ${nextIndex}` : `Obsidian`,
       type: instrumentType === "sampler" ? "sample" : "pitch",
       sampleId: instrumentType === "sampler" ? `sample_${newChanId}` : undefined,
-      pitch: instrumentType === "obsidian" ? 60 : undefined,
+      pitch: instrumentType === "wam" ? 60 : undefined,
       mixerTarget: 0,
-      instrumentType: instrumentType
+      instrumentType: instrumentType,
+      wamUrl: instrumentType === "wam" ? "https://expandyourmindx.github.io/obsidian-wam/index.js" : undefined
     };
 
     setChannels([...channels, newChannel]);
@@ -431,9 +377,16 @@ export function ChannelRack({
     }
 
     // Toggle window visibility for the newly created instrument plugin
-    if (instrumentType === "obsidian") {
-      if (onOpenObsidian) {
-        onOpenObsidian(newChanId);
+    if (instrumentType === "wam") {
+      if (engine) {
+        try {
+          await engine.loadWAM(newChanId, "https://expandyourmindx.github.io/obsidian-wam/index.js");
+        } catch (err) {
+          console.error("Failed to load WAM instrument on channel creation", err);
+        }
+      }
+      if (onOpenWAM) {
+        onOpenWAM(newChanId);
       }
     } else {
       if (onOpenSampler) {
@@ -880,7 +833,7 @@ export function ChannelRack({
           const isEffectivelyMuted = isMuted || (isSomeSoloed && !isSoloed);
 
           const channelEvents = events.filter(e => e.channelId === channel.id);
-          const hasPianoRollEvents = channel.instrumentType === "obsidian" || channelEvents.some(e => {
+          const hasPianoRollEvents = channel.instrumentType === "wam" || channelEvents.some(e => {
             if (e.pitch !== undefined && e.pitch !== channel.pitch) return true;
             if (e.time % 0.25 !== 0) return true;
             if (channel.type === "sample" && e.duration !== 0.4) return true;
@@ -1225,11 +1178,8 @@ export function ChannelRack({
                   onContextMenu={(e) => handleRightClick(e, channel.id)}
                   onClick={() => {
                     setActiveInstrumentId(channel.id);
-                    const isWamLoaded = !!engine.getWAMInstance(channel.id);
-                    if (isWamLoaded) {
+                    if (channel.instrumentType === "wam") {
                       if (onOpenWAM) onOpenWAM(channel.id);
-                    } else if (channel.instrumentType === "obsidian") {
-                      if (onOpenObsidian) onOpenObsidian(channel.id);
                     } else {
                       if (onOpenSampler) onOpenSampler(channel.id);
                     }
@@ -1268,10 +1218,7 @@ export function ChannelRack({
 
               </div>
 
-              {/* TODO: remove — WAM integration test */}
-              {channel.instrumentType === "obsidian" && (
-                <WamTestButton channelId={channel.id} />
-              )}
+
 
               {/* RIGHT SIDE 16-STEP GRID OR MINI PIANO ROLL PREVIEW */}
               <div style={{ flex: 1, paddingLeft: "6px", paddingRight: "6px", height: "100%", display: "flex", alignItems: "center", minWidth: 0, boxSizing: "border-box" }}>
@@ -1518,7 +1465,7 @@ export function ChannelRack({
               <button
                 type="button"
                 onClick={() => {
-                  addChannelWithInstrument("obsidian");
+                  addChannelWithInstrument("wam");
                   setAddDropdownOpen(false);
                 }}
                 style={{

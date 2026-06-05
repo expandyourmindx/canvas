@@ -567,7 +567,6 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       canvasClips: engine.getCanvasClips(),
       patterns: engine.getPatternsList(),
       samplerSettings: engine.getAllSamplerSettings(),
-      obsidianSettings: engine.obsidian.obsidianSettings,
       mixerInserts: engine.getMixerInserts(),
       loopSettings: engine.getLoopSettings(),
       sampleIds: engine.getLoadedSampleIds(),
@@ -680,9 +679,6 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     // 5. instrument settings
     if (project.samplerSettings) {
       engine.restoreAllSamplerSettings(project.samplerSettings);
-    }
-    if (project.obsidianSettings) {
-      engine.obsidian.obsidianSettings = { ...project.obsidianSettings };
     }
 
     if (project.wamChannels) {

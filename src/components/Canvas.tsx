@@ -43,10 +43,9 @@ export interface CanvasProps {
   setChannels?: React.Dispatch<React.SetStateAction<ChannelRow[]>>;
   setChannelVols?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   setChannelMixers?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  onOpenWindow?: (windowId: "pianoroll" | "sequencer" | "sampler" | "obsidian" | "canvas") => void;
+  onOpenWindow?: (windowId: "pianoroll" | "sequencer" | "sampler" | "wam" | "canvas") => void;
   onOpenPianoRoll?: (channelId: string) => void;
   onOpenSampler?: (channelId: string) => void;
-  onOpenObsidian?: (channelId: string) => void;
   onOpenChannelRack?: () => void;
 }
 
@@ -58,7 +57,6 @@ export function Canvas({
   onOpenWindow,
   onOpenPianoRoll,
   onOpenSampler,
-  onOpenObsidian,
 }: CanvasProps) {
   const {
     engine,
@@ -475,7 +473,7 @@ export function Canvas({
       const chan = channels.find(c => c.id === note.channelId);
       if (chan) {
         mainChannelId = chan.id;
-        if (chan.instrumentType === "obsidian") {
+        if (chan.instrumentType === "wam") {
           hasPianoRoll = true;
         } else {
           // If sampler has complex timings, chords, or custom durations, it is piano roll

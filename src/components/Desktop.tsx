@@ -16,7 +16,6 @@ import { ChannelRack } from "./ChannelRack";
 import { Sampler } from "../plugins/Sampler";
 import { PianoRoll } from "./PianoRoll";
 import { Mixer } from "./Mixer";
-import { Obsidian } from "../plugins/Obsidian";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { ExportWindow } from "./ExportWindow";
 import { SampleBrowser } from "./SampleBrowser";
@@ -54,7 +53,6 @@ export function Desktop() {
     sampler: false, // Sampler window initially closed
     pianoroll: false, // Piano Roll window initially closed
     mixer: false, // Mixer window initially closed by default
-    obsidian: false, // Obsidian window initially closed
     export: false, // Export window initially closed
     eqpanel: false, // EQ Panel window initially closed
     reverbpanel: false, // Reverb Panel window initially closed
@@ -62,8 +60,8 @@ export function Desktop() {
   });
 
   // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
-  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "obsidian" | "export" | "eqpanel" | "reverbpanel" | "wam";
-  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "obsidian", "export", "eqpanel", "reverbpanel", "wam"]);
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "export" | "eqpanel" | "reverbpanel" | "wam";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "export", "eqpanel", "reverbpanel", "wam"]);
 
   const [eqPanelIndex, setEqPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
     insertIndex: 0,
@@ -92,7 +90,7 @@ export function Desktop() {
     { id: "sampler_kick", name: "Trap Kick", type: "sample", sampleId: "sampler_kick_sample", mixerTarget: 1, instrumentType: "sampler" },
     { id: "sampler_snare", name: "Trap Snare", type: "sample", sampleId: "sampler_snare_sample", mixerTarget: 2, instrumentType: "sampler" },
     { id: "sampler_hihat", name: "Trap Hihat", type: "sample", sampleId: "sampler_hihat_sample", mixerTarget: 3, instrumentType: "sampler" },
-    { id: "obsidian_default", name: "Obsidian Synth", type: "pitch", pitch: 60, mixerTarget: 4, instrumentType: "obsidian" }
+    { id: "obsidian_default", name: "Obsidian", type: "pitch", pitch: 60, mixerTarget: 4, instrumentType: "wam", wamUrl: "https://expandyourmindx.github.io/obsidian-wam/index.js" }
   ]);
 
   useEffect(() => {
@@ -152,8 +150,7 @@ export function Desktop() {
   }, [registerDesktopSync]);
   const [activeSamplerChannelId, setActiveSamplerChannelId] = useState<string | null>(null);
 
-  // New Obsidian synth state
-  const [activeObsidianChannelId, setActiveObsidianChannelId] = useState<string | null>("obsidian_default");
+
 
   // New Piano Roll state
   const [activePianoRollChannelId, setActivePianoRollChannelId] = useState<string>("obsidian_default");
@@ -234,12 +231,6 @@ export function Desktop() {
   const toggleWindow = (winId: WindowId) => {
     setActiveWindows((prev) => {
       const nextVal = !prev[winId];
-      if (winId === "obsidian" && nextVal && !activeObsidianChannelId) {
-        const firstObsidian = channels.find(c => c.instrumentType === "obsidian" || c.type === "pitch");
-        if (firstObsidian) {
-          setActiveObsidianChannelId(firstObsidian.id);
-        }
-      }
       return {
         ...prev,
         [winId]: nextVal,
@@ -248,12 +239,6 @@ export function Desktop() {
   };
 
   const handleSetFocus = (winId: WindowId) => {
-    if (winId === "obsidian" && !activeObsidianChannelId) {
-      const firstObsidian = channels.find(c => c.instrumentType === "obsidian" || c.type === "pitch");
-      if (firstObsidian) {
-        setActiveObsidianChannelId(firstObsidian.id);
-      }
-    }
     setWinOrder((prev) => {
       const filtered = prev.filter((id) => id !== winId);
       return [...filtered, winId];
@@ -266,11 +251,6 @@ export function Desktop() {
     handleSetFocus("sampler");
   };
 
-  const handleOpenObsidian = (channelId: string) => {
-    setActiveObsidianChannelId(channelId);
-    setActiveWindows((prev) => ({ ...prev, obsidian: true }));
-    handleSetFocus("obsidian");
-  };
 
   const handleOpenPianoRoll = (channelId: string) => {
     setActivePianoRollChannelId(channelId);
@@ -441,7 +421,6 @@ export function Desktop() {
             }}
             onOpenPianoRoll={handleOpenPianoRoll}
             onOpenSampler={handleOpenSampler}
-            onOpenObsidian={handleOpenObsidian}
             onOpenWAM={handleOpenWAM}
             onOpenChannelRack={() => {
               setActiveWindows((prev) => ({ ...prev, sequencer: true }));
@@ -482,7 +461,6 @@ export function Desktop() {
             setActiveInstrumentId={setActiveInstrumentId}
             onOpenSampler={handleOpenSampler}
             onOpenPianoRoll={handleOpenPianoRoll}
-            onOpenObsidian={handleOpenObsidian}
             onOpenWAM={handleOpenWAM}
           />
         </DraggableWindow>
@@ -569,23 +547,6 @@ export function Desktop() {
           />
         </DraggableWindow>
 
-        {/* 3. Floating window wrapper: Obsidian Synth Instrument window (Hidden via CSS, NEVER unmounted) */}
-        <DraggableWindow
-          id="obsidian"
-          title={`Obsidian Synth - ${channels.find(c => c.id === activeObsidianChannelId)?.name || "Default"}`}
-          isVisible={activeWindows.obsidian}
-          onClose={() => toggleWindow("obsidian")}
-          onFocus={() => handleSetFocus("obsidian")}
-          zIndex={getZIndex("obsidian")}
-          defaultX={160}
-          defaultY={140}
-          defaultWidth={730}
-          defaultHeight={460}
-          minWidth={700}
-          minHeight={450}
-        >
-          <Obsidian channelId={activeObsidianChannelId || undefined} />
-        </DraggableWindow>
 
         {activeWindows.wam && activeWAMChannelId && (
           <DraggableWindow

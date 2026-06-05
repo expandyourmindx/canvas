@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CanvasClip, PatternData, PatternNote, SamplerSettings, ObsidianSettings, DAWEvent, MixerInsert, EQBandSettings, ReverbSettings } from "../types";
-import { ObsidianEngine } from "./ObsidianEngine";
+import { CanvasClip, PatternData, PatternNote, SamplerSettings, DAWEvent, MixerInsert, EQBandSettings, ReverbSettings } from "../types";
 import { SamplerEngine } from "./SamplerEngine";
 import { SampleRegistry } from "./SampleRegistry";
 import { MixerManager } from "./MixerManager";
@@ -64,8 +63,7 @@ export class AudioEngine {
   // Channel state and routing cache for interactive hardware previewing
   private channelVols: Record<string, number> = {};
   private channelPans: Record<string, number> = {};
-  private channelInstrumentTypes: Record<string, "sampler" | "obsidian" | "wam"> = {};
-  public obsidian: ObsidianEngine;
+  private channelInstrumentTypes: Record<string, "sampler" | "wam"> = {};
   public samplerEngine: SamplerEngine;
   public focusedChannelId: string | null = "obsidian_default";
   private channelNodes: Map<string, { gain: GainNode; panner: StereoPannerNode | null }> = new Map();
@@ -89,7 +87,7 @@ export class AudioEngine {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     this.audioContext = new AudioContextClass();
     this.sampleRegistry = new SampleRegistry(this.audioContext);
-    this.obsidian = new ObsidianEngine(this.audioContext);
+
 
     // Set up standard sound-routing node tree
     this.masterGainNode = this.audioContext.createGain();
@@ -152,7 +150,6 @@ export class AudioEngine {
           return Math.max(4, Math.ceil(maxBeat / 4) * 4);
         },
         onLoopWrap: (loopEndHardwareTime: number) => {
-          this.obsidian.stopAll(0.03, loopEndHardwareTime);
           this.wamInstances.forEach(instance => {
             try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
           });
@@ -190,7 +187,6 @@ export class AudioEngine {
 
   public async pause(): Promise<void> {
     await this.scheduler.pause();
-    this.obsidian.stopAll();
     this.wamInstances.forEach(instance => {
       try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
     });
@@ -199,7 +195,6 @@ export class AudioEngine {
 
   public stop() {
     this.scheduler.stop();
-    this.obsidian.stopAll();
     this.wamInstances.forEach(instance => {
       try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
     });
@@ -238,7 +233,6 @@ export class AudioEngine {
   public setPlayheadPosition(beats: number) {
     this.scheduler.setPlayheadPosition(beats);
     // Flush/cut off active voices on playhead jumps to prevent chaotic note overlapping
-    this.obsidian.stopAll();
     this.samplerEngine.stopAll();
   }
 
@@ -517,16 +511,8 @@ export class AudioEngine {
     this.samplerEngine.updateChannelSampleId(channelId, sampleId);
   }
 
-  public updateChannelInstrumentType(channelId: string, type: "sampler" | "obsidian" | "wam") {
+  public updateChannelInstrumentType(channelId: string, type: "sampler" | "wam") {
     this.channelInstrumentTypes[channelId] = type;
-  }
-
-  public updateChannelObsidianSettings(channelId: string, settings: ObsidianSettings) {
-    this.obsidian.updateSettings(channelId, settings);
-  }
-
-  public getObsidianSettings(channelId: string): ObsidianSettings {
-    return this.obsidian.getSettings(channelId);
   }
 
   public updateChannelMixerTarget(channelId: string, target: number) {
@@ -639,22 +625,12 @@ export class AudioEngine {
       return;
     }
 
-    const isObsidian = this.channelInstrumentTypes[targetChannelId] === "obsidian" || targetChannelId.startsWith("obsidian");
-
     if (this.audioContext.state === "suspended") {
       this.audioContext.resume();
     }
 
     const now = time !== undefined ? time : this.audioContext.currentTime;
-
-    if (isObsidian) {
-      const nodes = this.getOrCreateChannelNodes(targetChannelId);
-      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[targetChannelId] ?? 1);
-      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
-      this.obsidian.noteOn(targetChannelId, midiNote, velocity, now, destinationNode);
-    } else {
-      this.samplerEngine.noteOn(targetChannelId, midiNote, velocity, now);
-    }
+    this.samplerEngine.noteOn(targetChannelId, midiNote, velocity, now);
   }
 
   /**
@@ -669,14 +645,8 @@ export class AudioEngine {
       return;
     }
 
-    const isObsidian = this.channelInstrumentTypes[targetChannelId] === "obsidian" || targetChannelId.startsWith("obsidian");
     const now = time !== undefined ? time : this.audioContext.currentTime;
-
-    if (isObsidian) {
-      this.obsidian.noteOff(targetChannelId, midiNote, now);
-    } else {
-      this.samplerEngine.noteOff(targetChannelId, midiNote, now);
-    }
+    this.samplerEngine.noteOff(targetChannelId, midiNote, now);
   }
 
   /**
@@ -699,24 +669,6 @@ export class AudioEngine {
       const note = (settings?.pitch ?? 0) + 60;
       instance.noteOn(note, 100);
       setTimeout(() => instance.noteOff(note), 450);
-      return;
-    }
-
-    const isObsidian = this.channelInstrumentTypes[channelId] === "obsidian" || channelId.startsWith("obsidian");
-    if (isObsidian) {
-      const relativePitch = settings?.pitch !== undefined ? settings.pitch : 0;
-      // If the pitch is a relative offset (like relative to Middle C), normalize it to MIDI
-      const targetMidiPitch = relativePitch + 60;
-
-      const now = this.audioContext.currentTime;
-      const nodes = this.getOrCreateChannelNodes(channelId);
-      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1);
-      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
-      const pctVolume = volume ?? this.channelVols[channelId] ?? 80;
-      const finalVel = Math.round((pctVolume / 100) * 127);
-
-      this.obsidian.noteOn(channelId, targetMidiPitch, finalVel, now, destinationNode);
-      this.obsidian.noteOff(channelId, targetMidiPitch, now + 0.45);
       return;
     }
 
@@ -799,53 +751,7 @@ export class AudioEngine {
       return;
     }
 
-    const isObsidian = channelId ? (this.channelInstrumentTypes[channelId] === "obsidian" || channelId.startsWith("obsidian")) : false;
-    if (isObsidian && channelId) {
-      const durationSeconds = this.beatsToSeconds(event.duration);
-      const nodes = this.getOrCreateChannelNodes(channelId);
-      const insert = this.getOrCreateMixerInsert(this.channelMixerTargets[channelId] ?? 1);
-      const destinationNode = nodes ? nodes.gain : (insert.inputNode || insert.gainNode);
-      this.obsidian.triggerVoice(event, absoluteContextTime, durationSeconds, destinationNode);
-      return;
-    }
-
-    // Convert MIDI pitch straight into Hz mathematical sound frequencies
-    const frequency = 440 * Math.pow(2, (event.pitch - 69) / 12);
-
-    const osc = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, absoluteContextTime);
-
-    const eventDurationSeconds = this.beatsToSeconds(event.duration);
-    const targetVolume = event.velocity * 0.25;
-    const stopTime = absoluteContextTime + eventDurationSeconds;
-
-    // Apply precise de-clicking start (5ms) and end (10ms) master gain envelopes
-    gainNode.gain.setValueAtTime(0, absoluteContextTime);
-    gainNode.gain.linearRampToValueAtTime(targetVolume, absoluteContextTime + 0.005);
-
-    const fadeOutStartTime = Math.max(absoluteContextTime + 0.005, stopTime - 0.010);
-    gainNode.gain.setValueAtTime(targetVolume, fadeOutStartTime);
-    gainNode.gain.linearRampToValueAtTime(0, stopTime);
-
-    const mixerTarget = channelId ? (this.channelMixerTargets[channelId] ?? 1) : 1;
-    const insert = this.getOrCreateMixerInsert(mixerTarget);
-
-    osc.connect(gainNode);
-    gainNode.connect(insert.inputNode || insert.gainNode);
-
-    // Instruct audio engine hardware thread to fire/terminate waveforms
-    osc.start(absoluteContextTime);
-    osc.stop(stopTime);
-
-    osc.onended = () => {
-      try {
-        osc.disconnect();
-        gainNode.disconnect();
-      } catch (err) {}
-    };
+    this.samplerEngine.triggerSample(event, absoluteContextTime);
   }
 
   /**

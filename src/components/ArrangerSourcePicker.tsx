@@ -22,7 +22,7 @@ interface ArrangerSourcePickerProps {
   channels: ChannelRow[];
   onOpenPianoRoll?: (channelId: string) => void;
   onOpenSampler?: (channelId: string) => void;
-  onOpenWindow?: (windowId: "pianoroll" | "sequencer" | "sampler" | "obsidian" | "canvas") => void;
+  onOpenWindow?: (windowId: "pianoroll" | "sequencer" | "sampler" | "wam" | "canvas") => void;
   selectedClipType: "pattern" | "sample" | null;
   setSelectedClipType: (type: "pattern" | "sample" | null) => void;
   selectedReferenceId: string;
@@ -402,10 +402,10 @@ export function ArrangerSourcePicker({
                       }}
                       onDoubleClick={() => {
                         if (onOpenPianoRoll) {
-                          const obsChan =
-                            channels.find((c) => c.instrumentType === "obsidian" || c.id.startsWith("obsidian")) ||
+                          const wamChan =
+                            channels.find((c) => c.instrumentType === "wam" || c.id.startsWith("wam")) ||
                             channels[0];
-                          if (obsChan) onOpenPianoRoll(obsChan.id);
+                          if (wamChan) onOpenPianoRoll(wamChan.id);
                         }
                       }}
                       style={{

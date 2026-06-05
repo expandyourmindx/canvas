@@ -42,7 +42,7 @@ interface TopToolbarProps {
     mixer: boolean;
     export?: boolean;
     sampler?: boolean;
-    obsidian?: boolean;
+    wam?: boolean;
   };
   winOrder: any[];
   toggleWindow: (winId: any) => void;

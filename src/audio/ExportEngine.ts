@@ -1,4 +1,3 @@
-import { ObsidianEngine } from "./ObsidianEngine";
 import { ParametricEQ } from "./effects/ParametricEQ";
 import { Reverb } from "./effects/Reverb";
 
@@ -14,9 +13,6 @@ export interface ExportableEngine {
   getMixerInserts?(): any[];
   getChannelMixerTarget?(channelId: string): number;
   awaitStretchJob?(clipId: string): Promise<void>;
-  obsidian: {
-    obsidianSettings: Record<string, any>;
-  };
 }
 
 export interface ExportSettings {
@@ -68,15 +64,7 @@ export class ExportEngine {
     const totalSamples = Math.ceil(sampleRate * durationSeconds);
     const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
 
-    const offlineObsidian = new ObsidianEngine(offlineCtx as unknown as AudioContext);
-    offlineObsidian.obsidianSettings = JSON.parse(JSON.stringify(engine.obsidian.obsidianSettings));
 
-    // Ensure masterGain is never zero for offline rendering
-    Object.keys(offlineObsidian.obsidianSettings).forEach(channelId => {
-      if (!offlineObsidian.obsidianSettings[channelId].masterGain) {
-        offlineObsidian.obsidianSettings[channelId].masterGain = 80;
-      }
-    });
 
     // Reconstruct full 16-channel Mixer inserts inside the OfflineAudioContext
     const offlineInserts: {
@@ -293,23 +281,7 @@ export class ExportEngine {
                 source.start(noteStartTime);
               }
             } else if (note.pitch !== undefined) {
-              // Synthesizer offline trigger using Obsidian Engine
-              const channelId = note.channelId || "obsidian_default";
-              const durSecs = noteDurBeats * (60 / bpm);
-
-              const dawEvent = {
-                id: `offline-obsidian-note-${note.id || Math.random()}`,
-                channelId,
-                pitch: note.pitch,
-                velocity: note.velocity ?? 0.8,
-                time: noteBeat,
-                duration: noteDurBeats
-              };
-
-              const targetMixerIndex = engine.getChannelMixerTarget
-                ? engine.getChannelMixerTarget(channelId)
-                : 1;
-              offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineInserts[targetMixerIndex].inputNode);
+              // Pitch notes from WAM/other instruments cannot be rendered offline directly yet
             }
           }
         }
@@ -344,22 +316,7 @@ export class ExportEngine {
               source.start(noteStartTime);
             }
           } else if (note.pitch !== undefined) {
-            const channelId = note.channelId || "obsidian_default";
-            const durSecs = note.duration * (60 / bpm);
-
-            const dawEvent = {
-              id: `offline-obsidian-note-${note.id || Math.random()}`,
-              channelId,
-              pitch: note.pitch,
-              velocity: note.velocity ?? 0.8,
-              time: noteBeat,
-              duration: note.duration
-            };
-
-            const targetMixerIndex = engine.getChannelMixerTarget
-              ? engine.getChannelMixerTarget(channelId)
-              : 1;
-            offlineObsidian.triggerVoice(dawEvent, noteStartTime, durSecs, offlineInserts[targetMixerIndex].inputNode);
+            // Pitch notes from WAM/other instruments cannot be rendered offline directly yet
           }
         }
       }
@@ -379,7 +336,6 @@ export class ExportEngine {
     }
 
     const renderedBuffer = await offlineCtx.startRendering();
-    offlineObsidian.stopAll();
     return renderedBuffer;
   }
 

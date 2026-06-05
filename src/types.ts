@@ -40,7 +40,8 @@ export interface ChannelRow {
   sampleId?: string;
   pitch?: number;
   mixerTarget: number;
-  instrumentType?: "sampler" | "obsidian" | "wam";
+  instrumentType?: "sampler" | "wam";
+  wamUrl?: string;
 }
 
 export interface SamplerSettings {
@@ -68,42 +69,6 @@ export interface OscillatorSettings {
   enabled?: boolean;
 }
 
-export interface ObsidianSettings {
-  monoPoly: "mono" | "poly";
-  glide: number;
-  oscillators: {
-    osc1: OscillatorSettings;
-    osc2: OscillatorSettings;
-    osc3: OscillatorSettings;
-    [key: string]: OscillatorSettings;
-  };
-  filterType: "lowpass" | "highpass" | "bandpass";
-  cutoff: number;
-  resonance: number;
-  filterEnvAmount?: number;
-  unisonVoices?: number;
-  unisonDetune?: number;
-  subOscWave?: "off" | "sine" | "square" | "sawtooth" | "triangle";
-  subOscVol?: number;
-  lfoRate?: number;
-  lfoToPitch?: number;
-  lfoToFilter?: number;
-  lfoToVolume?: number;
-  lfoBypass?: boolean;
-  ampEnv: {
-    attack: number;
-    decay: number;
-    sustain: number;
-    release: number;
-  };
-  filterEnv: {
-    attack: number;
-    decay: number;
-    sustain: number;
-    release: number;
-  };
-  masterGain: number;
-}
 
 export interface DAWEvent {
   id: string;
@@ -165,7 +130,6 @@ export interface CanvasProject {
   canvasClips: CanvasClip[];
   patterns: PatternData[];
   samplerSettings: Record<string, SamplerSettings>;
-  obsidianSettings: Record<string, ObsidianSettings>;
   mixerInserts: MixerInsert[];
   loopSettings: { loopStart: number; loopEnd: number; loopEnabled: boolean };
   wamChannels?: Record<string, { url: string; state: any }>;
