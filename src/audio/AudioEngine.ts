@@ -64,7 +64,7 @@ export class AudioEngine {
   // Channel state and routing cache for interactive hardware previewing
   private channelVols: Record<string, number> = {};
   private channelPans: Record<string, number> = {};
-  private channelInstrumentTypes: Record<string, "sampler" | "obsidian"> = {};
+  private channelInstrumentTypes: Record<string, "sampler" | "obsidian" | "wam"> = {};
   public obsidian: ObsidianEngine;
   public samplerEngine: SamplerEngine;
   public focusedChannelId: string | null = "obsidian_default";
@@ -153,6 +153,9 @@ export class AudioEngine {
         },
         onLoopWrap: (loopEndHardwareTime: number) => {
           this.obsidian.stopAll(0.03, loopEndHardwareTime);
+          this.wamInstances.forEach(instance => {
+            try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+          });
           this.samplerEngine.stopAll(0.03, loopEndHardwareTime);
         }
       },
@@ -188,12 +191,18 @@ export class AudioEngine {
   public async pause(): Promise<void> {
     await this.scheduler.pause();
     this.obsidian.stopAll();
+    this.wamInstances.forEach(instance => {
+      try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+    });
     this.samplerEngine.stopAll();
   }
 
   public stop() {
     this.scheduler.stop();
     this.obsidian.stopAll();
+    this.wamInstances.forEach(instance => {
+      try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+    });
     this.samplerEngine.stopAll();
     this.samplerEngine.stopPreview(); // stop any in-flight channel preview
     this.stopSampleBrowserPreview();  // stop any in-flight browser preview
@@ -508,7 +517,7 @@ export class AudioEngine {
     this.samplerEngine.updateChannelSampleId(channelId, sampleId);
   }
 
-  public updateChannelInstrumentType(channelId: string, type: "sampler" | "obsidian") {
+  public updateChannelInstrumentType(channelId: string, type: "sampler" | "obsidian" | "wam") {
     this.channelInstrumentTypes[channelId] = type;
   }
 
@@ -572,6 +581,44 @@ export class AudioEngine {
     return groupId;
   }
 
+  public async loadWAM(channelId: string, url: string): Promise<void> {
+    const groupId = await this.ensureWamGroupInitialized();
+    const { default: WAMClass } = await import(/* @vite-ignore */ url);
+    const instance = await WAMClass.createInstance(groupId, this.audioContext);
+    const nodes = this.getOrCreateChannelNodes(channelId);
+    instance.audioNode.connect(nodes.gain);
+    this.wamInstances.set(channelId, instance);
+    this.wamUrls.set(channelId, url);
+  }
+
+  public async unloadWAM(channelId: string): Promise<void> {
+    const instance = this.wamInstances.get(channelId);
+    if (!instance) return;
+    try { instance.audioNode.disconnect(); } catch (_) {}
+    try { instance.destroy?.(); } catch (_) {}
+    this.wamInstances.delete(channelId);
+    this.wamUrls.delete(channelId);
+  }
+
+  public getWAMState(channelId: string): any {
+    return this.wamInstances.get(channelId)?.getState() ?? null;
+  }
+
+  public async setWAMState(channelId: string, state: any): Promise<void> {
+    await this.wamInstances.get(channelId)?.setState(state);
+  }
+
+  public getWamChannels(): Record<string, { url: string; state: any }> {
+    const result: Record<string, { url: string; state: any }> = {};
+    this.wamInstances.forEach((_, channelId) => {
+      result[channelId] = {
+        url: this.wamUrls.get(channelId)!,
+        state: this.getWAMState(channelId),
+      };
+    });
+    return result;
+  }
+
 
   /**
    * Triggers a musical note on a channel interactively via MIDI (PC Keyboard or USB).
@@ -579,6 +626,14 @@ export class AudioEngine {
    */
   public triggerNoteOn(channelId: string | undefined | null, midiNote: number, velocity: number = 80, time?: number) {
     const targetChannelId = channelId || this.focusedChannelId || "sampler_default";
+
+    const isWam = this.wamInstances.has(targetChannelId);
+    if (isWam) {
+      if (this.audioContext.state === 'suspended') this.audioContext.resume();
+      this.wamInstances.get(targetChannelId)!.noteOn(midiNote, velocity);
+      return;
+    }
+
     const isObsidian = this.channelInstrumentTypes[targetChannelId] === "obsidian" || targetChannelId.startsWith("obsidian");
 
     if (this.audioContext.state === "suspended") {
@@ -602,6 +657,13 @@ export class AudioEngine {
    */
   public triggerNoteOff(channelId: string | undefined | null, midiNote: number, time?: number) {
     const targetChannelId = channelId || this.focusedChannelId || "sampler_default";
+
+    const isWam = this.wamInstances.has(targetChannelId);
+    if (isWam) {
+      this.wamInstances.get(targetChannelId)!.noteOff(midiNote);
+      return;
+    }
+
     const isObsidian = this.channelInstrumentTypes[targetChannelId] === "obsidian" || targetChannelId.startsWith("obsidian");
     const now = time !== undefined ? time : this.audioContext.currentTime;
 
@@ -625,6 +687,15 @@ export class AudioEngine {
   ) {
     if (volume !== undefined) this.channelVols[channelId] = volume;
     if (pan !== undefined) this.channelPans[channelId] = pan;
+
+    const isWam = this.wamInstances.has(channelId);
+    if (isWam) {
+      const instance = this.wamInstances.get(channelId)!;
+      const note = (settings?.pitch ?? 0) + 60;
+      instance.noteOn(note, 100);
+      setTimeout(() => instance.noteOff(note), 450);
+      return;
+    }
 
     const isObsidian = this.channelInstrumentTypes[channelId] === "obsidian" || channelId.startsWith("obsidian");
     if (isObsidian) {
@@ -712,6 +783,17 @@ export class AudioEngine {
     if (event.pitch === undefined) return;
 
     const channelId = event.channelId;
+
+    const isWam = channelId ? this.wamInstances.has(channelId) : false;
+    if (isWam && channelId) {
+      const durationSeconds = this.beatsToSeconds(event.duration);
+      const instance = this.wamInstances.get(channelId)!;
+      instance.noteOn(event.pitch, (event.velocity ?? 0.8) * 127);
+      const stopAt = absoluteContextTime + durationSeconds - this.audioContext.currentTime;
+      setTimeout(() => instance.noteOff(event.pitch), Math.max(0, stopAt * 1000));
+      return;
+    }
+
     const isObsidian = channelId ? (this.channelInstrumentTypes[channelId] === "obsidian" || channelId.startsWith("obsidian")) : false;
     if (isObsidian && channelId) {
       const durationSeconds = this.beatsToSeconds(event.duration);
