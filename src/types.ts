@@ -40,7 +40,7 @@ export interface ChannelRow {
   sampleId?: string;
   pitch?: number;
   mixerTarget: number;
-  instrumentType?: "sampler" | "obsidian";
+  instrumentType?: "sampler" | "obsidian" | "wam";
 }
 
 export interface SamplerSettings {
@@ -168,6 +168,7 @@ export interface CanvasProject {
   obsidianSettings: Record<string, ObsidianSettings>;
   mixerInserts: MixerInsert[];
   loopSettings: { loopStart: number; loopEnd: number; loopEnabled: boolean };
+  wamChannels?: Record<string, { url: string; state: any }>;
   sampleIds: string[];
 }
 
