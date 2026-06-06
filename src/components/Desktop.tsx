@@ -713,7 +713,12 @@ function WAMGuiMount({ channelId }: { channelId: string }) {
       }
 
       try {
-        const gui = await instance.createGUI();
+        const createGuiFn = instance.createGui ?? instance.createGUI;
+        if (!createGuiFn) {
+          console.error('[WAM] No createGui or createGUI method found on instance');
+          return;
+        }
+        const gui = await createGuiFn.call(instance);
         if (cancelled || !containerRef.current) return;
         containerRef.current.appendChild(gui);
         mountedRef.current = channelId;

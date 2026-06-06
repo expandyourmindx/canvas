@@ -614,7 +614,9 @@ export class AudioEngine {
   }
 
   public getWAMState(channelId: string): any {
-    return this.wamInstances.get(channelId)?.getState() ?? null;
+    const instance = this.wamInstances.get(channelId);
+    if (!instance) return null;
+    return instance.getState?.() ?? null;
   }
 
   public getWAMInstance(channelId: string): any {
@@ -653,7 +655,7 @@ export class AudioEngine {
       result.push({
         channelId,
         url: this.wamUrls.get(channelId)!,
-        state: instance.getState(),
+        state: instance.getState?.() ?? null,
         mixerTarget: this.getChannelMixerTarget(channelId),
       });
     });
