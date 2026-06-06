@@ -577,13 +577,29 @@ export class AudioEngine {
   }
 
   public async loadWAM(channelId: string, url: string): Promise<void> {
-    const groupId = await this.ensureWamGroupInitialized();
-    const { default: WAMClass } = await import(/* @vite-ignore */ url);
-    const instance = await WAMClass.createInstance(groupId, this.audioContext);
-    const nodes = this.getOrCreateChannelNodes(channelId);
-    instance.audioNode.connect(nodes.gain);
-    this.wamInstances.set(channelId, instance);
-    this.wamUrls.set(channelId, url);
+    try {
+      const groupId = await this.ensureWamGroupInitialized();
+      console.log(`[WAM] Loading WAM for channel ${channelId} from URL: ${url}`);
+      const { default: WAMClass } = await import(/* @vite-ignore */ url);
+      if (!WAMClass) {
+        throw new Error(`WAM module at ${url} has no default export`);
+      }
+      if (typeof WAMClass.createInstance !== 'function') {
+        throw new Error(`WAM module at ${url} does not have a createInstance method. Exported keys: ${Object.keys(WAMClass).join(', ')}`);
+      }
+      const instance = await WAMClass.createInstance(groupId, this.audioContext);
+      if (!instance) {
+        throw new Error(`WAM createInstance returned null for ${url}`);
+      }
+      const nodes = this.getOrCreateChannelNodes(channelId);
+      instance.audioNode.connect(nodes.gain);
+      this.wamInstances.set(channelId, instance);
+      this.wamUrls.set(channelId, url);
+      console.log(`[WAM] Successfully loaded WAM for channel ${channelId}`);
+    } catch (err) {
+      console.error(`[WAM] Failed to load WAM for channel ${channelId} from ${url}:`, err);
+      throw err;
+    }
   }
 
   public async unloadWAM(channelId: string): Promise<void> {

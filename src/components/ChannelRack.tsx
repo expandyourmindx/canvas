@@ -416,18 +416,20 @@ export function ChannelRack({
     }
 
     // Toggle window visibility for the newly created instrument plugin
-    if (instrument.type === "wam") {
+    if (instrument.type === "wam" && instrument.url) {
       if (engine) {
         try {
-          await engine.loadWAM(newChanId, instrument.url || "");
+          await engine.loadWAM(newChanId, instrument.url);
+          // Only open the window if load succeeded
+          if (onOpenWAM) {
+            onOpenWAM(newChanId);
+          }
         } catch (err) {
           console.error("Failed to load WAM instrument on channel creation", err);
+          // Don't open an empty window
         }
       }
-      if (onOpenWAM) {
-        onOpenWAM(newChanId);
-      }
-    } else {
+    } else if (instrument.type === "sampler") {
       if (onOpenSampler) {
         onOpenSampler(newChanId);
       }
