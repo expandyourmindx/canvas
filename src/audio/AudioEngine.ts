@@ -151,7 +151,19 @@ export class AudioEngine {
         },
         onLoopWrap: (loopEndHardwareTime: number) => {
           this.wamInstances.forEach(instance => {
-            try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+            try {
+              if (typeof instance.noteOff === 'function') {
+                for (let n = 0; n < 128; n++) instance.noteOff(n);
+              } else if (typeof instance.scheduleEvents === 'function') {
+                for (let n = 0; n < 128; n++) {
+                  instance.scheduleEvents({
+                    type: 'wam-midi',
+                    time: this.audioContext.currentTime,
+                    data: { bytes: new Uint8Array([0x80, n, 0]) }
+                  });
+                }
+              }
+            } catch (_) {}
           });
           this.wamInstances.forEach(instance => {
             try { instance.clearSchedule(); } catch (_) {}
@@ -191,7 +203,19 @@ export class AudioEngine {
   public async pause(): Promise<void> {
     await this.scheduler.pause();
     this.wamInstances.forEach(instance => {
-      try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+      try {
+        if (typeof instance.noteOff === 'function') {
+          for (let n = 0; n < 128; n++) instance.noteOff(n);
+        } else if (typeof instance.scheduleEvents === 'function') {
+          for (let n = 0; n < 128; n++) {
+            instance.scheduleEvents({
+              type: 'wam-midi',
+              time: this.audioContext.currentTime,
+              data: { bytes: new Uint8Array([0x80, n, 0]) }
+            });
+          }
+        }
+      } catch (_) {}
     });
     this.wamInstances.forEach(instance => {
       try { instance.clearSchedule(); } catch (_) {}
@@ -202,7 +226,19 @@ export class AudioEngine {
   public stop() {
     this.scheduler.stop();
     this.wamInstances.forEach(instance => {
-      try { for (let n = 0; n < 128; n++) instance.noteOff(n); } catch (_) {}
+      try {
+        if (typeof instance.noteOff === 'function') {
+          for (let n = 0; n < 128; n++) instance.noteOff(n);
+        } else if (typeof instance.scheduleEvents === 'function') {
+          for (let n = 0; n < 128; n++) {
+            instance.scheduleEvents({
+              type: 'wam-midi',
+              time: this.audioContext.currentTime,
+              data: { bytes: new Uint8Array([0x80, n, 0]) }
+            });
+          }
+        }
+      } catch (_) {}
     });
     this.wamInstances.forEach(instance => {
       try { instance.clearSchedule(); } catch (_) {}
@@ -673,7 +709,16 @@ export class AudioEngine {
     const isWam = this.wamInstances.has(targetChannelId);
     if (isWam) {
       if (this.audioContext.state === 'suspended') this.audioContext.resume();
-      this.wamInstances.get(targetChannelId)!.noteOn(midiNote, velocity);
+      const instance = this.wamInstances.get(targetChannelId)!;
+      if (typeof instance.noteOn === 'function') {
+        instance.noteOn(midiNote, velocity);
+      } else if (typeof instance.scheduleEvents === 'function') {
+        instance.scheduleEvents({
+          type: 'wam-midi',
+          time: this.audioContext.currentTime,
+          data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
+        });
+      }
       return;
     }
 
@@ -693,7 +738,16 @@ export class AudioEngine {
 
     const isWam = this.wamInstances.has(targetChannelId);
     if (isWam) {
-      this.wamInstances.get(targetChannelId)!.noteOff(midiNote);
+      const instance = this.wamInstances.get(targetChannelId)!;
+      if (typeof instance.noteOff === 'function') {
+        instance.noteOff(midiNote);
+      } else if (typeof instance.scheduleEvents === 'function') {
+        instance.scheduleEvents({
+          type: 'wam-midi',
+          time: this.audioContext.currentTime,
+          data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
+        });
+      }
       return;
     }
 
@@ -798,8 +852,22 @@ export class AudioEngine {
       const instance = this.wamInstances.get(channelId)!;
       const durationSeconds = this.beatsToSeconds(event.duration);
       const velocity = Math.round((event.velocity ?? 0.8) * 127);
-      instance.scheduleNote(absoluteContextTime, event.pitch, velocity);
-      instance.scheduleNoteOff(absoluteContextTime + durationSeconds, event.pitch);
+      
+      if (typeof instance.scheduleNote === 'function') {
+        instance.scheduleNote(absoluteContextTime, event.pitch, velocity);
+        instance.scheduleNoteOff(absoluteContextTime + durationSeconds, event.pitch);
+      } else if (typeof instance.scheduleEvents === 'function') {
+        instance.scheduleEvents({
+          type: 'wam-midi',
+          time: absoluteContextTime,
+          data: { bytes: new Uint8Array([0x90, event.pitch, velocity]) }
+        });
+        instance.scheduleEvents({
+          type: 'wam-midi',
+          time: absoluteContextTime + durationSeconds,
+          data: { bytes: new Uint8Array([0x80, event.pitch, 0]) }
+        });
+      }
       return;
     }
 
