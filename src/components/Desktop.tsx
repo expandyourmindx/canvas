@@ -551,7 +551,7 @@ export function Desktop() {
         {activeWindows.wam && activeWAMChannelId && (
           <DraggableWindow
             id="wam"
-            title={`Obsidian — ${channels.find(c => c.id === activeWAMChannelId)?.name || "Instrument"}`}
+            title={channels.find(c => c.id === activeWAMChannelId)?.name || "Instrument"}
             isVisible={activeWindows.wam}
             onClose={() => toggleWindow("wam")}
             onFocus={() => handleSetFocus("wam")}
@@ -696,16 +696,36 @@ function WAMGuiMount({ channelId }: { channelId: string }) {
     containerRef.current.innerHTML = '';
     mountedRef.current = null;
 
-    const instance = engine.getWAMInstance(channelId);
-    if (!instance) return;
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30;
 
-    instance.createGUI().then((gui: HTMLElement) => {
-      if (!containerRef.current) return;
-      containerRef.current.appendChild(gui);
-      mountedRef.current = channelId;
-    });
+    const tryMount = async () => {
+      if (cancelled || !containerRef.current) return;
+
+      const instance = engine.getWAMInstance(channelId);
+      if (!instance) {
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(tryMount, 150);
+        }
+        return;
+      }
+
+      try {
+        const gui = await instance.createGUI();
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.appendChild(gui);
+        mountedRef.current = channelId;
+      } catch (err) {
+        console.error("WAM createGUI failed:", err);
+      }
+    };
+
+    tryMount();
 
     return () => {
+      cancelled = true;
       if (containerRef.current) containerRef.current.innerHTML = '';
       mountedRef.current = null;
     };
