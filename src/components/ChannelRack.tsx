@@ -362,15 +362,24 @@ export function ChannelRack({
   const fetchRemoteInstruments = async () => {
     if (remoteInstruments.length > 0) return;
     try {
-      const res = await fetch("https://plugins.canvasdaw.com/registry.json");
+      const BASE = "https://www.webaudiomodules.com/community/";
+      const res = await fetch(`${BASE}plugins.json`);
       if (res.ok) {
-        const data = await res.json();
+        const data: any[] = await res.json();
         setRemoteInstruments(
-          (data.instruments ?? []).filter((i: InstrumentDefinition) => i.type === "wam")
+          data
+            .filter(p => p.category?.includes("Instrument"))
+            .map(p => ({
+              id: p.identifier,
+              name: p.name,
+              type: "wam" as const,
+              url: `${BASE}${p.path}`,
+              description: p.description,
+            }))
         );
       }
     } catch {
-      // Registry not available yet, fail silently
+      // fail silently
     }
   };
 
@@ -1558,11 +1567,11 @@ export function ChannelRack({
                           boxSizing: "border-box",
                         }}
                       >
-                        No registry found
+                        Loading...
                       </div>
                     ) : (
                       remoteInstruments.map((instrument) => {
-                        const color = instrument.type === "sampler" ? DARK.textMid : DARK.accentOrange;
+                        const color = DARK.accentOrange;
                         return (
                           <button
                             key={instrument.id}
@@ -1570,6 +1579,7 @@ export function ChannelRack({
                             onClick={() => {
                               addChannelWithInstrument(instrument);
                               setAddDropdownOpen(false);
+                              setMoreOpen(false);
                             }}
                             style={{
                               width: "100%",
