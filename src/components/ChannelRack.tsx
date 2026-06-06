@@ -27,6 +27,19 @@ import {
   SIZE
 } from "../../public/Themes/Vintage Console/tokens";
 
+export interface InstrumentDefinition {
+  id: string;
+  name: string;
+  type: "sampler" | "wam";
+  url?: string;
+  description?: string;
+}
+
+export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
+  { id: "sampler", name: "Sampler", type: "sampler", description: "Built-in sample player" },
+  { id: "obsidian", name: "Obsidian", type: "wam", url: "https://expandyourmindx.github.io/obsidian-wam/index.js", description: "Virtual analog synthesizer" },
+];
+
 const DEFAULT_CHANNELS: ChannelRow[] = [
   { id: "sampler_default", name: "Sampler", type: "sample", sampleId: "sampler_default_sample", mixerTarget: 0, instrumentType: "sampler" }
 ];
@@ -268,6 +281,8 @@ export function ChannelRack({
 
   // State to track if the instrument selection dropdown is open
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [remoteInstruments, setRemoteInstruments] = useState<InstrumentDefinition[]>([]);
 
   // 6. Drag and drop file loading states
   const [draggingOverChannelId, setDraggingOverChannelId] = useState<string | null>(null);
@@ -344,19 +359,34 @@ export function ChannelRack({
     }
   };
 
+  const fetchRemoteInstruments = async () => {
+    if (remoteInstruments.length > 0) return;
+    try {
+      const res = await fetch("https://plugins.canvasdaw.com/registry.json");
+      if (res.ok) {
+        const data = await res.json();
+        setRemoteInstruments(
+          (data.instruments ?? []).filter((i: InstrumentDefinition) => i.type === "wam")
+        );
+      }
+    } catch {
+      // Registry not available yet, fail silently
+    }
+  };
+
   // Add a dynamic channel builder for the selected instrument type
-  const addChannelWithInstrument = async (instrumentType: "sampler" | "wam") => {
+  const addChannelWithInstrument = async (instrument: InstrumentDefinition) => {
     const nextIndex = channels.length + 1;
-    const newChanId = `${instrumentType}_${Date.now()}`;
+    const newChanId = `${instrument.type}_${Date.now()}`;
     const newChannel: ChannelRow = {
       id: newChanId,
-      name: instrumentType === "sampler" ? `Sampler ${nextIndex}` : `Obsidian`,
-      type: instrumentType === "sampler" ? "sample" : "pitch",
-      sampleId: instrumentType === "sampler" ? `sample_${newChanId}` : undefined,
-      pitch: instrumentType === "wam" ? 60 : undefined,
+      name: instrument.type === "sampler" ? `Sampler ${nextIndex}` : instrument.name,
+      type: instrument.type === "sampler" ? "sample" : "pitch",
+      sampleId: instrument.type === "sampler" ? `sample_${newChanId}` : undefined,
+      pitch: instrument.type === "wam" ? 60 : undefined,
       mixerTarget: 0,
-      instrumentType: instrumentType,
-      wamUrl: instrumentType === "wam" ? "https://expandyourmindx.github.io/obsidian-wam/index.js" : undefined
+      instrumentType: instrument.type,
+      wamUrl: instrument.type === "wam" ? instrument.url : undefined
     };
 
     setChannels([...channels, newChannel]);
@@ -372,15 +402,15 @@ export function ChannelRack({
       engine.updateChannelPan(newChanId, 0);
       engine.updateChannelMixerTarget(newChanId, 0);
       if (engine.updateChannelInstrumentType) {
-        engine.updateChannelInstrumentType(newChanId, instrumentType);
+        engine.updateChannelInstrumentType(newChanId, instrument.type);
       }
     }
 
     // Toggle window visibility for the newly created instrument plugin
-    if (instrumentType === "wam") {
+    if (instrument.type === "wam") {
       if (engine) {
         try {
-          await engine.loadWAM(newChanId, "https://expandyourmindx.github.io/obsidian-wam/index.js");
+          await engine.loadWAM(newChanId, instrument.url || "");
         } catch (err) {
           console.error("Failed to load WAM instrument on channel creation", err);
         }
@@ -1431,18 +1461,63 @@ export function ChannelRack({
               >
                 Select Instrument
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  addChannelWithInstrument("sampler");
-                  setAddDropdownOpen(false);
+              {LOCAL_INSTRUMENTS.map((instrument) => {
+                const color = instrument.type === "sampler" ? DARK.textMid : DARK.accentOrange;
+                return (
+                  <button
+                    key={instrument.id}
+                    type="button"
+                    onClick={() => {
+                      addChannelWithInstrument(instrument);
+                      setAddDropdownOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: `${SPACE.sm}px ${SPACE.md}px`,
+                      backgroundColor: "transparent",
+                      color: color,
+                      border: "none",
+                      cursor: "pointer",
+                      fontFamily: DARK.font,
+                      fontSize: "9px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      boxSizing: "border-box",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = DARK.bg3;
+                      e.currentTarget.style.color = DARK.textHi;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = color;
+                    }}
+                  >
+                    {instrument.name}
+                  </button>
+                );
+              })}
+              <div style={{ height: "1px", backgroundColor: DARK.bevelDark, margin: "2px 0" }} />
+              <div
+                onMouseEnter={(e) => {
+                  setMoreOpen(true);
+                  fetchRemoteInstruments();
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textHi;
+                }}
+                onMouseLeave={(e) => {
+                  setMoreOpen(false);
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = DARK.textLo;
                 }}
                 style={{
+                  position: "relative",
                   width: "100%",
                   textAlign: "left",
                   padding: `${SPACE.sm}px ${SPACE.md}px`,
                   backgroundColor: "transparent",
-                  color: DARK.textMid,
+                  color: DARK.textLo,
                   border: "none",
                   cursor: "pointer",
                   fontFamily: DARK.font,
@@ -1451,48 +1526,82 @@ export function ChannelRack({
                   textTransform: "uppercase",
                   boxSizing: "border-box",
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = DARK.bg3;
-                  e.currentTarget.style.color = DARK.textHi;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = DARK.textMid;
-                }}
               >
-                Sampler
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  addChannelWithInstrument("wam");
-                  setAddDropdownOpen(false);
-                }}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: `${SPACE.sm}px ${SPACE.md}px`,
-                  backgroundColor: "transparent",
-                  color: DARK.accentOrange,
-                  border: "none",
-                  cursor: "pointer",
-                  fontFamily: DARK.font,
-                  fontSize: "9px",
-                  fontWeight: "bold",
-                  textTransform: "uppercase",
-                  boxSizing: "border-box",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = DARK.bg3;
-                  e.currentTarget.style.color = DARK.textHi;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = DARK.accentOrange;
-                }}
-              >
-                Obsidian
-              </button>
+                More ▶
+                {moreOpen && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "100%",
+                      top: 0,
+                      width: "160px",
+                      backgroundColor: DARK.bg2,
+                      ...flat(DARK),
+                      padding: "2px",
+                      zIndex: 60,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                      display: "flex",
+                      flexDirection: "column",
+                      boxSizing: "border-box",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {remoteInstruments.length === 0 ? (
+                      <div
+                        style={{
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          color: DARK.textLo,
+                          fontFamily: DARK.font,
+                          fontSize: "9px",
+                          fontWeight: "bold",
+                          textTransform: "uppercase",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        No registry found
+                      </div>
+                    ) : (
+                      remoteInstruments.map((instrument) => {
+                        const color = instrument.type === "sampler" ? DARK.textMid : DARK.accentOrange;
+                        return (
+                          <button
+                            key={instrument.id}
+                            type="button"
+                            onClick={() => {
+                              addChannelWithInstrument(instrument);
+                              setAddDropdownOpen(false);
+                            }}
+                            style={{
+                              width: "100%",
+                              textAlign: "left",
+                              padding: `${SPACE.sm}px ${SPACE.md}px`,
+                              backgroundColor: "transparent",
+                              color: color,
+                              border: "none",
+                              cursor: "pointer",
+                              fontFamily: DARK.font,
+                              fontSize: "9px",
+                              fontWeight: "bold",
+                              textTransform: "uppercase",
+                              boxSizing: "border-box",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = DARK.bg3;
+                              e.currentTarget.style.color = DARK.textHi;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = "transparent";
+                              e.currentTarget.style.color = color;
+                            }}
+                          >
+                            {instrument.name}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
