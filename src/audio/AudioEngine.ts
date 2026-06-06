@@ -588,6 +588,8 @@ export class AudioEngine {
         throw new Error(`WAM module at ${url} does not have a createInstance method. Exported keys: ${Object.keys(WAMClass).join(', ')}`);
       }
       const instance = await WAMClass.createInstance(groupId, this.audioContext);
+      console.log('[WAM] Instance keys:', Object.getOwnPropertyNames(Object.getPrototypeOf(instance)));
+      console.log('[WAM] Instance own keys:', Object.keys(instance));
       if (!instance) {
         throw new Error(`WAM createInstance returned null for ${url}`);
       }
