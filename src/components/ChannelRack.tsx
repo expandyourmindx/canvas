@@ -38,6 +38,13 @@ export interface InstrumentDefinition {
 export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
   { id: "sampler", name: "Sampler", type: "sampler", description: "Built-in sample player" },
   { id: "obsidian", name: "Obsidian", type: "wam", url: "https://expandyourmindx.github.io/obsidian-wam/index.js", description: "Virtual analog synthesizer" },
+  { 
+    id: "distortion", 
+    name: "Simple Distortion", 
+    type: "wam" as const, 
+    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/distortion/index.js", 
+    description: "Waveshaper distortion" 
+  }
 ];
 
 const DEFAULT_CHANNELS: ChannelRow[] = [
