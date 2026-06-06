@@ -44,6 +44,13 @@ export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
     type: "wam" as const, 
     url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/distortion/index.js", 
     description: "Waveshaper distortion" 
+  },
+  { 
+    id: "synth101", 
+    name: "Synth 101", 
+    type: "wam" as const, 
+    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/synth101/index.js", 
+    description: "Roland SH-101 synthesizer emulation" 
   }
 ];
 
