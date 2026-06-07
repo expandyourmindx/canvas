@@ -629,7 +629,6 @@ export class AudioEngine {
       if (!instance) {
         throw new Error(`WAM createInstance returned null for ${url}`);
       }
-      // Ensure audio node is initialized — some WAMs require explicit createAudioNode call
       let audioNode = instance.audioNode;
       if (!audioNode) {
         console.log('[WAM] audioNode not ready, calling createAudioNode()');
@@ -638,9 +637,17 @@ export class AudioEngine {
       if (!audioNode) {
         throw new Error(`WAM at ${url} has no audio node after createAudioNode()`);
       }
-      console.log('[WAM] audioNode:', audioNode);
+
       const nodes = this.getOrCreateChannelNodes(channelId);
-      audioNode.connect(nodes.gain);
+
+      // ParamMgr-based WAMs route audio through _output (ChannelMergerNode) internally.
+      // Connect _output if it exists, otherwise fall back to audioNode directly.
+      const outputNode: AudioNode = (audioNode as any)._output ?? audioNode;
+      console.log('[WAM] Connecting outputNode:', outputNode);
+      outputNode.connect(nodes.gain);
+
+      // Store the outputNode reference for cleanup on unload
+      (instance as any)._canvasOutputNode = outputNode;
       this.wamInstances.set(channelId, instance);
       this.wamUrls.set(channelId, url);
       console.log(`[WAM] Successfully loaded WAM for channel ${channelId}`);
@@ -653,7 +660,10 @@ export class AudioEngine {
   public async unloadWAM(channelId: string): Promise<void> {
     const instance = this.wamInstances.get(channelId);
     if (!instance) return;
-    try { instance.audioNode.disconnect(); } catch (_) {}
+    try { 
+      const outputNode = (instance as any)._canvasOutputNode ?? instance.audioNode;
+      outputNode?.disconnect(); 
+    } catch (_) {}
     try { instance.destroy?.(); } catch (_) {}
     this.wamInstances.delete(channelId);
     this.wamUrls.delete(channelId);
