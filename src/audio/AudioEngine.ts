@@ -646,6 +646,13 @@ export class AudioEngine {
       console.log('[WAM] Connecting outputNode:', outputNode);
       outputNode.connect(nodes.gain);
 
+      // TEMP: direct to destination for audio routing debug
+      const directGain = this.audioContext.createGain();
+      directGain.gain.value = 0.5;
+      audioNode.connect(directGain);
+      directGain.connect(this.audioContext.destination);
+      console.log('[WAM DEBUG] Direct to destination connection made');
+
       // Store the outputNode reference for cleanup on unload
       (instance as any)._canvasOutputNode = outputNode;
       this.wamInstances.set(channelId, instance);
@@ -734,6 +741,7 @@ export class AudioEngine {
       if (typeof instance.noteOn === 'function') {
         instance.noteOn(midiNote, velocity);
       } else if (typeof instance.scheduleEvents === 'function') {
+        console.log('[WAM MIDI] Sending scheduleEvents to instance:', instance, 'bytes:', [0x90, midiNote, velocity], 'time:', this.audioContext.currentTime + 0.05);
         instance.scheduleEvents({
           type: 'wam-midi',
           time: this.audioContext.currentTime + 0.05,
