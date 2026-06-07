@@ -283,6 +283,101 @@ function PanKnob({ value, min, max, onChange, defaultValue = 0, title, dotColor 
   );
 }
 
+interface InputGainKnobProps {
+  value: number; // 0.0 to 2.0
+  onChange: (value: number) => void;
+  title?: string;
+  dotColor?: string;
+}
+
+function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue }: InputGainKnobProps) {
+  const knobRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startValue = value;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaY = startY - moveEvent.clientY;
+      const deltaValue = deltaY * (2.0 / 100);
+      const nextValue = Math.min(2.0, Math.max(0.0, startValue + deltaValue));
+      onChange(Math.round(nextValue * 100) / 100);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onChange(1.0);
+  };
+
+  const angleDeg = (value - 1.0) * 135;
+  const angleRad = (angleDeg * Math.PI) / 180;
+  
+  const cx = 11;
+  const cy = 11;
+  const R = 6.5;
+  const dotX = cx + R * Math.sin(angleRad);
+  const dotY = cy - R * Math.cos(angleRad);
+
+  return (
+    <div 
+      ref={knobRef}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={handleDoubleClick}
+      title={title}
+      style={{
+        width: "22px",
+        height: "22px",
+        borderRadius: "50%",
+        backgroundColor: DARK.knobBody,
+        position: "relative",
+        cursor: "ns-resize",
+        userSelect: "none",
+        boxSizing: "border-box",
+        ...raised(DARK),
+      }}
+    >
+      {/* Highlight Ellipse */}
+      <div 
+        style={{
+          position: "absolute",
+          top: "2px",
+          left: "2px",
+          width: "8px",
+          height: "4px",
+          borderRadius: "50%",
+          backgroundColor: DARK.knobHighlight,
+          transform: "rotate(-30deg)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Indicator Dot */}
+      <svg 
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+        }}
+      >
+        <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
+      </svg>
+    </div>
+  );
+}
+
 // Local custom VerticalFader component following the spec perfectly
 interface VerticalFaderProps {
   value: number;
@@ -580,6 +675,17 @@ export function Mixer({
     );
   };
 
+  // Apply input gain updates
+  const handleInputGainChange = (index: number, nextGain: number) => {
+    if (!engine) return;
+    if (engine.mixerManager && engine.mixerManager.updateInsertInputGain) {
+      engine.mixerManager.updateInsertInputGain(index, nextGain);
+    }
+    setInsertsState((prev) =>
+      prev.map((ins) => (ins.index === index ? { ...ins, inputGain: nextGain } : ins))
+    );
+  };
+
   // Toggle Mute
   const handleToggleMute = (index: number, currentMuted: boolean) => {
     if (!engine) return;
@@ -731,6 +837,35 @@ export function Mixer({
                 onChange={(v) => handlePanChange(0, v)}
                 title="MASTER PANNING BALANCE"
                 defaultValue={0}
+                dotColor={isMasterMuted ? DARK.textDim : DARK.accentMaster}
+              />
+            </div>
+
+            {/* Input Gain knob */}
+            <div 
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                margin: `${SPACE.xs}px 0`,
+              }}
+            >
+              <div 
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "7px",
+                  color: DARK.textLo,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: `${SPACE.xs}px`,
+                }}
+              >
+                IN
+              </div>
+              <InputGainKnob
+                value={insertsState[0]?.inputGain ?? 1.0}
+                onChange={(v) => handleInputGainChange(0, v)}
+                title={`MASTER INPUT GAIN (${(insertsState[0]?.inputGain ?? 1.0).toFixed(2)}x)`}
                 dotColor={isMasterMuted ? DARK.textDim : DARK.accentMaster}
               />
             </div>
@@ -1017,6 +1152,35 @@ export function Mixer({
                     onChange={(v) => handlePanChange(ins.index, v)}
                     title={`PANNER FOR INSERT ${ins.index}`}
                     defaultValue={0}
+                    dotColor={knobAccent}
+                  />
+                </div>
+
+                {/* Input Gain knob */}
+                <div 
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    margin: `${SPACE.xs}px 0`,
+                  }}
+                >
+                  <div 
+                    style={{
+                      fontFamily: DARK.font,
+                      fontSize: "7px",
+                      color: DARK.textLo,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: `${SPACE.xs}px`,
+                    }}
+                  >
+                    IN
+                  </div>
+                  <InputGainKnob
+                    value={ins.inputGain ?? 1.0}
+                    onChange={(v) => handleInputGainChange(ins.index, v)}
+                    title={`INPUT GAIN FOR INSERT ${ins.index} (${(ins.inputGain ?? 1.0).toFixed(2)}x)`}
                     dotColor={knobAccent}
                   />
                 </div>

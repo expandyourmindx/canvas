@@ -107,6 +107,8 @@ export interface MixerInsert {
   isSoloed: boolean;
   gainNode?: GainNode;
   inputNode?: GainNode;
+  inputGainNode?: GainNode;
+  inputGain: number;
   pannerNode?: StereoPannerNode | null;
   analyserNode?: AnalyserNode;
   fxSlots: string[]; // 8 empty FX slots

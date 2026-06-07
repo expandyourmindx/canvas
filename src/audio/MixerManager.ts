@@ -38,6 +38,9 @@ export class MixerManager {
     // Default 100 volume corresponds to 1.0 gain
     gainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
+    const inputGainNode = this.audioContext.createGain();
+    inputGainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+
     const inputNode = this.audioContext.createGain();
 
     const pannerNode = this.audioContext.createStereoPanner ? this.audioContext.createStereoPanner() : null;
@@ -69,7 +72,9 @@ export class MixerManager {
       isMuted: false,
       isSoloed: false,
       gainNode,
-      inputNode,
+      inputNode: inputGainNode,
+      inputGainNode,
+      inputGain: 1.0,
       pannerNode,
       analyserNode,
       fxSlots: Array(8).fill(""),
@@ -77,9 +82,13 @@ export class MixerManager {
       eqSettings: {}
     };
 
+    (insert as any).fxInputNode = inputNode;
     (insert as any).fxInstances = Array(8).fill(null);
 
-    // Connect inputNode to gainNode by default
+    // Connect inputGainNode to fxInputNode
+    inputGainNode.connect(inputNode);
+
+    // Connect fxInputNode to gainNode by default
     inputNode.connect(gainNode);
 
     return insert;
@@ -117,6 +126,16 @@ export class MixerManager {
       insert.gainNode.gain.setValueAtTime(0, now);
     } else {
       insert.gainNode.gain.linearRampToValueAtTime(gainVal, now + 0.01);
+    }
+  }
+
+  public updateInsertInputGain(insertIndex: number, gain: number) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    insert.inputGain = gain;
+    if (insert.inputGainNode) {
+      const now = this.audioContext.currentTime;
+      insert.inputGainNode.gain.cancelScheduledValues(now);
+      insert.inputGainNode.gain.linearRampToValueAtTime(gain, now + 0.01);
     }
   }
 
@@ -183,13 +202,13 @@ export class MixerManager {
     const insert = this.inserts[index];
     if (!insert) return;
 
-    const inputNode = insert.inputNode;
+    const fxInputNode = (insert as any).fxInputNode;
     const gainNode = insert.gainNode;
-    if (!inputNode || !gainNode) return;
+    if (!fxInputNode || !gainNode) return;
 
-    // Disconnect inputNode
+    // Disconnect fxInputNode
     try {
-      inputNode.disconnect();
+      fxInputNode.disconnect();
     } catch (e) {}
 
     const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
@@ -205,7 +224,7 @@ export class MixerManager {
     }
 
     // Reconnect chain in series
-    let lastNode: AudioNode = inputNode;
+    let lastNode: AudioNode = fxInputNode;
     for (let i = 0; i < 8; i++) {
       const slotName = insert.fxSlots[i];
       const effect = fxInstances[i];
@@ -311,6 +330,7 @@ export class MixerManager {
       target.isSoloed = ins.isSoloed;
       this.updateInsertVolume(ins.index, ins.volume);
       this.updateInsertPan(ins.index, ins.pan);
+      this.updateInsertInputGain(ins.index, ins.inputGain ?? 1.0);
       
       if (ins.fxSlots) {
         target.fxSlots = [...ins.fxSlots];
