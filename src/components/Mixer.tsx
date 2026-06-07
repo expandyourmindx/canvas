@@ -533,6 +533,9 @@ export function Mixer({
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const [draggedSlotIdx, setDraggedSlotIdx] = useState<number | null>(null);
+  const [draggingOverSlotIdx, setDraggingOverSlotIdx] = useState<number | null>(null);
+
   const [activePickerSlotIdx, setActivePickerSlotIdx] = useState<number | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -683,6 +686,65 @@ export function Mixer({
     }
     setInsertsState((prev) =>
       prev.map((ins) => (ins.index === index ? { ...ins, inputGain: nextGain } : ins))
+    );
+  };
+
+  const handleReorderFX = (fromSlot: number, toSlot: number) => {
+    if (!engine || !selectedInsert) return;
+    if (engine.mixerManager && engine.mixerManager.reorderInsertFX) {
+      engine.mixerManager.reorderInsertFX(selectedInsert.index, fromSlot, toSlot);
+    }
+    setInsertsState((prev) =>
+      prev.map((ins) => {
+        if (ins.index !== selectedInsert.index) return ins;
+        const newSlots = [...ins.fxSlots];
+        const newBypass = ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false);
+        
+        // Swap slots
+        const tempSlot = newSlots[fromSlot];
+        newSlots[fromSlot] = newSlots[toSlot];
+        newSlots[toSlot] = tempSlot;
+
+        // Swap bypass
+        const tempBypass = newBypass[fromSlot];
+        newBypass[fromSlot] = newBypass[toSlot];
+        newBypass[toSlot] = tempBypass;
+
+        // Swap eqSettings and reverbSettings
+        const newEq = ins.eqSettings ? { ...ins.eqSettings } : {};
+        const tempEq = newEq[fromSlot];
+        if (newEq[toSlot] !== undefined) {
+          newEq[fromSlot] = newEq[toSlot];
+        } else {
+          delete newEq[fromSlot];
+        }
+        if (tempEq !== undefined) {
+          newEq[toSlot] = tempEq;
+        } else {
+          delete newEq[toSlot];
+        }
+
+        const newReverb = ins.reverbSettings ? { ...ins.reverbSettings } : {};
+        const tempReverb = newReverb[fromSlot];
+        if (newReverb[toSlot] !== undefined) {
+          newReverb[fromSlot] = newReverb[toSlot];
+        } else {
+          delete newReverb[fromSlot];
+        }
+        if (tempReverb !== undefined) {
+          newReverb[toSlot] = tempReverb;
+        } else {
+          delete newReverb[toSlot];
+        }
+
+        return {
+          ...ins,
+          fxSlots: newSlots,
+          fxBypass: newBypass,
+          eqSettings: newEq,
+          reverbSettings: newReverb
+        };
+      })
     );
   };
 
@@ -1400,10 +1462,43 @@ export function Mixer({
           >
             {selectedInsert.fxSlots.map((slotName: string, slotIdx: number) => {
               const isBypassed = selectedInsert.fxBypass?.[slotIdx] ?? false;
+              const isFilled = !!slotName;
 
               return (
                 <div 
                   key={slotIdx}
+                  draggable={isFilled}
+                  onDragStart={(e) => {
+                    if (!isFilled) {
+                      e.preventDefault();
+                      return;
+                    }
+                    setDraggedSlotIdx(slotIdx);
+                    e.dataTransfer.setData("text/plain", String(slotIdx));
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragEnd={() => {
+                    setDraggedSlotIdx(null);
+                    setDraggingOverSlotIdx(null);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDraggingOverSlotIdx(slotIdx);
+                  }}
+                  onDragLeave={() => {
+                    if (draggingOverSlotIdx === slotIdx) {
+                      setDraggingOverSlotIdx(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDraggingOverSlotIdx(null);
+                    const fromIdx = draggedSlotIdx !== null ? draggedSlotIdx : Number(e.dataTransfer.getData("text/plain"));
+                    if (fromIdx !== null && !isNaN(fromIdx) && fromIdx !== slotIdx) {
+                      handleReorderFX(fromIdx, slotIdx);
+                    }
+                    setDraggedSlotIdx(null);
+                  }}
                   onClick={() => {
                     if (!slotName) {
                       setActivePickerSlotIdx(slotIdx);
@@ -1435,12 +1530,13 @@ export function Mixer({
                     paddingLeft: `${SPACE.md}px`,
                     paddingRight: `${SPACE.md}px`,
                     position: "relative",
-                    cursor: "pointer",
+                    cursor: isFilled ? "grab" : "pointer",
                     boxSizing: "border-box",
-                    ...(slotName 
-                      ? { ...raised(DARK), backgroundColor: DARK.bg5, color: DARK.textMid }
-                      : { ...flush(DARK), backgroundColor: DARK.bg1, color: DARK.textDim }
-                    )
+                    ...(isFilled 
+                      ? { ...raised(DARK), backgroundColor: draggingOverSlotIdx === slotIdx ? DARK.bg0 : DARK.bg5, color: DARK.textMid }
+                      : { ...flush(DARK), backgroundColor: draggingOverSlotIdx === slotIdx ? DARK.bg0 : DARK.bg1, color: DARK.textDim }
+                    ),
+                    ...(draggingOverSlotIdx === slotIdx ? sunken(DARK) : {})
                   }}
                 >
                   {/* Left slot indicator badge */}

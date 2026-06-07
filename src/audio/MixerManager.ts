@@ -379,4 +379,58 @@ export class MixerManager {
     // Re-evaluate solo mapping hierarchy
     this.updateInsertSolo(0, false);
   }
+
+  public reorderInsertFX(insertIndex: number, fromSlot: number, toSlot: number) {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    // Swap fxSlots
+    const tempSlot = insert.fxSlots[fromSlot];
+    insert.fxSlots[fromSlot] = insert.fxSlots[toSlot];
+    insert.fxSlots[toSlot] = tempSlot;
+
+    // Swap fxBypass
+    if (!insert.fxBypass) insert.fxBypass = Array(8).fill(false);
+    const tempBypass = insert.fxBypass[fromSlot];
+    insert.fxBypass[fromSlot] = insert.fxBypass[toSlot];
+    insert.fxBypass[toSlot] = tempBypass;
+
+    // Swap fxInstances
+    const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
+    const tempInstance = fxInstances[fromSlot];
+    fxInstances[fromSlot] = fxInstances[toSlot];
+    fxInstances[toSlot] = tempInstance;
+    (insert as any).fxInstances = fxInstances;
+
+    // Swap eqSettings
+    if (!insert.eqSettings) insert.eqSettings = {};
+    const tempEq = insert.eqSettings[fromSlot];
+    if (insert.eqSettings[toSlot] !== undefined) {
+      insert.eqSettings[fromSlot] = insert.eqSettings[toSlot];
+    } else {
+      delete insert.eqSettings[fromSlot];
+    }
+    if (tempEq !== undefined) {
+      insert.eqSettings[toSlot] = tempEq;
+    } else {
+      delete insert.eqSettings[toSlot];
+    }
+
+    // Swap reverbSettings
+    if (!insert.reverbSettings) insert.reverbSettings = {};
+    const tempReverb = insert.reverbSettings[fromSlot];
+    if (insert.reverbSettings[toSlot] !== undefined) {
+      insert.reverbSettings[fromSlot] = insert.reverbSettings[toSlot];
+    } else {
+      delete insert.reverbSettings[fromSlot];
+    }
+    if (tempReverb !== undefined) {
+      insert.reverbSettings[toSlot] = tempReverb;
+    } else {
+      delete insert.reverbSettings[toSlot];
+    }
+
+    // Rebuild fx chain
+    this.rebuildFXChain(insertIndex);
+  }
 }
