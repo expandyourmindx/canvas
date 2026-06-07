@@ -730,16 +730,10 @@ export class AudioEngine {
       if (typeof instance.noteOn === 'function') {
         instance.noteOn(midiNote, velocity);
       } else {
-        const audioNode = (instance as any)._audioNode ?? instance.audioNode;
-        console.log('[WAM MIDI] scheduleEvents target:', audioNode, 'has scheduleEvents:', typeof audioNode?.scheduleEvents);
-        if (typeof audioNode?.scheduleEvents === 'function') {
-          audioNode.scheduleEvents({
-            type: 'wam-midi',
-            time: this.audioContext.currentTime + 0.05,
-            data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
-          });
-        } else if (typeof instance.scheduleEvents === 'function') {
-          instance.scheduleEvents({
+        const wamAudioNode = (instance as any)._audioNode ?? instance.audioNode;
+        console.log('[WAM MIDI] audioNode scheduleEvents:', typeof wamAudioNode?.scheduleEvents);
+        if (typeof wamAudioNode?.scheduleEvents === 'function') {
+          wamAudioNode.scheduleEvents({
             type: 'wam-midi',
             time: this.audioContext.currentTime + 0.05,
             data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
@@ -769,16 +763,10 @@ export class AudioEngine {
       if (typeof instance.noteOff === 'function') {
         instance.noteOff(midiNote);
       } else {
-        const audioNode = (instance as any)._audioNode ?? instance.audioNode;
-        console.log('[WAM MIDI] scheduleEvents target:', audioNode, 'has scheduleEvents:', typeof audioNode?.scheduleEvents);
-        if (typeof audioNode?.scheduleEvents === 'function') {
-          audioNode.scheduleEvents({
-            type: 'wam-midi',
-            time: this.audioContext.currentTime + 0.05,
-            data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
-          });
-        } else if (typeof instance.scheduleEvents === 'function') {
-          instance.scheduleEvents({
+        const wamAudioNode = (instance as any)._audioNode ?? instance.audioNode;
+        console.log('[WAM MIDI] audioNode scheduleEvents:', typeof wamAudioNode?.scheduleEvents);
+        if (typeof wamAudioNode?.scheduleEvents === 'function') {
+          wamAudioNode.scheduleEvents({
             type: 'wam-midi',
             time: this.audioContext.currentTime + 0.05,
             data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
@@ -810,8 +798,35 @@ export class AudioEngine {
     if (isWam) {
       const instance = this.wamInstances.get(channelId)!;
       const note = (settings?.pitch ?? 0) + 60;
-      instance.noteOn(note, 100);
-      setTimeout(() => instance.noteOff(note), 450);
+      const velocity = 100;
+      if (this.audioContext.state === 'suspended') this.audioContext.resume();
+      if (typeof instance.noteOn === 'function') {
+        instance.noteOn(note, velocity);
+      } else {
+        const audioNode = (instance as any)._audioNode ?? instance.audioNode;
+        if (typeof audioNode?.scheduleEvents === 'function') {
+          audioNode.scheduleEvents({
+            type: 'wam-midi',
+            time: this.audioContext.currentTime + 0.05,
+            data: { bytes: new Uint8Array([0x90, note, velocity]) }
+          });
+        }
+      }
+
+      setTimeout(() => {
+        if (typeof instance.noteOff === 'function') {
+          instance.noteOff(note);
+        } else {
+          const audioNode = (instance as any)._audioNode ?? instance.audioNode;
+          if (typeof audioNode?.scheduleEvents === 'function') {
+            audioNode.scheduleEvents({
+              type: 'wam-midi',
+              time: this.audioContext.currentTime + 0.05,
+              data: { bytes: new Uint8Array([0x80, note, 0]) }
+            });
+          }
+        }
+      }, 450);
       return;
     }
 
