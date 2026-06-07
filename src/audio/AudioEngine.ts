@@ -906,19 +906,24 @@ export class AudioEngine {
       const velocity = Math.round((event.velocity ?? 0.8) * 127);
       
       if (typeof instance.scheduleNote === 'function') {
+        // Obsidian V1 custom API
         instance.scheduleNote(absoluteContextTime, event.pitch, velocity);
         instance.scheduleNoteOff(absoluteContextTime + durationSeconds, event.pitch);
-      } else if (typeof instance.scheduleEvents === 'function') {
-        instance.scheduleEvents({
-          type: 'wam-midi',
-          time: absoluteContextTime,
-          data: { bytes: new Uint8Array([0x90, event.pitch, velocity]) }
-        });
-        instance.scheduleEvents({
-          type: 'wam-midi',
-          time: absoluteContextTime + durationSeconds,
-          data: { bytes: new Uint8Array([0x80, event.pitch, 0]) }
-        });
+      } else {
+        // Standard WAM2 — scheduleEvents lives on audioNode not instance
+        const wamAudioNode = (instance as any)._audioNode ?? instance.audioNode;
+        if (typeof wamAudioNode?.scheduleEvents === 'function') {
+          wamAudioNode.scheduleEvents({
+            type: 'wam-midi',
+            time: absoluteContextTime,
+            data: { bytes: new Uint8Array([0x90, event.pitch, velocity]) }
+          });
+          wamAudioNode.scheduleEvents({
+            type: 'wam-midi',
+            time: absoluteContextTime + durationSeconds,
+            data: { bytes: new Uint8Array([0x80, event.pitch, 0]) }
+          });
+        }
       }
       return;
     }
