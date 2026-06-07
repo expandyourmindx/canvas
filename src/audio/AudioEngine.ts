@@ -640,20 +640,9 @@ export class AudioEngine {
 
       const nodes = this.getOrCreateChannelNodes(channelId);
 
-      // ParamMgr-based WAMs route audio through _output (ChannelMergerNode) internally.
-      // Connect _output if it exists, otherwise fall back to audioNode directly.
       const outputNode: AudioNode = (audioNode as any)._output ?? audioNode;
-      console.log('[WAM] Connecting outputNode:', outputNode);
+      console.log('[WAM] Connecting outputNode:', outputNode.constructor.name);
       outputNode.connect(nodes.gain);
-
-      // TEMP: direct to destination for audio routing debug
-      const directGain = this.audioContext.createGain();
-      directGain.gain.value = 0.5;
-      audioNode.connect(directGain);
-      directGain.connect(this.audioContext.destination);
-      console.log('[WAM DEBUG] Direct to destination connection made');
-
-      // Store the outputNode reference for cleanup on unload
       (instance as any)._canvasOutputNode = outputNode;
       this.wamInstances.set(channelId, instance);
       this.wamUrls.set(channelId, url);
@@ -740,13 +729,22 @@ export class AudioEngine {
       const instance = this.wamInstances.get(targetChannelId)!;
       if (typeof instance.noteOn === 'function') {
         instance.noteOn(midiNote, velocity);
-      } else if (typeof instance.scheduleEvents === 'function') {
-        console.log('[WAM MIDI] Sending scheduleEvents to instance:', instance, 'bytes:', [0x90, midiNote, velocity], 'time:', this.audioContext.currentTime + 0.05);
-        instance.scheduleEvents({
-          type: 'wam-midi',
-          time: this.audioContext.currentTime + 0.05,
-          data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
-        });
+      } else {
+        const audioNode = (instance as any)._audioNode ?? instance.audioNode;
+        console.log('[WAM MIDI] scheduleEvents target:', audioNode, 'has scheduleEvents:', typeof audioNode?.scheduleEvents);
+        if (typeof audioNode?.scheduleEvents === 'function') {
+          audioNode.scheduleEvents({
+            type: 'wam-midi',
+            time: this.audioContext.currentTime + 0.05,
+            data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
+          });
+        } else if (typeof instance.scheduleEvents === 'function') {
+          instance.scheduleEvents({
+            type: 'wam-midi',
+            time: this.audioContext.currentTime + 0.05,
+            data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
+          });
+        }
       }
       return;
     }
@@ -770,12 +768,22 @@ export class AudioEngine {
       const instance = this.wamInstances.get(targetChannelId)!;
       if (typeof instance.noteOff === 'function') {
         instance.noteOff(midiNote);
-      } else if (typeof instance.scheduleEvents === 'function') {
-        instance.scheduleEvents({
-          type: 'wam-midi',
-          time: this.audioContext.currentTime + 0.05,
-          data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
-        });
+      } else {
+        const audioNode = (instance as any)._audioNode ?? instance.audioNode;
+        console.log('[WAM MIDI] scheduleEvents target:', audioNode, 'has scheduleEvents:', typeof audioNode?.scheduleEvents);
+        if (typeof audioNode?.scheduleEvents === 'function') {
+          audioNode.scheduleEvents({
+            type: 'wam-midi',
+            time: this.audioContext.currentTime + 0.05,
+            data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
+          });
+        } else if (typeof instance.scheduleEvents === 'function') {
+          instance.scheduleEvents({
+            type: 'wam-midi',
+            time: this.audioContext.currentTime + 0.05,
+            data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
+          });
+        }
       }
       return;
     }
