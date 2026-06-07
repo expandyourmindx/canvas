@@ -648,7 +648,9 @@ export function Mixer({
       const inserts = engine.getInserts();
       setInsertsState(
         inserts.map((ins) => ({
-          ...ins
+          ...ins,
+          fxSlots: [...ins.fxSlots],
+          fxBypass: ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false)
         }))
       );
     };
@@ -764,7 +766,9 @@ export function Mixer({
     const inserts = engine.getInserts();
     setInsertsState(
       inserts.map((ins) => ({
-        ...ins
+        ...ins,
+        fxSlots: [...ins.fxSlots],
+        fxBypass: ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false)
       }))
     );
   };

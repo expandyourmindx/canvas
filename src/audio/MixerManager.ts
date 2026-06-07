@@ -385,50 +385,55 @@ export class MixerManager {
     if (!insert) return;
 
     // Swap fxSlots
-    const tempSlot = insert.fxSlots[fromSlot];
-    insert.fxSlots[fromSlot] = insert.fxSlots[toSlot];
-    insert.fxSlots[toSlot] = tempSlot;
+    const newSlots = [...insert.fxSlots];
+    const tempSlot = newSlots[fromSlot];
+    newSlots[fromSlot] = newSlots[toSlot];
+    newSlots[toSlot] = tempSlot;
+    insert.fxSlots = newSlots;
 
     // Swap fxBypass
-    if (!insert.fxBypass) insert.fxBypass = Array(8).fill(false);
-    const tempBypass = insert.fxBypass[fromSlot];
-    insert.fxBypass[fromSlot] = insert.fxBypass[toSlot];
-    insert.fxBypass[toSlot] = tempBypass;
+    const newBypass = insert.fxBypass ? [...insert.fxBypass] : Array(8).fill(false);
+    const tempBypass = newBypass[fromSlot];
+    newBypass[fromSlot] = newBypass[toSlot];
+    newBypass[toSlot] = tempBypass;
+    insert.fxBypass = newBypass;
 
     // Swap fxInstances
-    const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
-    const tempInstance = fxInstances[fromSlot];
-    fxInstances[fromSlot] = fxInstances[toSlot];
-    fxInstances[toSlot] = tempInstance;
-    (insert as any).fxInstances = fxInstances;
+    const newInstances = (insert as any).fxInstances ? [...(insert as any).fxInstances] : Array(8).fill(null);
+    const tempInstance = newInstances[fromSlot];
+    newInstances[fromSlot] = newInstances[toSlot];
+    newInstances[toSlot] = tempInstance;
+    (insert as any).fxInstances = newInstances;
 
     // Swap eqSettings
-    if (!insert.eqSettings) insert.eqSettings = {};
-    const tempEq = insert.eqSettings[fromSlot];
-    if (insert.eqSettings[toSlot] !== undefined) {
-      insert.eqSettings[fromSlot] = insert.eqSettings[toSlot];
+    const newEq = insert.eqSettings ? { ...insert.eqSettings } : {};
+    const tempEq = newEq[fromSlot];
+    if (newEq[toSlot] !== undefined) {
+      newEq[fromSlot] = newEq[toSlot];
     } else {
-      delete insert.eqSettings[fromSlot];
+      delete newEq[fromSlot];
     }
     if (tempEq !== undefined) {
-      insert.eqSettings[toSlot] = tempEq;
+      newEq[toSlot] = tempEq;
     } else {
-      delete insert.eqSettings[toSlot];
+      delete newEq[toSlot];
     }
+    insert.eqSettings = newEq;
 
     // Swap reverbSettings
-    if (!insert.reverbSettings) insert.reverbSettings = {};
-    const tempReverb = insert.reverbSettings[fromSlot];
-    if (insert.reverbSettings[toSlot] !== undefined) {
-      insert.reverbSettings[fromSlot] = insert.reverbSettings[toSlot];
+    const newReverb = insert.reverbSettings ? { ...insert.reverbSettings } : {};
+    const tempReverb = newReverb[fromSlot];
+    if (newReverb[toSlot] !== undefined) {
+      newReverb[fromSlot] = newReverb[toSlot];
     } else {
-      delete insert.reverbSettings[fromSlot];
+      delete newReverb[fromSlot];
     }
     if (tempReverb !== undefined) {
-      insert.reverbSettings[toSlot] = tempReverb;
+      newReverb[toSlot] = tempReverb;
     } else {
-      delete insert.reverbSettings[toSlot];
+      delete newReverb[toSlot];
     }
+    insert.reverbSettings = newReverb;
 
     // Rebuild fx chain
     this.rebuildFXChain(insertIndex);
