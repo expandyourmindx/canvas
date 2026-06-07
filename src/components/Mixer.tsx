@@ -841,35 +841,6 @@ export function Mixer({
               />
             </div>
 
-            {/* Input Gain knob */}
-            <div 
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                margin: `${SPACE.xs}px 0`,
-              }}
-            >
-              <div 
-                style={{
-                  fontFamily: DARK.font,
-                  fontSize: "7px",
-                  color: DARK.textLo,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginBottom: `${SPACE.xs}px`,
-                }}
-              >
-                IN
-              </div>
-              <InputGainKnob
-                value={insertsState[0]?.inputGain ?? 1.0}
-                onChange={(v) => handleInputGainChange(0, v)}
-                title={`MASTER INPUT GAIN (${(insertsState[0]?.inputGain ?? 1.0).toFixed(2)}x)`}
-                dotColor={isMasterMuted ? DARK.textDim : DARK.accentMaster}
-              />
-            </div>
-
             {/* Fader section */}
             <div 
               style={{
@@ -902,6 +873,35 @@ export function Mixer({
                   title="MASTER VOLUME FADER (DBL-CLICK/ALT-CLICK TO RESET TO 100%)"
                 />
               </div>
+            </div>
+
+            {/* Input Gain knob */}
+            <div 
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                margin: `${SPACE.xs}px 0`,
+              }}
+            >
+              <div 
+                style={{
+                  fontFamily: DARK.font,
+                  fontSize: "7px",
+                  color: DARK.textLo,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: `${SPACE.xs}px`,
+                }}
+              >
+                IN
+              </div>
+              <InputGainKnob
+                value={insertsState[0]?.inputGain ?? 1.0}
+                onChange={(v) => handleInputGainChange(0, v)}
+                title={`MASTER INPUT GAIN (${(insertsState[0]?.inputGain ?? 1.0).toFixed(2)}x)`}
+                dotColor={isMasterMuted ? DARK.textDim : DARK.accentMaster}
+              />
             </div>
 
             {/* dB readout & M/S triggers */}
@@ -1156,35 +1156,6 @@ export function Mixer({
                   />
                 </div>
 
-                {/* Input Gain knob */}
-                <div 
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    margin: `${SPACE.xs}px 0`,
-                  }}
-                >
-                  <div 
-                    style={{
-                      fontFamily: DARK.font,
-                      fontSize: "7px",
-                      color: DARK.textLo,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.08em",
-                      marginBottom: `${SPACE.xs}px`,
-                    }}
-                  >
-                    IN
-                  </div>
-                  <InputGainKnob
-                    value={ins.inputGain ?? 1.0}
-                    onChange={(v) => handleInputGainChange(ins.index, v)}
-                    title={`INPUT GAIN FOR INSERT ${ins.index} (${(ins.inputGain ?? 1.0).toFixed(2)}x)`}
-                    dotColor={knobAccent}
-                  />
-                </div>
-
                 {/* Fader section */}
                 <div 
                   style={{
@@ -1215,6 +1186,35 @@ export function Mixer({
                       title={`FADER FOR INSERT ${ins.index} (DBL-CLICK/ALT-CLICK TO RESET)`}
                     />
                   </div>
+                </div>
+
+                {/* Input Gain knob */}
+                <div 
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    margin: `${SPACE.xs}px 0`,
+                  }}
+                >
+                  <div 
+                    style={{
+                      fontFamily: DARK.font,
+                      fontSize: "7px",
+                      color: DARK.textLo,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: `${SPACE.xs}px`,
+                    }}
+                  >
+                    IN
+                  </div>
+                  <InputGainKnob
+                    value={ins.inputGain ?? 1.0}
+                    onChange={(v) => handleInputGainChange(ins.index, v)}
+                    title={`INPUT GAIN FOR INSERT ${ins.index} (${(ins.inputGain ?? 1.0).toFixed(2)}x)`}
+                    dotColor={knobAccent}
+                  />
                 </div>
 
                 {/* dB readout & M/S triggers */}
