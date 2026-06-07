@@ -257,7 +257,8 @@ export class AudioEngine {
     if (this.audioContext.state === "suspended") this.audioContext.resume();
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
-    source.connect(this.masterGainNode);
+    const masterInsert = this.mixerManager.getOrCreateMixerInsert(0);
+    source.connect(masterInsert.inputNode || masterInsert.gainNode);
     source.start(0);
     this.sampleBrowserPreviewSource = source;
     source.onended = () => {
