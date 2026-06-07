@@ -297,7 +297,7 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
     if (e.altKey && e.button === 0) {
       e.preventDefault();
       e.stopPropagation();
-      onChange(80);
+      onChange(100);
       return;
     }
 
@@ -321,19 +321,19 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
     if (!trackRef.current) return;
     const rect = trackRef.current.getBoundingClientRect();
     const relativeY = clientY - rect.top;
-    const percentage = 100 - Math.min(100, Math.max(0, (relativeY / rect.height) * 100));
+    const percentage = 125 - Math.min(125, Math.max(0, (relativeY / rect.height) * 125));
     onChange(Math.round(percentage));
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onChange(80);
+    onChange(100);
   };
 
   const trackHeight = 160;
   const thumbHeight = SIZE.faderThumbH;
-  const topPx = ((100 - value) / 100) * (trackHeight - thumbHeight);
+  const topPx = ((125 - value) / 125) * (trackHeight - thumbHeight);
 
   return (
     <div 
@@ -762,9 +762,9 @@ export function Mixer({
                 }}
               >
                 <VerticalFader
-                  value={insertsState[0]?.volume ?? 80}
+                  value={insertsState[0]?.volume ?? 100}
                   onChange={(v) => handleVolumeChange(0, v)}
-                  title="MASTER VOLUME FADER (DBL-CLICK/ALT-CLICK TO RESET TO 80%)"
+                  title="MASTER VOLUME FADER (DBL-CLICK/ALT-CLICK TO RESET TO 100%)"
                 />
               </div>
             </div>
@@ -799,7 +799,7 @@ export function Mixer({
                   letterSpacing: "0.04em",
                 }}
               >
-                {(insertsState[0]?.volume ?? 80)}%
+                {(insertsState[0]?.volume ?? 100)}%
               </div>
 
               {/* M/S triggers */}

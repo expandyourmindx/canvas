@@ -35,8 +35,8 @@ export class MixerManager {
   private createMixerInsertNodeChain(index: number): MixerInsert {
     const name = index === 0 ? "Master" : `Insert ${index}`;
     const gainNode = this.audioContext.createGain();
-    // Default 80 volume corresponds to 0.8 gain
-    gainNode.gain.setValueAtTime(0.8, this.audioContext.currentTime);
+    // Default 100 volume corresponds to 1.0 gain
+    gainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
     const inputNode = this.audioContext.createGain();
 
@@ -64,7 +64,7 @@ export class MixerManager {
     const insert: MixerInsert = {
       index,
       name,
-      volume: 80,
+      volume: 100,
       pan: 0,
       isMuted: false,
       isSoloed: false,
@@ -109,7 +109,7 @@ export class MixerManager {
   public updateInsertVolume(index: number, volume: number) {
     const insert = this.getOrCreateMixerInsert(index);
     insert.volume = volume;
-    const gainVal = (volume / 80) * 0.8;
+    const gainVal = volume <= 100 ? (volume / 100) : 1.0 + (volume - 100) / 25;
     const now = this.audioContext.currentTime;
     insert.gainNode.gain.cancelScheduledValues(now);
 
@@ -152,7 +152,7 @@ export class MixerManager {
       if (ins.isMuted || isMutedBySolo) {
         ins.gainNode.gain.setValueAtTime(0, now);
       } else {
-        const gainVal = (ins.volume / 80) * 0.8;
+        const gainVal = ins.volume <= 100 ? (ins.volume / 100) : 1.0 + (ins.volume - 100) / 25;
         ins.gainNode.gain.linearRampToValueAtTime(gainVal, now + 0.01);
       }
     }

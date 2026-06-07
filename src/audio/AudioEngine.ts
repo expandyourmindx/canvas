@@ -91,7 +91,7 @@ export class AudioEngine {
 
     // Set up standard sound-routing node tree
     this.masterGainNode = this.audioContext.createGain();
-    this.masterGainNode.gain.setValueAtTime(0.8, this.audioContext.currentTime); // default comfortable volume
+    this.masterGainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime); // default comfortable volume
     this.masterGainNode.connect(this.audioContext.destination);
 
     // Initialize sampler engine!
