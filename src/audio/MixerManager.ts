@@ -244,7 +244,11 @@ export class MixerManager {
     }
 
     // Connect the end of FX chain to the fader (gainNode)
-    lastNode.connect(gainNode);
+    try {
+      lastNode.connect(gainNode);
+    } catch (e) {
+      console.error("Failed to connect end of FX chain to gainNode", e);
+    }
   }
 
   public setInsertFXSlot(insertIndex: number, slotIndex: number, fxName: string) {
@@ -384,22 +388,38 @@ export class MixerManager {
     const insert = this.getOrCreateMixerInsert(insertIndex);
     if (!insert) return;
 
-    // Swap fxSlots
-    const newSlots = [...insert.fxSlots];
+    // Swap fxSlots (ensure fully populated with strings, length 8)
+    const newSlots = Array(8).fill("");
+    for (let i = 0; i < 8; i++) {
+      if (insert.fxSlots && insert.fxSlots[i] !== undefined && insert.fxSlots[i] !== null) {
+        newSlots[i] = insert.fxSlots[i];
+      }
+    }
     const tempSlot = newSlots[fromSlot];
     newSlots[fromSlot] = newSlots[toSlot];
     newSlots[toSlot] = tempSlot;
     insert.fxSlots = newSlots;
 
-    // Swap fxBypass
-    const newBypass = insert.fxBypass ? [...insert.fxBypass] : Array(8).fill(false);
+    // Swap fxBypass (ensure fully populated with booleans, length 8)
+    const newBypass = Array(8).fill(false);
+    for (let i = 0; i < 8; i++) {
+      if (insert.fxBypass && insert.fxBypass[i] !== undefined && insert.fxBypass[i] !== null) {
+        newBypass[i] = insert.fxBypass[i];
+      }
+    }
     const tempBypass = newBypass[fromSlot];
     newBypass[fromSlot] = newBypass[toSlot];
     newBypass[toSlot] = tempBypass;
     insert.fxBypass = newBypass;
 
-    // Swap fxInstances
-    const newInstances = (insert as any).fxInstances ? [...(insert as any).fxInstances] : Array(8).fill(null);
+    // Swap fxInstances (ensure fully populated with null/instances, length 8)
+    const newInstances = Array(8).fill(null);
+    const oldInstances = (insert as any).fxInstances || [];
+    for (let i = 0; i < 8; i++) {
+      if (oldInstances[i] !== undefined) {
+        newInstances[i] = oldInstances[i];
+      }
+    }
     const tempInstance = newInstances[fromSlot];
     newInstances[fromSlot] = newInstances[toSlot];
     newInstances[toSlot] = tempInstance;

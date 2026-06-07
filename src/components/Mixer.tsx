@@ -647,11 +647,25 @@ export function Mixer({
     const pullInserts = () => {
       const inserts = engine.getInserts();
       setInsertsState(
-        inserts.map((ins) => ({
-          ...ins,
-          fxSlots: [...ins.fxSlots],
-          fxBypass: ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false)
-        }))
+        inserts.map((ins) => {
+          const fxSlots = Array(8).fill("");
+          for (let i = 0; i < 8; i++) {
+            if (ins.fxSlots && ins.fxSlots[i] !== undefined && ins.fxSlots[i] !== null) {
+              fxSlots[i] = ins.fxSlots[i];
+            }
+          }
+          const fxBypass = Array(8).fill(false);
+          for (let i = 0; i < 8; i++) {
+            if (ins.fxBypass && ins.fxBypass[i] !== undefined && ins.fxBypass[i] !== null) {
+              fxBypass[i] = ins.fxBypass[i];
+            }
+          }
+          return {
+            ...ins,
+            fxSlots,
+            fxBypass
+          };
+        })
       );
     };
 
@@ -699,15 +713,25 @@ export function Mixer({
     setInsertsState((prev) =>
       prev.map((ins) => {
         if (ins.index !== selectedInsert.index) return ins;
-        const newSlots = [...ins.fxSlots];
-        const newBypass = ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false);
-        
-        // Swap slots
+
+        // Swap slots (ensure fully populated with strings, length 8)
+        const newSlots = Array(8).fill("");
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxSlots && ins.fxSlots[i] !== undefined && ins.fxSlots[i] !== null) {
+            newSlots[i] = ins.fxSlots[i];
+          }
+        }
         const tempSlot = newSlots[fromSlot];
         newSlots[fromSlot] = newSlots[toSlot];
         newSlots[toSlot] = tempSlot;
 
-        // Swap bypass
+        // Swap bypass (ensure fully populated with booleans, length 8)
+        const newBypass = Array(8).fill(false);
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxBypass && ins.fxBypass[i] !== undefined && ins.fxBypass[i] !== null) {
+            newBypass[i] = ins.fxBypass[i];
+          }
+        }
         const tempBypass = newBypass[fromSlot];
         newBypass[fromSlot] = newBypass[toSlot];
         newBypass[toSlot] = tempBypass;
@@ -765,11 +789,25 @@ export function Mixer({
     engine.updateInsertSolo(index, !currentSoloed);
     const inserts = engine.getInserts();
     setInsertsState(
-      inserts.map((ins) => ({
-        ...ins,
-        fxSlots: [...ins.fxSlots],
-        fxBypass: ins.fxBypass ? [...ins.fxBypass] : Array(8).fill(false)
-      }))
+      inserts.map((ins) => {
+        const fxSlots = Array(8).fill("");
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxSlots && ins.fxSlots[i] !== undefined && ins.fxSlots[i] !== null) {
+            fxSlots[i] = ins.fxSlots[i];
+          }
+        }
+        const fxBypass = Array(8).fill(false);
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxBypass && ins.fxBypass[i] !== undefined && ins.fxBypass[i] !== null) {
+            fxBypass[i] = ins.fxBypass[i];
+          }
+        }
+        return {
+          ...ins,
+          fxSlots,
+          fxBypass
+        };
+      })
     );
   };
 
@@ -1464,7 +1502,7 @@ export function Mixer({
               boxSizing: "border-box",
             }}
           >
-            {selectedInsert.fxSlots.map((slotName: string, slotIdx: number) => {
+            {(selectedInsert?.fxSlots || []).map((slotName: string, slotIdx: number) => {
               const isBypassed = selectedInsert.fxBypass?.[slotIdx] ?? false;
               const isFilled = !!slotName;
 
