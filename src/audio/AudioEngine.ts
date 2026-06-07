@@ -714,6 +714,7 @@ export class AudioEngine {
    * Automatically handles Obsidian Synth voice routing / polyphony and Sampler playback.
    */
   public triggerNoteOn(channelId: string | undefined | null, midiNote: number, velocity: number = 80, time?: number) {
+    console.log('[MIDI] triggerNoteOn called — channelId:', channelId, '| targetChannelId will resolve to:', channelId || this.focusedChannelId || 'sampler_default', '| wamInstances keys:', Array.from(this.wamInstances.keys()));
     const targetChannelId = channelId || this.focusedChannelId || "sampler_default";
 
     const isWam = this.wamInstances.has(targetChannelId);
