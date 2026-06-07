@@ -51,6 +51,13 @@ export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
     type: "wam" as const, 
     url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/synth101/index.js", 
     description: "Roland SH-101 synthesizer emulation" 
+  },
+  { 
+    id: "modal", 
+    name: "Modal", 
+    type: "wam" as const, 
+    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/modal/index.js", 
+    description: "Physical modelling synthesizer" 
   }
 ];
 
