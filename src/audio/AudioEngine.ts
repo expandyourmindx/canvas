@@ -629,8 +629,18 @@ export class AudioEngine {
       if (!instance) {
         throw new Error(`WAM createInstance returned null for ${url}`);
       }
+      // Ensure audio node is initialized — some WAMs require explicit createAudioNode call
+      let audioNode = instance.audioNode;
+      if (!audioNode) {
+        console.log('[WAM] audioNode not ready, calling createAudioNode()');
+        audioNode = await instance.createAudioNode();
+      }
+      if (!audioNode) {
+        throw new Error(`WAM at ${url} has no audio node after createAudioNode()`);
+      }
+      console.log('[WAM] audioNode:', audioNode);
       const nodes = this.getOrCreateChannelNodes(channelId);
-      instance.audioNode.connect(nodes.gain);
+      audioNode.connect(nodes.gain);
       this.wamInstances.set(channelId, instance);
       this.wamUrls.set(channelId, url);
       console.log(`[WAM] Successfully loaded WAM for channel ${channelId}`);
@@ -715,7 +725,7 @@ export class AudioEngine {
       } else if (typeof instance.scheduleEvents === 'function') {
         instance.scheduleEvents({
           type: 'wam-midi',
-          time: this.audioContext.currentTime,
+          time: this.audioContext.currentTime + 0.05,
           data: { bytes: new Uint8Array([0x90, midiNote, velocity]) }
         });
       }
@@ -744,7 +754,7 @@ export class AudioEngine {
       } else if (typeof instance.scheduleEvents === 'function') {
         instance.scheduleEvents({
           type: 'wam-midi',
-          time: this.audioContext.currentTime,
+          time: this.audioContext.currentTime + 0.05,
           data: { bytes: new Uint8Array([0x80, midiNote, 0]) }
         });
       }
