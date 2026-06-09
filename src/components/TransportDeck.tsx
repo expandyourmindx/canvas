@@ -20,6 +20,9 @@ export function TransportDeck() {
     setBpm,
     toggleMetronome,
     setLoop,
+    isRecording,
+    startRecording,
+    stopRecording,
   } = useAudioEngine();
 
   // Keep a local state for the BPM input value for responsive typing
@@ -155,6 +158,28 @@ export function TransportDeck() {
           title="Stop & Reset Timeline"
         >
           <Square className="h-4 w-4 fill-current" />
+        </button>
+
+        {/* Record Button */}
+        <button
+          id="btn-record"
+          onClick={() => isRecording ? stopRecording() : startRecording()}
+          className={`flex h-11 px-5 items-center justify-center gap-2 rounded-lg font-sans font-medium text-xs tracking-wider uppercase transition-all duration-150 cursor-pointer ${
+            isRecording
+              ? "bg-red-500/10 border border-red-500/30 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+              : "text-neutral-300 hover:bg-[#1e2022] hover:text-red-400"
+          }`}
+          title={isRecording ? "Stop Recording" : "Record"}
+        >
+          <svg
+            viewBox="0 0 12 12"
+            width="12"
+            height="12"
+            className={isRecording ? "animate-pulse" : ""}
+          >
+            <circle cx="6" cy="6" r="5" fill="currentColor" />
+          </svg>
+          <span>Rec</span>
         </button>
       </div>
 

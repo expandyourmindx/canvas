@@ -565,12 +565,16 @@ export function Mixer({
   isVisible = false,
   onPositionChangeRef,
 }: MixerProps) {
-  const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId } = useAudioEngine();
+  const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId, armInsert, disarmInsert } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   const isDraggingKnobRef = useRef(false);
   
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<Record<number, string>>({});
+  const [micErrors, setMicErrors] = useState<Record<number, string>>({});
 
   const windowPosRef = useRef({ x: 50, y: 250 });
   const prevWindowPosRef = useRef({ x: 50, y: 250 });
@@ -714,6 +718,22 @@ export function Mixer({
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  // Enumerate audio input devices; refresh on devicechange events
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices) return;
+    const enumerate = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setAudioInputs(devices.filter(d => d.kind === "audioinput"));
+      } catch (_) {}
+    };
+    enumerate();
+    navigator.mediaDevices.addEventListener("devicechange", enumerate);
+    return () => {
+      navigator.mediaDevices.removeEventListener("devicechange", enumerate);
     };
   }, []);
 
@@ -1732,6 +1752,101 @@ export function Mixer({
                   ref={el => { anchorRefs.current[ins.index] = el; }}
                   style={{ height: 0, position: "relative" }}
                 />
+
+                {/* Input Device Selector + ARM button (track inserts only) */}
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    paddingLeft: `${SPACE.sm}px`,
+                    paddingRight: `${SPACE.sm}px`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: `${SPACE.xs}px`,
+                    marginTop: `${SPACE.xs}px`,
+                  }}
+                >
+                  {/* Device selector */}
+                  {typeof navigator !== "undefined" && navigator.mediaDevices && (
+                    <select
+                      value={selectedDeviceIds[ins.index] ?? ""}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setSelectedDeviceIds(prev => ({ ...prev, [ins.index]: e.target.value }));
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        height: "14px",
+                        backgroundColor: DARK.lcdBg,
+                        color: DARK.accentBlue,
+                        fontFamily: DARK.font,
+                        fontSize: "7px",
+                        border: `1px solid ${DARK.bevelMid}`,
+                        borderRadius: 0,
+                        outline: "none",
+                        cursor: "pointer",
+                        boxSizing: "border-box",
+                        paddingLeft: "2px",
+                      }}
+                      title="Select audio input device"
+                    >
+                      <option value="">Default Input</option>
+                      {audioInputs.map(device => (
+                        <option key={device.deviceId} value={device.deviceId}>
+                          {device.label || device.deviceId.slice(0, 12)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* ARM button */}
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (ins.armed) {
+                        disarmInsert(ins.index);
+                        setMicErrors(prev => { const n = { ...prev }; delete n[ins.index]; return n; });
+                        pullInserts();
+                      } else {
+                        try {
+                          await armInsert(ins.index, selectedDeviceIds[ins.index] || undefined);
+                          setMicErrors(prev => { const n = { ...prev }; delete n[ins.index]; return n; });
+                          pullInserts();
+                        } catch (_) {
+                          setMicErrors(prev => ({ ...prev, [ins.index]: "Mic denied" }));
+                        }
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      height: "18px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      fontWeight: "bold",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      userSelect: "none",
+                      boxSizing: "border-box",
+                      ...(ins.armed
+                        ? { ...sunken(DARK), backgroundColor: DARK.stateRed, color: "#ffffff" }
+                        : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
+                      )
+                    }}
+                    title={ins.armed ? `Disarm Insert ${ins.index}` : `Arm Insert ${ins.index} for recording`}
+                  >
+                    ARM
+                  </button>
+
+                  {/* Mic denied error label */}
+                  {micErrors[ins.index] && (
+                    <span style={{ fontFamily: DARK.font, fontSize: "7px", color: DARK.stateRed, textAlign: "center" }}>
+                      {micErrors[ins.index]}
+                    </span>
+                  )}
+                </div>
 
                 {/* dB readout & M/S triggers */}
                 <div 
