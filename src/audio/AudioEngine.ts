@@ -82,6 +82,7 @@ export class AudioEngine {
   private activeRecordingInserts: Set<number> = new Set();
   private recordingStartBeat = 0;
   private recordingStartContextTime = 0;
+  private recordingOffsetMs: number = -50;
 
 
   constructor(options: AudioEngineOptions = {}) {
@@ -1357,6 +1358,10 @@ export class AudioEngine {
     this.mixerManager.setInsertArmed(insertIndex, false);
   }
 
+  public setRecordingOffsetMs(ms: number): void {
+    this.recordingOffsetMs = ms;
+  }
+
   /**
    * Begins capturing audio on all currently armed inserts.
    */
@@ -1365,8 +1370,9 @@ export class AudioEngine {
     if (armedIndices.length === 0) return;
     this.activeRecordingInserts = new Set(armedIndices);
     this.recordingStartBeat = currentBeat;
-    this.recordingStartContextTime = this.audioContext.currentTime 
-      - (this.audioContext.baseLatency + (this.audioContext.outputLatency ?? 0));
+    this.recordingStartContextTime = this.audioContext.currentTime
+      - (this.audioContext.baseLatency + (this.audioContext.outputLatency ?? 0))
+      - (this.recordingOffsetMs / 1000);
     this.mixerManager.beginCapture(armedIndices);
   }
 

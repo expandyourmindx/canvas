@@ -568,6 +568,7 @@ export function Mixer({
   const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId, armInsert, disarmInsert } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   const isDraggingKnobRef = useRef(false);
+  const [recordingOffsetMs, setRecordingOffsetMs] = useState<number>(-50);
   
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -2327,6 +2328,43 @@ export function Mixer({
               <span>LATENCY:</span>
               <span style={{ color: DARK.accentBlue }}>0.00 MS (NATIVE)</span>
             </div>
+            {selectedInsert.index > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: `${SPACE.xs}px` }}>
+                <span>REC OFFSET:</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <input
+                    type="number"
+                    value={recordingOffsetMs}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val)) {
+                        setRecordingOffsetMs(val);
+                        if (engine && (engine as any).setRecordingOffsetMs) {
+                          (engine as any).setRecordingOffsetMs(val);
+                        }
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: "48px",
+                      height: "14px",
+                      backgroundColor: DARK.lcdBg,
+                      color: DARK.accentBlue,
+                      fontFamily: DARK.font,
+                      fontSize: "8px",
+                      border: `1px solid ${DARK.bevelMid}`,
+                      borderRadius: 0,
+                      outline: "none",
+                      textAlign: "right",
+                      paddingRight: "2px",
+                      boxSizing: "border-box",
+                    }}
+                    title="Recording latency compensation offset in milliseconds (negative = shift clip earlier)"
+                  />
+                  <span style={{ color: DARK.textDim, fontSize: "7px" }}>MS</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
