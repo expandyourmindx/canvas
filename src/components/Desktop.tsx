@@ -417,6 +417,8 @@ export function Desktop() {
             setChannels={setChannels}
             setChannelVols={setChannelVols}
             setChannelMixers={setChannelMixers}
+            activeInstrumentId={activeInstrumentId}
+            setActiveInstrumentId={setActiveInstrumentId}
             onOpenWindow={(winId) => {
               setActiveWindows((prev) => ({ ...prev, [winId]: true }));
               handleSetFocus(winId);

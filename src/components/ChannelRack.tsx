@@ -475,6 +475,7 @@ export function ChannelRack({
 
     setChannels([...channels, newChannel]);
     setActiveInstrumentId(newChanId);
+    setFocusedChannelId(newChanId);
 
     // Initializer maps matching this new unique key
     setChannelVols(prev => ({ ...prev, [newChanId]: 80 }));

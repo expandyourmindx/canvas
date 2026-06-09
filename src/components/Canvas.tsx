@@ -43,6 +43,8 @@ export interface CanvasProps {
   setChannels?: React.Dispatch<React.SetStateAction<ChannelRow[]>>;
   setChannelVols?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   setChannelMixers?: React.Dispatch<React.SetStateAction<Record<string, number>>>;
+  activeInstrumentId?: string;
+  setActiveInstrumentId?: (id: string) => void;
   onOpenWindow?: (windowId: "pianoroll" | "sequencer" | "sampler" | "wam" | "canvas") => void;
   onOpenPianoRoll?: (channelId: string) => void;
   onOpenSampler?: (channelId: string) => void;
@@ -54,6 +56,8 @@ export function Canvas({
   setChannels,
   setChannelVols,
   setChannelMixers,
+  activeInstrumentId,
+  setActiveInstrumentId,
   onOpenWindow,
   onOpenPianoRoll,
   onOpenSampler,
@@ -74,6 +78,8 @@ export function Canvas({
     position,
     sampleCount,
     notifySampleLoaded,
+    focusedChannelId,
+    setFocusedChannelId,
   } = useAudioEngine();
 
   // Safe wrapper to resolve channel reference ID (e.g. sampler_...) to its actual sampleId
@@ -225,6 +231,12 @@ export function Canvas({
       };
 
       setChannels(prev => [...prev, newChannel]);
+      if (setActiveInstrumentId) {
+        setActiveInstrumentId(newChanId);
+      }
+      if (setFocusedChannelId) {
+        setFocusedChannelId(newChanId);
+      }
 
       // 3. Initialize volumes and mixers in React state
       if (setChannelVols) setChannelVols(prev => ({ ...prev, [newChanId]: 80 }));
@@ -1140,6 +1152,12 @@ export function Canvas({
                               };
 
                               setChannels(prev => [...prev, newChannel]);
+                              if (setActiveInstrumentId) {
+                                setActiveInstrumentId(newChanId);
+                              }
+                              if (setFocusedChannelId) {
+                                setFocusedChannelId(newChanId);
+                              }
 
                               if (setChannelVols) setChannelVols(prev => ({ ...prev, [newChanId]: 80 }));
                               if (setChannelMixers) setChannelMixers(prev => ({ ...prev, [newChanId]: Math.min(99, nextIndex) }));
