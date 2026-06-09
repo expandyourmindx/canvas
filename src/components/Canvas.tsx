@@ -469,6 +469,12 @@ export function Canvas({
       if (chan) {
         onOpenWindow?.("sampler");
         onOpenSampler?.(chan.id);
+        if (setActiveInstrumentId) {
+          setActiveInstrumentId(chan.id);
+        }
+        if (setFocusedChannelId) {
+          setFocusedChannelId(chan.id);
+        }
       }
       return;
     }
@@ -507,6 +513,12 @@ export function Canvas({
     } else if (hasPianoRoll) {
       if (onOpenPianoRoll && mainChannelId) {
         onOpenPianoRoll(mainChannelId);
+        if (setActiveInstrumentId) {
+          setActiveInstrumentId(mainChannelId);
+        }
+        if (setFocusedChannelId) {
+          setFocusedChannelId(mainChannelId);
+        }
       }
     } else {
       onOpenWindow?.("sequencer");

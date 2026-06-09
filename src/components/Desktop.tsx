@@ -231,6 +231,10 @@ export function Desktop() {
   }, [channels, channelVols, channelPans, channelMixers, engine]);
 
   const toggleWindow = (winId: WindowId) => {
+    const isOpening = !activeWindows[winId];
+    if (winId === "pianoroll" && isOpening) {
+      setActiveInstrumentId(activePianoRollChannelId);
+    }
     setActiveWindows((prev) => {
       const nextVal = !prev[winId];
       return {
@@ -258,6 +262,7 @@ export function Desktop() {
     setActivePianoRollChannelId(channelId);
     setActiveWindows((prev) => ({ ...prev, pianoroll: true }));
     handleSetFocus("pianoroll");
+    setActiveInstrumentId(channelId);
   };
 
   const handleOpenWAM = (channelId: string) => {

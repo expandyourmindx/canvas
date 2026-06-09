@@ -1346,6 +1346,8 @@ export function ChannelRack({
                       if (onOpenPianoRoll) {
                         onOpenPianoRoll(channel.id);
                       }
+                      setActiveInstrumentId(channel.id);
+                      setFocusedChannelId(channel.id);
                     }}
                     style={{
                       flex: 1,
@@ -1721,6 +1723,8 @@ export function ChannelRack({
               if (onOpenPianoRoll) {
                 onOpenPianoRoll(contextMenu.channelId);
               }
+              setActiveInstrumentId(contextMenu.channelId);
+              setFocusedChannelId(contextMenu.channelId);
               setContextMenu(null);
             }}
             style={{
