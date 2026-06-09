@@ -1093,7 +1093,8 @@ export function Mixer({
             <div
               style={{
                 height: "4px",
-                margin: `${SPACE.xs}px 0`,
+                marginTop: `${SPACE.sm}px`,
+                marginBottom: `${SPACE.sm}px`,
               }}
             />
 
@@ -1104,7 +1105,6 @@ export function Mixer({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                margin: `${SPACE.xs}px 0`,
                 boxSizing: "border-box",
               }}
             >
@@ -1523,7 +1523,8 @@ export function Mixer({
                     alignItems: "center",
                     gap: "4px",
                     height: "4px",
-                    margin: `${SPACE.xs}px 0`,
+                    marginTop: `${SPACE.sm}px`,
+                    marginBottom: `${SPACE.sm}px`,
                   }}
                 >
                   {hasOutgoingSends && (
@@ -1555,7 +1556,6 @@ export function Mixer({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    margin: `${SPACE.xs}px 0`,
                     boxSizing: "border-box",
                   }}
                 >
