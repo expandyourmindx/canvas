@@ -94,6 +94,7 @@ export class AudioEngine {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     this.audioContext = new AudioContextClass({ latencyHint: 0.01 });
     console.log('[Canvas] AudioContext baseLatency:', this.audioContext.baseLatency, 'outputLatency:', this.audioContext.outputLatency);
+    console.log('[Canvas] AudioContext sampleRate:', this.audioContext.sampleRate);
     this.sampleRegistry = new SampleRegistry(this.audioContext);
 
 
