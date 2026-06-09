@@ -1333,8 +1333,13 @@ export class AudioEngine {
       throw new Error('Recorder worklet not available');
     }
     const constraints: MediaStreamConstraints = {
-      audio: deviceId ? { deviceId: { exact: deviceId } } : true,
-      video: false
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+      video: false,
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     this.mixerManager.connectMic(insertIndex, stream, this.audioContext);
