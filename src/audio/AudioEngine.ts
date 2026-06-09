@@ -1338,6 +1338,7 @@ export class AudioEngine {
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
+        channelCount: 1,
       },
       video: false,
     };
