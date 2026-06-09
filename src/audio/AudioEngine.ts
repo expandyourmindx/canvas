@@ -1391,7 +1391,7 @@ export class AudioEngine {
       const sampleCount = channelArrays[0].length;
       if (sampleCount === 0) continue;
       const buffer = this.audioContext.createBuffer(numChannels, sampleCount, this.audioContext.sampleRate);
-      channelArrays.forEach((data, i) => buffer.copyToChannel(data, i));
+      channelArrays.forEach((data, i) => buffer.copyToChannel(data as Float32Array<ArrayBuffer>, i));
       const sampleId = `recorded_${insertIndex}_${Date.now()}`;
       this.registerBuffer(sampleId, buffer);
       results.push({ insertIndex, sampleId, audioBuffer: buffer, startBeat: this.recordingStartBeat, durationBeats });
