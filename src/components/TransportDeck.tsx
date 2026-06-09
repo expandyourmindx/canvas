@@ -171,12 +171,7 @@ export function TransportDeck() {
           }`}
           title={isRecording ? "Stop Recording" : "Record"}
         >
-          <svg
-            viewBox="0 0 12 12"
-            width="12"
-            height="12"
-            className={isRecording ? "animate-pulse" : ""}
-          >
+          <svg viewBox="0 0 12 12" width="12" height="12" className={isRecording ? "animate-pulse" : ""}>
             <circle cx="6" cy="6" r="5" fill="currentColor" />
           </svg>
           <span>Rec</span>
