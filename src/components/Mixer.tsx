@@ -2553,8 +2553,8 @@ function CableRenderer({
       const currentKeys = new Set<string>();
 
       const sagAmount = 180;
-      const springStrength = 0.018;
-      const damping = 0.92;
+      const springStrength = 0.06;
+      const damping = 0.88;
 
       inserts.forEach((sourceInsert) => {
         if (!sourceInsert.sends) return;
@@ -2601,14 +2601,23 @@ function CableRenderer({
           phys.vy += ay;
 
           // Window movement force ( lag )
-          phys.vx -= dx * 0.5;
-          phys.vy -= dy * 0.5;
+          phys.vx -= dx * 0.16;
+          phys.vy -= dy * 0.16;
 
           phys.vx *= damping;
           phys.vy *= damping;
 
           phys.x += phys.vx;
           phys.y += phys.vy;
+
+          // Clamp position to max drift of 60px from resting position (targetX, targetY)
+          const diffX = phys.x - targetX;
+          const diffY = phys.y - targetY;
+          const dist = Math.sqrt(diffX * diffX + diffY * diffY);
+          if (dist > 60) {
+            phys.x = targetX + (diffX / dist) * 60;
+            phys.y = targetY + (diffY / dist) * 60;
+          }
 
           // Bezier control points
           const cx1 = x1 + (phys.x - targetX);
