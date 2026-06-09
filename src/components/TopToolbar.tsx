@@ -75,6 +75,9 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
     autosaveProject,
     restoreAutosave,
     isDirty,
+    isRecording,
+    startRecording,
+    stopRecording,
   } = useAudioEngine();
 
   const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
@@ -674,6 +677,33 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
             boxSizing: "border-box",
           }}
         >
+          {/* Record */}
+          <button
+            onClick={() => isRecording ? stopRecording() : startRecording()}
+            style={{
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isRecording ? DARK.bg5 : DARK.bg3,
+              cursor: "pointer",
+              border: "none",
+              boxSizing: "border-box",
+              ...(isRecording ? sunken(DARK) : raised(DARK)),
+            }}
+            title={isRecording ? "Stop Recording" : "Record"}
+          >
+            <svg viewBox="0 0 12 12" width="8" height="8">
+              <circle
+                cx="6"
+                cy="6"
+                r="5"
+                fill={isRecording ? DARK.stateRed ?? "#c0392b" : DARK.textMid}
+              />
+            </svg>
+          </button>
+
           {/* Play/Pause Toggle */}
           <button
             onClick={playbackState === "playing" ? pause : play}
