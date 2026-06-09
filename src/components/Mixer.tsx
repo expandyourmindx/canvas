@@ -1089,6 +1089,14 @@ export function Mixer({
               </div>
             </div>
 
+            {/* Spacer to match Track strip dots layout */}
+            <div
+              style={{
+                height: "4px",
+                margin: `${SPACE.xs}px 0`,
+              }}
+            />
+
             {/* Context-sensitive Routing UI / Knob slot */}
             <div
               style={{
@@ -1507,6 +1515,39 @@ export function Mixer({
                   </div>
                 </div>
 
+                {/* Status Dots */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: "4px",
+                    height: "4px",
+                    margin: `${SPACE.xs}px 0`,
+                  }}
+                >
+                  {hasOutgoingSends && (
+                    <div
+                      style={{
+                        width: "4px",
+                        height: "4px",
+                        borderRadius: "50%",
+                        backgroundColor: "#4fc3f7",
+                      }}
+                    />
+                  )}
+                  {hasIncomingSends && (
+                    <div
+                      style={{
+                        width: "4px",
+                        height: "4px",
+                        borderRadius: "50%",
+                        backgroundColor: "#108a38",
+                      }}
+                    />
+                  )}
+                </div>
+
                 {/* Context-sensitive Routing UI / Knob slot */}
                 <div
                   style={{
@@ -1516,44 +1557,8 @@ export function Mixer({
                     justifyContent: "center",
                     margin: `${SPACE.xs}px 0`,
                     boxSizing: "border-box",
-                    position: "relative",
                   }}
                 >
-                  {/* Status Dots */}
-                  {(hasOutgoingSends || hasIncomingSends) && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "-6px",
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        display: "flex",
-                        gap: "4px",
-                        pointerEvents: "none",
-                      }}
-                    >
-                      {hasOutgoingSends && (
-                        <div
-                          style={{
-                            width: "4px",
-                            height: "4px",
-                            borderRadius: "50%",
-                            backgroundColor: "#4fc3f7",
-                          }}
-                        />
-                      )}
-                      {hasIncomingSends && (
-                        <div
-                          style={{
-                            width: "4px",
-                            height: "4px",
-                            borderRadius: "50%",
-                            backgroundColor: "#108a38",
-                          }}
-                        />
-                      )}
-                    </div>
-                  )}
                   {(() => {
                     const hasSelection = selectedInsertIndex !== null && selectedInsertIndex !== undefined && selectedInsertIndex > 0;
                     
