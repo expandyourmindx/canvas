@@ -1365,7 +1365,8 @@ export class AudioEngine {
     if (armedIndices.length === 0) return;
     this.activeRecordingInserts = new Set(armedIndices);
     this.recordingStartBeat = currentBeat;
-    this.recordingStartContextTime = this.audioContext.currentTime;
+    this.recordingStartContextTime = this.audioContext.currentTime 
+      - (this.audioContext.baseLatency + (this.audioContext.outputLatency ?? 0));
     this.mixerManager.beginCapture(armedIndices);
   }
 

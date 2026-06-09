@@ -379,9 +379,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   // Command wrappers that update both the Web-Audio model and the reactive state hook
   const play = useCallback(() => {
+    if (isRecording) {
+      const currentBeat = engine.getCurrentPosition('beats');
+      engine.startRecording(currentBeat);
+    }
     engine.play();
     setActiveMidiNotes({});
-  }, [engine]);
+  }, [engine, isRecording]);
 
   const pause = useCallback(async () => {
     await engine.pause();
@@ -579,11 +583,6 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     const currentBeat = engine.getCurrentPosition('beats');
     engine.startRecording(currentBeat);
     setIsRecording(true);
-    // If transport is not already playing, start it
-    const state = engine.getState();
-    if (state !== 'playing') {
-      engine.play();
-    }
   }, [engine]);
 
   const stopRecording = useCallback(() => {
