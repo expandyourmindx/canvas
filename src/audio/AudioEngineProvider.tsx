@@ -365,8 +365,15 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   }, [engine]);
 
   // Command wrappers that update both the Web-Audio model and the reactive state hook
-  const play = useCallback(() => engine.play(), [engine]);
-  const pause = useCallback(() => engine.pause(), [engine]);
+  const play = useCallback(() => {
+    engine.play();
+    setActiveMidiNotes({});
+  }, [engine]);
+
+  const pause = useCallback(async () => {
+    await engine.pause();
+    setActiveMidiNotes({});
+  }, [engine]);
 
   const stop = useCallback(() => {
     engine.stop();

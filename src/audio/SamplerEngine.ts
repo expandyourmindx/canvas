@@ -457,11 +457,27 @@ export class SamplerEngine {
       gainNode.gain.setValueAtTime(velFactor, Math.max(now + 0.005, endFadeTime - 0.010));
       gainNode.gain.linearRampToValueAtTime(0, endFadeTime);
 
+      const samplerVoice = {
+        channelId,
+        midiNote,
+        noteId: `midi-sampler-${channelId}-${midiNote}-${Date.now()}-${Math.floor(Math.random() * 1000000)}`,
+        source,
+        gainNode,
+        settings,
+        startTime: now
+      };
+
+      const activeSVoices = this.activeSamplerVoices.get(channelId) || [];
+      activeSVoices.push(samplerVoice);
+      this.activeSamplerVoices.set(channelId, activeSVoices);
+
       source.onended = () => {
         try {
           source.disconnect();
           gainNode.disconnect();
         } catch (err) { }
+        const current = this.activeSamplerVoices.get(channelId) || [];
+        this.activeSamplerVoices.set(channelId, current.filter(v => v.noteId !== samplerVoice.noteId));
       };
 
       source.start(now);
@@ -911,6 +927,27 @@ export class SamplerEngine {
       try { this.previewSource.disconnect(); } catch (_) {}
       this.previewSource = null;
     }
+  }
+
+  public stopLiveMidiVoices(channelId?: string | null): void {
+    const now = this.audioContext.currentTime;
+    this.activeSamplerVoices.forEach((voices, chanId) => {
+      if (channelId && chanId !== channelId) return;
+      voices.forEach((voice) => {
+        if (voice.noteId.startsWith("midi-sampler-")) {
+          try {
+            voice.gainNode.gain.cancelScheduledValues(now);
+            voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
+            voice.gainNode.gain.linearRampToValueAtTime(0.0001, now + 0.01);
+            try { voice.source.stop(now + 0.02); } catch (e) { }
+          } catch (err) { }
+        }
+      });
+      this.activeSamplerVoices.set(
+        chanId,
+        voices.filter((v) => !v.noteId.startsWith("midi-sampler-"))
+      );
+    });
   }
 
   public stopAll(fadeOutSeconds: number = 0.05, stopTime?: number): void {

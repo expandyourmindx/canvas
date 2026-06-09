@@ -207,6 +207,7 @@ export class AudioEngine {
 
   public play() {
     this.scheduler.play();
+    this.stopLiveMidiVoices();
   }
 
   public async pause(): Promise<void> {
@@ -230,6 +231,7 @@ export class AudioEngine {
       try { instance.clearSchedule(); } catch (_) {}
     });
     this.samplerEngine.stopAll();
+    this.stopLiveMidiVoices();
   }
 
   public stop() {
@@ -255,6 +257,7 @@ export class AudioEngine {
     this.samplerEngine.stopAll();
     this.samplerEngine.stopPreview(); // stop any in-flight channel preview
     this.stopSampleBrowserPreview();  // stop any in-flight browser preview
+    this.stopLiveMidiVoices();
   }
 
   public stopPreview(): void {
@@ -283,6 +286,10 @@ export class AudioEngine {
       try { this.sampleBrowserPreviewSource.disconnect(); } catch (_) {}
       this.sampleBrowserPreviewSource = null;
     }
+  }
+
+  public stopLiveMidiVoices(): void {
+    this.samplerEngine.stopLiveMidiVoices(this.focusedChannelId);
   }
 
   public setPlayheadPosition(beats: number) {
