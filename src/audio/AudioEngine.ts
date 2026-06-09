@@ -1414,6 +1414,16 @@ export class AudioEngine {
         ? channelArrays.map(ch => ch.slice(trimSamples))
         : channelArrays;
       const sampleCount = trimmedArrays[0].length;
+      const expectedSamples = Math.round(
+        elapsed * this.audioContext.sampleRate
+      );
+      console.log(
+        `[Canvas Recording] Captured: ${sampleCount} samples, ` +
+        `Expected: ${expectedSamples} samples, ` +
+        `Elapsed: ${elapsed.toFixed(3)}s, ` +
+        `Drift: ${sampleCount - expectedSamples} samples ` +
+        `(${((sampleCount - expectedSamples) / this.audioContext.sampleRate * 1000).toFixed(1)}ms)`
+      );
       if (sampleCount === 0) continue;
       const buffer = this.audioContext.createBuffer(numChannels, sampleCount, this.audioContext.sampleRate);
       trimmedArrays.forEach((data, i) => buffer.copyToChannel(data as Float32Array<ArrayBuffer>, i));
