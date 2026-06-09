@@ -60,6 +60,16 @@ export class SampleRegistry {
     this.evictIfNeeded();
   }
 
+  /**
+   * Stores an already-decoded AudioBuffer directly under the given id.
+   * No decoding, no async. Overwrites any existing entry for that id.
+   */
+  public registerBuffer(id: string, buffer: AudioBuffer): void {
+    this.sampleBuffers.delete(id);
+    this.sampleBuffers.set(id, buffer);
+    this.evictIfNeeded();
+  }
+
   public removeSample(id: string): void {
     this.sampleBuffers.delete(id);
   }

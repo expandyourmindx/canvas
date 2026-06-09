@@ -13,6 +13,13 @@ export class MixerManager {
   private masterGainNode: GainNode;
   private inserts: MixerInsert[] = [];
 
+  private recorderNodes: Map<number, AudioWorkletNode> = new Map();
+  private micSources: Map<number, MediaStreamAudioSourceNode> = new Map();
+  private micStreams: Map<number, MediaStream> = new Map();
+  private recordedChunks: Map<number, Float32Array[][]> = new Map();
+  private peakMins: Map<number, number[]> = new Map();
+  private peakMaxs: Map<number, number[]> = new Map();
+
   constructor(audioContext: AudioContext, masterGainNode: GainNode) {
     this.audioContext = audioContext;
     this.masterGainNode = masterGainNode;
@@ -653,5 +660,102 @@ export class MixerManager {
     }
 
     fromInsert.routesToMaster = routesToMaster;
+  }
+
+  public connectMic(insertIndex: number, stream: MediaStream, audioContext: AudioContext): void {
+    // Disconnect and clean up any existing mic source for this insert index first
+    this.disconnectMic(insertIndex);
+
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    const source = audioContext.createMediaStreamSource(stream);
+    source.connect(insert.inputGainNode!);
+
+    const recorderNode = new AudioWorkletNode(audioContext, 'recorder-processor');
+    insert.inputGainNode!.connect(recorderNode);
+    // Do NOT connect recorderNode output anywhere — it is a tap only
+
+    recorderNode.port.onmessage = (e) => {
+      if (e.data.type !== 'chunk') return;
+      const chunks = this.recordedChunks.get(insertIndex);
+      const mins = this.peakMins.get(insertIndex);
+      const maxs = this.peakMaxs.get(insertIndex);
+      if (!chunks) return;
+      const channelData: Float32Array[] = e.data.channelData;
+      channelData.forEach((ch, i) => {
+        if (!chunks[i]) chunks[i] = [];
+        chunks[i].push(ch);
+      });
+      // Accumulate one peak per chunk (128 samples) for real-time waveform
+      if (mins && maxs) {
+        const ch0 = channelData[0];
+        let min = ch0[0], max = ch0[0];
+        for (let i = 1; i < ch0.length; i++) {
+          if (ch0[i] < min) min = ch0[i];
+          if (ch0[i] > max) max = ch0[i];
+        }
+        mins.push(min);
+        maxs.push(max);
+      }
+    };
+
+    this.micStreams.set(insertIndex, stream);
+    this.micSources.set(insertIndex, source);
+    this.recorderNodes.set(insertIndex, recorderNode);
+  }
+
+  public disconnectMic(insertIndex: number): void {
+    this.micStreams.get(insertIndex)?.getTracks().forEach(t => t.stop());
+    try { this.micSources.get(insertIndex)?.disconnect(); } catch(_) {}
+    try { this.recorderNodes.get(insertIndex)?.disconnect(); } catch(_) {}
+    this.micStreams.delete(insertIndex);
+    this.micSources.delete(insertIndex);
+    this.recorderNodes.delete(insertIndex);
+    this.recordedChunks.delete(insertIndex);
+    this.peakMins.delete(insertIndex);
+    this.peakMaxs.delete(insertIndex);
+  }
+
+  public beginCapture(insertIndices: number[]): void {
+    for (const insertIndex of insertIndices) {
+      this.recordedChunks.set(insertIndex, []);
+      this.peakMins.set(insertIndex, []);
+      this.peakMaxs.set(insertIndex, []);
+      this.recorderNodes.get(insertIndex)?.port.postMessage({ type: 'start' });
+    }
+  }
+
+  public endCapture(insertIndices: number[]): Map<number, Float32Array[][]> {
+    for (const insertIndex of insertIndices) {
+      this.recorderNodes.get(insertIndex)?.port.postMessage({ type: 'stop' });
+    }
+    // Build snapshot of current recordedChunks for the given indices
+    const snapshot = new Map<number, Float32Array[][]>();
+    for (const insertIndex of insertIndices) {
+      const chunks = this.recordedChunks.get(insertIndex);
+      if (chunks) {
+        snapshot.set(insertIndex, chunks.map(ch => [...ch]));
+      }
+      this.recordedChunks.delete(insertIndex);
+      this.peakMins.delete(insertIndex);
+      this.peakMaxs.delete(insertIndex);
+    }
+    return snapshot;
+  }
+
+  public getPeakData(insertIndex: number): { mins: Float32Array; maxs: Float32Array } | null {
+    const mins = this.peakMins.get(insertIndex);
+    const maxs = this.peakMaxs.get(insertIndex);
+    if (!mins || !maxs || mins.length === 0) return null;
+    return { mins: new Float32Array(mins), maxs: new Float32Array(maxs) };
+  }
+
+  public setInsertArmed(insertIndex: number, armed: boolean, deviceId?: string): void {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    insert.armed = armed;
+    if (deviceId !== undefined) insert.inputDeviceId = deviceId;
+  }
+
+  public getArmedInsertIndices(): number[] {
+    return this.inserts.filter(ins => ins.armed).map(ins => ins.index);
   }
 }
