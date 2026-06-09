@@ -4,6 +4,14 @@
  */
 
 import React, { useState, useEffect, useRef } from "react";
+
+// UI-only ghost clip state — not persisted to types.ts
+interface GhostClip {
+  insertIndex: number;
+  laneIndex: number;
+  startBeat: number;
+  canvasRef: React.RefObject<HTMLCanvasElement>;
+}
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { CanvasClip, ChannelRow } from "../types";
 import { AVAILABLE_SAMPLES, LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX } from "../config";
@@ -80,6 +88,10 @@ export function Canvas({
     notifySampleLoaded,
     focusedChannelId,
     setFocusedChannelId,
+    isRecording,
+    getRecordingStatus,
+    pendingRecordedClips,
+    clearPendingRecordedClips,
   } = useAudioEngine();
 
   // Safe wrapper to resolve channel reference ID (e.g. sampler_...) to its actual sampleId
@@ -97,6 +109,15 @@ export function Canvas({
     placingClipRef.current = clip;
     setPlacingClip(clip);
   };
+
+  // Ghost clip recording state
+  const [ghostClips, setGhostClips] = useState<GhostClip[]>([]);
+  const ghostClipsRef = useRef<GhostClip[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const recordTakeCounterRef = useRef(0);
+
+  // Keep ghostClipsRef in sync with ghostClips state
+  useEffect(() => { ghostClipsRef.current = ghostClips; }, [ghostClips]);
 
   // Viewport scroll & width tracking
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -265,6 +286,153 @@ export function Canvas({
 
   const [laneCount, setLaneCount] = useState<number>(50);
   const listLanes = Array.from({ length: laneCount }, (_, i) => i);
+
+  // ── PART 2: Lane assignment + ghost clip creation on recording start ──
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const maxLane = canvasClips.length > 0
+      ? Math.max(...canvasClips.map(c => c.laneIndex))
+      : -1;
+
+    const armedIndices = engine.getArmedInsertIndices();
+    const status = getRecordingStatus();
+    const startBeat = status.startBeat;
+
+    const newGhosts: GhostClip[] = armedIndices.map((insertIndex, i) => ({
+      insertIndex,
+      laneIndex: maxLane + 1 + i,
+      startBeat,
+      canvasRef: React.createRef<HTMLCanvasElement>(),
+    }));
+
+    setGhostClips(newGhosts);
+
+    return () => {
+      // Ghost clips cleaned up in PART 5 on pendingRecordedClips arrival
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording]);
+
+  // ── PART 3: rAF waveform loop ──
+  useEffect(() => {
+    if (!isRecording) {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+
+    const drawFrame = () => {
+      const status = getRecordingStatus();
+      const ghosts = ghostClipsRef.current;
+      const now = engine.getCurrentPosition('beats');
+
+      ghosts.forEach((ghost) => {
+        const canvas = ghost.canvasRef.current;
+        if (!canvas) return;
+
+        const durationBeats = Math.max(0.01, now - ghost.startBeat);
+        const widthPx = durationBeats * beatWidth;
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.max(1, widthPx * dpr);
+        canvas.height = CLIP_HEIGHT_PX * dpr;
+        canvas.style.width = `${widthPx}px`;
+        canvas.style.height = `${CLIP_HEIGHT_PX}px`;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, widthPx, CLIP_HEIGHT_PX);
+
+        const peakData = status.peakData.get(ghost.insertIndex);
+        if (!peakData || peakData.mins.length === 0) return;
+
+        const { mins, maxs } = peakData;
+        const N = mins.length;
+        const headerHeight = 16;
+        const bodyHeight = CLIP_HEIGHT_PX - headerHeight;
+        const midY = headerHeight + bodyHeight / 2;
+        const ampScale = 0.85;
+
+        ctx.strokeStyle = 'rgba(192, 57, 43, 0.85)';
+        ctx.lineWidth = 1.2;
+
+        for (let i = 0; i < widthPx; i++) {
+          const peakIdx = Math.floor((i / widthPx) * N);
+          if (peakIdx >= N) break;
+          const min = mins[peakIdx];
+          const max = maxs[peakIdx];
+          const yMin = midY - max * (bodyHeight / 2) * ampScale;
+          const yMax = midY - min * (bodyHeight / 2) * ampScale;
+          ctx.beginPath();
+          ctx.moveTo(i, yMin);
+          ctx.lineTo(i, Math.max(yMin + 1, yMax));
+          ctx.stroke();
+        }
+      });
+
+      rafRef.current = requestAnimationFrame(drawFrame);
+    };
+
+    rafRef.current = requestAnimationFrame(drawFrame);
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [isRecording, beatWidth, engine, getRecordingStatus]);
+
+  // ── PART 5: Convert pending recorded clips to real CanvasClips ──
+  useEffect(() => {
+    if (!pendingRecordedClips || pendingRecordedClips.length === 0) return;
+
+    const newClips: CanvasClip[] = pendingRecordedClips.map((result) => {
+      const ghost = ghostClips.find(g => g.insertIndex === result.insertIndex);
+      const laneIndex = ghost ? ghost.laneIndex : (() => {
+        const maxLane = canvasClips.length > 0 ? Math.max(...canvasClips.map(c => c.laneIndex)) : -1;
+        return maxLane + 1;
+      })();
+
+      recordTakeCounterRef.current += 1;
+      const takeName = `REC ${String(recordTakeCounterRef.current).padStart(3, '0')}`;
+
+      return {
+        id: crypto.randomUUID(),
+        type: 'sample' as const,
+        startBeat: result.startBeat,
+        duration: result.durationBeats,
+        laneIndex,
+        referenceId: result.sampleId,
+        name: takeName,
+        color: '#c0392b',
+      };
+    });
+
+    if (setChannels) {
+      const newChannels = pendingRecordedClips.map((result) => {
+        const takeName = newClips.find(c => c.referenceId === result.sampleId)?.name || 'REC';
+        return {
+          id: crypto.randomUUID(),
+          name: takeName,
+          type: 'sample' as const,
+          sampleId: result.sampleId,
+          mixerTarget: result.insertIndex,
+          instrumentType: 'sampler' as const,
+        };
+      });
+      setChannels(prev => [...prev, ...newChannels]);
+    }
+
+    newClips.forEach(clip => addCanvasClip(clip));
+
+    setGhostClips([]);
+    clearPendingRecordedClips();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRecordedClips]);
 
 
   // Snap resolution selection (Default to "auto")
@@ -1395,6 +1563,65 @@ export function Canvas({
                       />
                     </div>
                   )}
+
+                  {/* ── PART 4: Recording ghost clips (live waveform) ── */}
+                  {ghostClips.map((ghost) => {
+                    const now = position.beats;
+                    const durationBeats = Math.max(0.01, now - ghost.startBeat);
+                    const leftPx = ghost.startBeat * beatWidth;
+                    const widthPx = durationBeats * beatWidth;
+                    const topPx = ghost.laneIndex * LANE_HEIGHT_PX + CLIP_TOP_OFFSET_PX;
+
+                    return (
+                      <div
+                        key={`ghost-${ghost.insertIndex}`}
+                        style={{
+                          position: 'absolute',
+                          left: `${leftPx}px`,
+                          top: `${topPx}px`,
+                          width: `${widthPx}px`,
+                          height: `${CLIP_HEIGHT_PX}px`,
+                          backgroundColor: 'rgba(192, 57, 43, 0.15)',
+                          border: '1px solid rgba(192, 57, 43, 0.5)',
+                          boxSizing: 'border-box',
+                          pointerEvents: 'none',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Ghost clip header */}
+                        <div style={{
+                          height: '16px',
+                          backgroundColor: 'rgba(192, 57, 43, 0.25)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingLeft: '4px',
+                          gap: '4px',
+                        }}>
+                          <span style={{
+                            fontSize: '8px',
+                            color: '#c0392b',
+                            fontFamily: 'Electrolize, monospace',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.08em',
+                          }}>
+                            ● REC
+                          </span>
+                        </div>
+                        {/* Live waveform canvas */}
+                        <canvas
+                          ref={ghost.canvasRef}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: '100%',
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Sticky Add Lane row */}
