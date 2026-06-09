@@ -15,6 +15,7 @@ export class MixerManager {
 
   private recorderNodes: Map<number, AudioWorkletNode> = new Map();
   private micSources: Map<number, MediaStreamAudioSourceNode> = new Map();
+  private monoSummers: Map<number, GainNode> = new Map();
   private micStreams: Map<number, MediaStream> = new Map();
   private recordedChunks: Map<number, Float32Array[][]> = new Map();
   private peakMins: Map<number, number[]> = new Map();
@@ -668,7 +669,13 @@ export class MixerManager {
 
     const insert = this.getOrCreateMixerInsert(insertIndex);
     const source = audioContext.createMediaStreamSource(stream);
-    source.connect(insert.inputGainNode!);
+    const monoSummer = audioContext.createGain();
+    monoSummer.channelCount = 1;
+    monoSummer.channelCountMode = 'explicit';
+    monoSummer.channelInterpretation = 'speakers';
+    source.connect(monoSummer);
+    monoSummer.connect(insert.inputGainNode!);
+    this.monoSummers.set(insertIndex, monoSummer);
 
     const recorderNode = new AudioWorkletNode(audioContext, 'recorder-processor');
     insert.inputGainNode!.connect(recorderNode);
@@ -706,6 +713,8 @@ export class MixerManager {
   public disconnectMic(insertIndex: number): void {
     this.micStreams.get(insertIndex)?.getTracks().forEach(t => t.stop());
     try { this.micSources.get(insertIndex)?.disconnect(); } catch(_) {}
+    try { this.monoSummers.get(insertIndex)?.disconnect(); } catch(_) {}
+    this.monoSummers.delete(insertIndex);
     try { this.recorderNodes.get(insertIndex)?.disconnect(); } catch(_) {}
     this.micStreams.delete(insertIndex);
     this.micSources.delete(insertIndex);
