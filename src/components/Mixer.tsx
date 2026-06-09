@@ -1312,6 +1312,9 @@ export function Mixer({
             const isDimmed = anySoloed && !ins.isSoloed && !ins.isMuted;
             const knobAccent = (isMuted || isDimmed) ? DARK.textDim : (stripColors[ins.index] ?? DARK.accentMaster);
 
+            const hasOutgoingSends = ins.sends && ins.sends.length > 0;
+            const hasIncomingSends = insertsState.some(otherIns => otherIns.index !== ins.index && otherIns.sends?.some(s => s.targetInsertIndex === ins.index));
+
 
 
             return (
@@ -1496,8 +1499,44 @@ export function Mixer({
                     justifyContent: "center",
                     margin: `${SPACE.xs}px 0`,
                     boxSizing: "border-box",
+                    position: "relative",
                   }}
                 >
+                  {/* Status Dots */}
+                  {(hasOutgoingSends || hasIncomingSends) && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "-6px",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        display: "flex",
+                        gap: "4px",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {hasOutgoingSends && (
+                        <div
+                          style={{
+                            width: "4px",
+                            height: "4px",
+                            borderRadius: "50%",
+                            backgroundColor: "#4fc3f7",
+                          }}
+                        />
+                      )}
+                      {hasIncomingSends && (
+                        <div
+                          style={{
+                            width: "4px",
+                            height: "4px",
+                            borderRadius: "50%",
+                            backgroundColor: "#108a38",
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
                   {(() => {
                     const hasSelection = selectedInsertIndex !== null && selectedInsertIndex !== undefined && selectedInsertIndex > 0;
                     
