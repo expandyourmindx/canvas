@@ -580,9 +580,11 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   }, [engine, focusedChannelId]);
 
   const startRecording = useCallback(() => {
-    const currentBeat = engine.getCurrentPosition('beats');
-    engine.startRecording(currentBeat);
     setIsRecording(true);
+    if (engine.getState() === 'playing') {
+      const currentBeat = engine.getCurrentPosition('beats');
+      engine.startRecording(currentBeat);
+    }
   }, [engine]);
 
   const stopRecording = useCallback(() => {
