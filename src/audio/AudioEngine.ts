@@ -1369,9 +1369,7 @@ export class AudioEngine {
     const armedIndices = this.mixerManager.getArmedInsertIndices();
     if (armedIndices.length === 0) return;
     this.activeRecordingInserts = new Set(armedIndices);
-    const bpm = this.getBpm();
-    const offsetBeats = (this.recordingOffsetMs / 1000) * (bpm / 60);
-    this.recordingStartBeat = currentBeat + offsetBeats;
+    this.recordingStartBeat = currentBeat;
     this.recordingStartContextTime = this.audioContext.currentTime
       - (this.audioContext.baseLatency + (this.audioContext.outputLatency ?? 0));
     this.mixerManager.beginCapture(armedIndices);
@@ -1404,10 +1402,20 @@ export class AudioEngine {
       if (!channelChunks || channelChunks.length === 0) continue;
       const numChannels = channelChunks.length;
       const channelArrays = channelChunks.map(ch => concat(ch));
-      const sampleCount = channelArrays[0].length;
+      // Trim front of captured audio by offset to compensate for
+      // input latency. Negative offsetMs = trim that many ms off
+      // the front. E.g. -50ms at 44100Hz = 2205 samples trimmed.
+      const trimSamples = Math.max(
+        0,
+        Math.floor(Math.abs(this.recordingOffsetMs) / 1000 * this.audioContext.sampleRate)
+      );
+      const trimmedArrays = trimSamples > 0 && trimSamples < channelArrays[0].length
+        ? channelArrays.map(ch => ch.slice(trimSamples))
+        : channelArrays;
+      const sampleCount = trimmedArrays[0].length;
       if (sampleCount === 0) continue;
       const buffer = this.audioContext.createBuffer(numChannels, sampleCount, this.audioContext.sampleRate);
-      channelArrays.forEach((data, i) => buffer.copyToChannel(data as Float32Array<ArrayBuffer>, i));
+      trimmedArrays.forEach((data, i) => buffer.copyToChannel(data as Float32Array<ArrayBuffer>, i));
       const sampleId = `recorded_${insertIndex}_${Date.now()}`;
       this.registerBuffer(sampleId, buffer);
       results.push({ insertIndex, sampleId, audioBuffer: buffer, startBeat: this.recordingStartBeat, durationBeats });
