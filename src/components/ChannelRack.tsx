@@ -305,6 +305,60 @@ export function ChannelRack({
   const [moreOpen, setMoreOpen] = useState(false);
   const [remoteInstruments, setRemoteInstruments] = useState<InstrumentDefinition[]>([]);
 
+  const addChannelBtnRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!addDropdownOpen) return;
+
+    const updatePosition = () => {
+      const button = addChannelBtnRef.current;
+      const menu = dropdownRef.current;
+      if (!button || !menu) return;
+
+      const rect = button.getBoundingClientRect();
+      const menuWidth = menu.offsetWidth;
+      const menuHeight = menu.offsetHeight;
+
+      let top = rect.bottom;
+      let left = rect.left;
+
+      if (top + menuHeight > window.innerHeight) {
+        top = rect.top - menuHeight;
+      }
+      if (top < 0) {
+        top = rect.bottom;
+      }
+
+      if (left + menuWidth > window.innerWidth) {
+        left = window.innerWidth - menuWidth;
+      }
+      if (left < 0) {
+        left = 0;
+      }
+
+      menu.style.top = `${top}px`;
+      menu.style.left = `${left}px`;
+      menu.style.visibility = "visible";
+    };
+
+    updatePosition();
+
+    window.addEventListener("resize", updatePosition, { passive: true });
+    window.addEventListener("scroll", updatePosition, { capture: true, passive: true });
+
+    let rafId = requestAnimationFrame(function tick() {
+      updatePosition();
+      rafId = requestAnimationFrame(tick);
+    });
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, { capture: true });
+      cancelAnimationFrame(rafId);
+    };
+  }, [addDropdownOpen]);
+
   // 6. Drag and drop file loading states
   const [draggingOverChannelId, setDraggingOverChannelId] = useState<string | null>(null);
   const [draggedChannelId, setDraggedChannelId] = useState<string | null>(null);
@@ -1436,6 +1490,7 @@ export function ChannelRack({
         {/* Dynamic ADD CHANNEL button row with Overlay Dropdown */}
         <div style={{ paddingTop: `${SPACE.lg}px`, paddingLeft: `${SPACE.sm}px`, userSelect: "none", display: "flex", position: "relative" }}>
           <button
+            ref={addChannelBtnRef}
             onClick={(e) => {
               e.stopPropagation();
               setAddDropdownOpen(!addDropdownOpen);
@@ -1461,11 +1516,10 @@ export function ChannelRack({
 
           {addDropdownOpen && (
             <div
+              ref={dropdownRef}
               style={{
-                position: "absolute",
-                bottom: "100%",
-                left: "4px",
-                marginBottom: "4px",
+                position: "fixed",
+                visibility: "hidden",
                 backgroundColor: DARK.bg2,
                 ...flat(DARK),
                 padding: "2px",
