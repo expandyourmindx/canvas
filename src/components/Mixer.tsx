@@ -1079,8 +1079,127 @@ export function Mixer({
               </div>
             </div>
 
-            {/* Empty spacer to align layout with inserts */}
-            <div style={{ height: "40px", margin: `${SPACE.xs}px 0` }} />
+            {/* Context-sensitive Routing UI / Knob slot */}
+            <div
+              style={{
+                height: "40px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: `${SPACE.xs}px 0`,
+                boxSizing: "border-box",
+              }}
+            >
+              {(() => {
+                const hasSelection = selectedInsertIndex !== null && selectedInsertIndex !== undefined && selectedInsertIndex > 0;
+                
+                if (!hasSelection) {
+                  // STATE 3 — NO INSERT SELECTED
+                  // - Show UP ARROW (▲) — passive, not clickable
+                  // - No ring, no context menu
+                  return (
+                    <div
+                      title="No insert selected"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "22px",
+                        height: "22px",
+                        color: DARK.textMid,
+                        fontSize: "10px",
+                        fontFamily: DARK.font,
+                        userSelect: "none",
+                      }}
+                    >
+                      ▲
+                    </div>
+                  );
+                }
+
+                // Selected insert exists (index > 0)
+                const isConnected = selectedInsert?.routesToMaster !== false;
+
+                if (isConnected) {
+                  // STATE 1 — SELECTED INSERT IS CONNECTED TO MASTER
+                  // - Show the IN knob with green ring (#108a38)
+                  // - Turning the knob controls master insert input gain
+                  // - Right click shows "Disconnect [selected insert] from master"
+                  //   → calls setRoutesToMaster(selectedIndex, false)
+                  const inKnobValue = insertsState[0]?.inputGain ?? 1.0;
+                  const handleInKnobChange = (v: number) => {
+                    handleInputGainChange(0, v);
+                  };
+                  const inKnobTitle = `MASTER INPUT GAIN (${inKnobValue.toFixed(2)}x)`;
+
+                  return (
+                    <div 
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div 
+                        style={{
+                          fontFamily: DARK.font,
+                          fontSize: "7px",
+                          color: DARK.textLo,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          marginBottom: "2px",
+                        }}
+                      >
+                        IN
+                      </div>
+                      <InputGainKnob
+                        value={inKnobValue}
+                        onChange={handleInKnobChange}
+                        title={inKnobTitle}
+                        dotColor={isMasterMuted ? DARK.textDim : (stripColors[0] ?? DARK.accentMaster)}
+                        hasRing={true}
+                        onContextMenu={(e) => handleInKnobContextMenu(e, 0)}
+                      />
+                    </div>
+                  );
+                } else {
+                  // STATE 2 — SELECTED INSERT IS DISCONNECTED FROM MASTER
+                  // - Show UP ARROW (▲) instead of the IN knob
+                  // - Clicking the arrow calls setRoutesToMaster(selectedIndex, true)
+                  //   reconnecting the selected insert to master
+                  const handleReconnectClick = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    if (engine && engine.setRoutesToMaster) {
+                      engine.setRoutesToMaster(selectedInsertIndex, true);
+                    } else if (engine.mixerManager && engine.mixerManager.setRoutesToMaster) {
+                      engine.mixerManager.setRoutesToMaster(selectedInsertIndex, true);
+                    }
+                    pullInserts();
+                  };
+
+                  return (
+                    <div
+                      onClick={handleReconnectClick}
+                      title={`Reconnect ${selectedInsert?.name || `Insert ${selectedInsertIndex}`} to master`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: "22px",
+                        height: "22px",
+                        cursor: "pointer",
+                        color: DARK.textMid,
+                        fontSize: "10px",
+                        fontFamily: DARK.font,
+                        userSelect: "none",
+                      }}
+                    >
+                      ▲
+                    </div>
+                  );
+                }
+              })()}
+            </div>
 
             {/* dB readout & M/S triggers */}
             <div 
@@ -2208,29 +2327,33 @@ export function Mixer({
 
           <div style={{ display: "flex", flexDirection: "column" }}>
             {/* 1. Remove send option */}
-            <button
-              onClick={handleRemoveSend}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
-              style={{
-                width: "100%",
-                textAlign: "left",
-                padding: `${SPACE.sm}px ${SPACE.md}px`,
-                color: DARK.stateHot,
-                border: "none",
-                backgroundColor: "transparent",
-                cursor: "pointer",
-                fontFamily: DARK.font,
-                fontSize: "9px",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-              }}
-            >
-              Remove send
-            </button>
+            {inKnobContextMenu.targetInsertIndex !== 0 && (
+              <>
+                <button
+                  onClick={handleRemoveSend}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+                  style={{
+                    width: "100%",
+                    textAlign: "left",
+                    padding: `${SPACE.sm}px ${SPACE.md}px`,
+                    color: DARK.stateHot,
+                    border: "none",
+                    backgroundColor: "transparent",
+                    cursor: "pointer",
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Remove send
+                </button>
 
-            {/* divider line */}
-            <div style={{ height: "1px", backgroundColor: DARK.bevelDark }} />
+                {/* divider line */}
+                <div style={{ height: "1px", backgroundColor: DARK.bevelDark }} />
+              </>
+            )}
 
             {/* 2. Disconnect/Reconnect from master option */}
             {selectedInsert?.routesToMaster !== false ? (
