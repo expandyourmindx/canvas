@@ -290,9 +290,11 @@ interface InputGainKnobProps {
   dotColor?: string;
   hasRing?: boolean;
   onContextMenu?: (e: React.MouseEvent) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
 }
 
-function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, hasRing, onContextMenu }: InputGainKnobProps) {
+function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, hasRing, onContextMenu, onDragStart, onDragEnd }: InputGainKnobProps) {
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -302,6 +304,8 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, has
     const startY = e.clientY;
     const startValue = value;
 
+    onDragStart?.();
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = startY - moveEvent.clientY;
       const deltaValue = deltaY * (2.0 / 100);
@@ -310,6 +314,7 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, has
     };
 
     const handleMouseUp = () => {
+      onDragEnd?.();
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
@@ -558,6 +563,7 @@ export function Mixer({
 }: MixerProps) {
   const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
+  const isDraggingKnobRef = useRef(false);
   
   const [insertsState, setInsertsState] = useState<MixerInsert[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -951,7 +957,10 @@ export function Mixer({
         {/* A. MASTER BUS PINNED LEFT */}
         {insertsState.length > 0 && (
           <div 
-            onClick={() => setSelectedInsertIndex(0)}
+            onClick={() => {
+              if (isDraggingKnobRef.current) return;
+              setSelectedInsertIndex(0);
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -1162,6 +1171,8 @@ export function Mixer({
                         dotColor={isMasterMuted ? DARK.textDim : (stripColors[0] ?? DARK.accentMaster)}
                         hasRing={true}
                         onContextMenu={(e) => handleInKnobContextMenu(e, 0)}
+                        onDragStart={() => { isDraggingKnobRef.current = true; }}
+                        onDragEnd={() => { setTimeout(() => { isDraggingKnobRef.current = false; }, 50); }}
                       />
                     </div>
                   );
@@ -1323,7 +1334,10 @@ export function Mixer({
             return (
               <div 
                 key={ins.index}
-                onClick={() => setSelectedInsertIndex(ins.index)}
+                onClick={() => {
+                  if (isDraggingKnobRef.current) return;
+                  setSelectedInsertIndex(ins.index);
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1620,6 +1634,8 @@ export function Mixer({
                             dotColor={knobAccent}
                             hasRing={true}
                             onContextMenu={(e) => handleInKnobContextMenu(e, ins.index)}
+                            onDragStart={() => { isDraggingKnobRef.current = true; }}
+                            onDragEnd={() => { setTimeout(() => { isDraggingKnobRef.current = false; }, 50); }}
                           />
                         </div>
                       );
