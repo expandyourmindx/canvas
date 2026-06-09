@@ -118,6 +118,8 @@ export interface MixerInsert {
   sends: Array<{ targetInsertIndex: number; sendGain: number }>;
   routesToMaster: boolean;  // default true
   sendGainNodes?: Map<number, GainNode>;
+  armed?: boolean;
+  inputDeviceId?: string;
 }
 
 export interface CanvasProject {
