@@ -77,6 +77,12 @@ export class AudioEngine {
   private wamUrls: Map<string, string> = new Map();
   private wamGroupId: string | null = null;
 
+  private recorderWorkletLoaded = false;
+  private recorderWorkletPromise: Promise<void> | null = null;
+  private activeRecordingInserts: Set<number> = new Set();
+  private recordingStartBeat = 0;
+  private recordingStartContextTime = 0;
+
 
   constructor(options: AudioEngineOptions = {}) {
     const bpm = options.bpm ?? 120;
@@ -132,6 +138,7 @@ export class AudioEngine {
 
     // Initialize mixer!
     this.mixerManager = new MixerManager(this.audioContext, this.masterGainNode);
+    this.recorderWorkletPromise = this.loadRecorderWorklet();
 
     // Seed preset patterns for the visual workspace
     this.registerDefaultPatterns();
@@ -1292,5 +1299,135 @@ export class AudioEngine {
 
   public setRoutesToMaster(fromIndex: number, routesToMaster: boolean) {
     this.mixerManager.setRoutesToMaster(fromIndex, routesToMaster);
+  }
+
+  /**
+   * Loads the RecorderProcessor AudioWorklet module from the public directory.
+   * Errors are swallowed so worklet unavailability never crashes the engine.
+   */
+  private async loadRecorderWorklet(): Promise<void> {
+    try {
+      const url = new URL('/worklets/recorder-processor.js', window.location.origin).href;
+      await this.audioContext.audioWorklet.addModule(url);
+      this.recorderWorkletLoaded = true;
+    } catch (err) {
+      console.error('[AudioEngine] Failed to load recorder worklet:', err);
+    }
+  }
+
+  /**
+   * Stores an already-decoded AudioBuffer directly under the given id.
+   * No decoding step — delegates to SampleRegistry.registerBuffer.
+   */
+  public registerBuffer(id: string, buffer: AudioBuffer): void {
+    this.sampleRegistry.registerBuffer(id, buffer);
+  }
+
+  /**
+   * Arms a mixer insert for recording by acquiring the microphone stream
+   * and connecting the RecorderProcessor worklet tap.
+   */
+  public async armInsert(insertIndex: number, deviceId?: string): Promise<void> {
+    if (this.recorderWorkletPromise) await this.recorderWorkletPromise;
+    if (!this.recorderWorkletLoaded) {
+      throw new Error('Recorder worklet not available');
+    }
+    const constraints: MediaStreamConstraints = {
+      audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+      video: false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    this.mixerManager.connectMic(insertIndex, stream, this.audioContext);
+    this.mixerManager.setInsertArmed(insertIndex, true, deviceId);
+  }
+
+  /**
+   * Disarms a mixer insert — disconnects the mic stream and marks insert as unarmed.
+   */
+  public disarmInsert(insertIndex: number): void {
+    this.mixerManager.disconnectMic(insertIndex);
+    this.mixerManager.setInsertArmed(insertIndex, false);
+  }
+
+  /**
+   * Begins capturing audio on all currently armed inserts.
+   */
+  public startRecording(currentBeat: number): void {
+    const armedIndices = this.mixerManager.getArmedInsertIndices();
+    if (armedIndices.length === 0) return;
+    this.activeRecordingInserts = new Set(armedIndices);
+    this.recordingStartBeat = currentBeat;
+    this.recordingStartContextTime = this.audioContext.currentTime;
+    this.mixerManager.beginCapture(armedIndices);
+  }
+
+  /**
+   * Stops capture, assembles AudioBuffers from raw Float32Array chunks,
+   * registers them in the SampleRegistry, and returns metadata for each recorded insert.
+   */
+  public stopRecording(bpm: number): Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }> {
+    if (this.activeRecordingInserts.size === 0) return [];
+    const elapsed = this.audioContext.currentTime - this.recordingStartContextTime;
+    const durationBeats = elapsed * (bpm / 60);
+    const indices = Array.from(this.activeRecordingInserts);
+    const chunksMap = this.mixerManager.endCapture(indices);
+    this.activeRecordingInserts.clear();
+
+    const results: Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }> = [];
+
+    const concat = (arrays: Float32Array[]): Float32Array => {
+      const total = arrays.reduce((n, a) => n + a.length, 0);
+      const out = new Float32Array(total);
+      let offset = 0;
+      arrays.forEach(a => { out.set(a, offset); offset += a.length; });
+      return out;
+    };
+
+    for (const insertIndex of indices) {
+      const channelChunks = chunksMap.get(insertIndex); // Float32Array[][] — per-channel, per-chunk
+      if (!channelChunks || channelChunks.length === 0) continue;
+      const numChannels = channelChunks.length;
+      const channelArrays = channelChunks.map(ch => concat(ch));
+      const sampleCount = channelArrays[0].length;
+      if (sampleCount === 0) continue;
+      const buffer = this.audioContext.createBuffer(numChannels, sampleCount, this.audioContext.sampleRate);
+      channelArrays.forEach((data, i) => buffer.copyToChannel(data, i));
+      const sampleId = `recorded_${insertIndex}_${Date.now()}`;
+      this.registerBuffer(sampleId, buffer);
+      results.push({ insertIndex, sampleId, audioBuffer: buffer, startBeat: this.recordingStartBeat, durationBeats });
+    }
+
+    return results;
+  }
+
+  /**
+   * Returns true if any inserts are actively capturing audio.
+   */
+  public isCurrentlyRecording(): boolean {
+    return this.activeRecordingInserts.size > 0;
+  }
+
+  /**
+   * Returns a snapshot of current recording state including real-time peak data.
+   */
+  public getRecordingStatus(): { isRecording: boolean; startBeat: number; armedInserts: number[]; peakData: Map<number, { mins: Float32Array; maxs: Float32Array }> } {
+    const peakData = new Map<number, { mins: Float32Array; maxs: Float32Array }>();
+    for (const idx of this.activeRecordingInserts) {
+      const data = this.mixerManager.getPeakData(idx);
+      if (data) peakData.set(idx, data);
+    }
+    return {
+      isRecording: this.isCurrentlyRecording(),
+      startBeat: this.recordingStartBeat,
+      armedInserts: this.mixerManager.getArmedInsertIndices(),
+      peakData
+    };
+  }
+
+  /**
+   * Returns the indices of all currently armed inserts.
+   */
+  public getArmedInsertIndices(): number[] {
+    return this.mixerManager.getArmedInsertIndices();
   }
 }
