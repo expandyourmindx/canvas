@@ -91,7 +91,8 @@ export class AudioEngine {
 
     // Gracefully initialize Web Audio context
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    this.audioContext = new AudioContextClass();
+    this.audioContext = new AudioContextClass({ latencyHint: 0.01 });
+    console.log('[Canvas] AudioContext baseLatency:', this.audioContext.baseLatency, 'outputLatency:', this.audioContext.outputLatency);
     this.sampleRegistry = new SampleRegistry(this.audioContext);
 
 
@@ -1339,7 +1340,8 @@ export class AudioEngine {
         noiseSuppression: false,
         autoGainControl: false,
         channelCount: 1,
-      },
+        latency: 0.01,
+      } as any,
       video: false,
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
