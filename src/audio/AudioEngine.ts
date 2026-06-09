@@ -92,7 +92,16 @@ export class AudioEngine {
     // Set up standard sound-routing node tree
     this.masterGainNode = this.audioContext.createGain();
     this.masterGainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime); // default comfortable volume
-    this.masterGainNode.connect(this.audioContext.destination);
+    
+    const masterLimiter = this.audioContext.createDynamicsCompressor();
+    masterLimiter.threshold.value = -1.0;  // kicks in just below 0dBFS
+    masterLimiter.knee.value = 0.0;        // hard knee
+    masterLimiter.ratio.value = 20.0;      // brick wall
+    masterLimiter.attack.value = 0.001;    // 1ms attack
+    masterLimiter.release.value = 0.1;     // 100ms release
+
+    this.masterGainNode.connect(masterLimiter);
+    masterLimiter.connect(this.audioContext.destination);
 
     // Initialize sampler engine!
     this.samplerEngine = new SamplerEngine(

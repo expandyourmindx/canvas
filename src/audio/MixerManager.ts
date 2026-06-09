@@ -517,9 +517,35 @@ export class MixerManager {
     this.rebuildFXChain(insertIndex);
   }
 
+  private wouldCreateCycle(fromIndex: number, toIndex: number): boolean {
+    if (fromIndex === toIndex) return true;
+
+    const visited = new Set<number>();
+    const queue: number[] = [toIndex];
+    visited.add(toIndex);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current === fromIndex) {
+        return true;
+      }
+      const insert = this.inserts[current];
+      if (insert && insert.sends) {
+        for (const send of insert.sends) {
+          if (!visited.has(send.targetInsertIndex)) {
+            visited.add(send.targetInsertIndex);
+            queue.push(send.targetInsertIndex);
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   public addSend(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) {
-      throw new Error("An insert cannot send to itself");
+    if (this.wouldCreateCycle(fromIndex, toIndex)) {
+      return;
     }
     if (toIndex === 0) {
       throw new Error("Cannot send to master (index 0) via addSend");
