@@ -1382,6 +1382,8 @@ export class AudioEngine {
    */
   public stopRecording(bpm: number): Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }> {
     if (this.activeRecordingInserts.size === 0) return [];
+    console.log('[Canvas Recording] stopRecording fired, indices:', 
+      Array.from(this.activeRecordingInserts));
     const elapsed = this.audioContext.currentTime - this.recordingStartContextTime;
     const durationBeats = elapsed * (bpm / 60);
     const indices = Array.from(this.activeRecordingInserts);
@@ -1399,6 +1401,9 @@ export class AudioEngine {
     };
 
     for (const insertIndex of indices) {
+      console.log('[Canvas Recording] Processing insert:', insertIndex, 
+        'channelChunks:', chunksMap.get(insertIndex)?.length ?? 'missing',
+        'chunk 0 length:', chunksMap.get(insertIndex)?.[0]?.length ?? 'empty');
       const channelChunks = chunksMap.get(insertIndex); // Float32Array[][] — per-channel, per-chunk
       if (!channelChunks || channelChunks.length === 0) continue;
       const numChannels = channelChunks.length;
