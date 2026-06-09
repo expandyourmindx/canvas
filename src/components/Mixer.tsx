@@ -1134,6 +1134,8 @@ export function Mixer({
 
                   return (
                     <div 
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => e.stopPropagation()}
                       style={{
                         display: "flex",
                         flexDirection: "column",
@@ -1590,6 +1592,8 @@ export function Mixer({
 
                       return (
                         <div 
+                          onMouseDown={e => e.stopPropagation()}
+                          onClick={e => e.stopPropagation()}
                           style={{
                             display: "flex",
                             flexDirection: "column",
