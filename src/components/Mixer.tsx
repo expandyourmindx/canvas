@@ -1760,7 +1760,9 @@ export function Mixer({
                     paddingLeft: `${SPACE.sm}px`,
                     paddingRight: `${SPACE.sm}px`,
                     display: "flex",
-                    flexDirection: "column",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                     gap: `${SPACE.xs}px`,
                     marginTop: `${SPACE.xs}px`,
                   }}
@@ -1810,6 +1812,8 @@ export function Mixer({
                       } else {
                         try {
                           await armInsert(ins.index, selectedDeviceIds[ins.index] || undefined);
+                          const devices = await navigator.mediaDevices.enumerateDevices();
+                          setAudioInputs(devices.filter(d => d.kind === 'audioinput'));
                           setMicErrors(prev => { const n = { ...prev }; delete n[ins.index]; return n; });
                           pullInserts();
                         } catch (_) {
@@ -1817,36 +1821,28 @@ export function Mixer({
                         }
                       }
                     }}
-                    style={{
-                      width: "100%",
-                      height: "18px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontFamily: DARK.font,
-                      fontSize: "8px",
-                      fontWeight: "bold",
-                      textTransform: "uppercase",
-                      cursor: "pointer",
-                      userSelect: "none",
-                      boxSizing: "border-box",
-                      ...(ins.armed
-                        ? { ...sunken(DARK), backgroundColor: DARK.stateRed, color: "#ffffff" }
-                        : { ...raised(DARK), backgroundColor: DARK.bg3, color: DARK.textMid }
-                      )
-                    }}
                     title={ins.armed ? `Disarm Insert ${ins.index}` : `Arm Insert ${ins.index} for recording`}
-                  >
-                    ARM
-                  </button>
-
-                  {/* Mic denied error label */}
-                  {micErrors[ins.index] && (
-                    <span style={{ fontFamily: DARK.font, fontSize: "7px", color: DARK.stateRed, textAlign: "center" }}>
-                      {micErrors[ins.index]}
-                    </span>
-                  )}
+                    style={{
+                      width: "10px",
+                      height: "10px",
+                      borderRadius: "50%",
+                      backgroundColor: ins.armed ? DARK.stateRed : DARK.bg0,
+                      border: `1px solid ${ins.armed ? DARK.stateRed : DARK.bevelMid}`,
+                      cursor: "pointer",
+                      padding: 0,
+                      flexShrink: 0,
+                      boxSizing: "border-box",
+                      ...(ins.armed ? sunken(DARK) : raised(DARK)),
+                    }}
+                  />
                 </div>
+
+                {/* Mic denied error label */}
+                {micErrors[ins.index] && (
+                  <span style={{ fontFamily: DARK.font, fontSize: "7px", color: DARK.stateRed, textAlign: "center" }}>
+                    {micErrors[ins.index]}
+                  </span>
+                )}
 
                 {/* dB readout & M/S triggers */}
                 <div 
