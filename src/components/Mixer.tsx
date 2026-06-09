@@ -296,6 +296,7 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, has
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (e.button !== 0) return;
     e.preventDefault();
     const startY = e.clientY;
