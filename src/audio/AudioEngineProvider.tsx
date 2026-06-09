@@ -126,6 +126,16 @@ export interface AudioEngineContextType {
   dismissAutosave: () => void;
   missingSamples: string[] | null;
   dismissMissingSamples: () => void;
+
+  // Audio Recording
+  isRecording: boolean;
+  startRecording: () => void;
+  stopRecording: () => void;
+  armInsert: (insertIndex: number, deviceId?: string) => Promise<void>;
+  disarmInsert: (insertIndex: number) => void;
+  getRecordingStatus: () => ReturnType<AudioEngine['getRecordingStatus']>;
+  pendingRecordedClips: Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }>;
+  clearPendingRecordedClips: () => void;
 }
 
 export const AudioEngineContext = createContext<AudioEngineContextType | null>(null);
@@ -206,6 +216,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const [baseOctave, setBaseOctave] = useState<number>(4);
   const [focusedChannelId, setFocusedChannelId] = useState<string | null>("obsidian_default");
   const [activeMidiNotes, setActiveMidiNotes] = useState<Record<number, boolean>>({});
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [pendingRecordedClips, setPendingRecordedClips] = useState<Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }>>([]);
 
   useEffect(() => {
     engine.focusedChannelId = focusedChannelId;
@@ -376,6 +389,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   }, [engine]);
 
   const stop = useCallback(() => {
+    if (engine.isCurrentlyRecording()) {
+      const bpmValue = engine.getBpm();
+      const results = engine.stopRecording(bpmValue);
+      setIsRecording(false);
+      if (results.length > 0) {
+        setPendingRecordedClips(results);
+      }
+    }
     engine.stop();
     // Flush immediate positions back to 0 for responsive UI resets
     latestPositionRef.current = { seconds: 0, beats: 0 };
@@ -553,6 +574,42 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       });
     }
   }, [engine, focusedChannelId]);
+
+  const startRecording = useCallback(() => {
+    const currentBeat = engine.getCurrentPosition('beats');
+    engine.startRecording(currentBeat);
+    setIsRecording(true);
+    // If transport is not already playing, start it
+    const state = engine.getState();
+    if (state !== 'playing') {
+      engine.play();
+    }
+  }, [engine]);
+
+  const stopRecording = useCallback(() => {
+    if (!engine.isCurrentlyRecording()) {
+      setIsRecording(false);
+      return;
+    }
+    const bpmValue = engine.getBpm();
+    const results = engine.stopRecording(bpmValue);
+    setIsRecording(false);
+    if (results.length > 0) {
+      setPendingRecordedClips(results);
+    }
+  }, [engine]);
+
+  const armInsert = useCallback(async (insertIndex: number, deviceId?: string) => {
+    await engine.armInsert(insertIndex, deviceId);
+  }, [engine]);
+
+  const disarmInsert = useCallback((insertIndex: number) => {
+    engine.disarmInsert(insertIndex);
+  }, [engine]);
+
+  const getRecordingStatus = useCallback(() => engine.getRecordingStatus(), [engine]);
+
+  const clearPendingRecordedClips = useCallback(() => setPendingRecordedClips([]), []);
 
   const setActivePatternId = useCallback((id: string) => {
     engine.setActivePatternId(id);
@@ -1064,6 +1121,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     dismissAutosave,
     missingSamples,
     dismissMissingSamples,
+    isRecording,
+    startRecording,
+    stopRecording,
+    armInsert,
+    disarmInsert,
+    getRecordingStatus,
+    pendingRecordedClips,
+    clearPendingRecordedClips,
   };
 
   return (
