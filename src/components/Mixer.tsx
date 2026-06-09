@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { ChannelRow } from "../types";
 import { MixerInsert } from "../audio/MixerManager";
@@ -288,12 +288,15 @@ interface InputGainKnobProps {
   onChange: (value: number) => void;
   title?: string;
   dotColor?: string;
+  hasRing?: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue }: InputGainKnobProps) {
+function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, hasRing, onContextMenu }: InputGainKnobProps) {
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     e.preventDefault();
     const startY = e.clientY;
     const startValue = value;
@@ -333,6 +336,7 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue }: I
       ref={knobRef}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={onContextMenu}
       title={title}
       style={{
         width: "22px",
@@ -374,6 +378,30 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue }: I
       >
         <circle cx={dotX} cy={dotY} r={1.5} fill={dotColor} />
       </svg>
+
+      {/* Send Relationship Ring */}
+      {hasRing && (
+        <svg
+          style={{
+            position: "absolute",
+            top: "-3px",
+            left: "-3px",
+            width: "28px",
+            height: "28px",
+            pointerEvents: "none",
+            zIndex: 10,
+          }}
+        >
+          <circle
+            cx={14}
+            cy={14}
+            r={12}
+            stroke="#108a38"
+            strokeWidth={2}
+            fill="none"
+          />
+        </svg>
+      )}
     </div>
   );
 }
@@ -555,6 +583,27 @@ export function Mixer({
   } | null>(null);
   const colorMenuRef = useRef<HTMLDivElement>(null);
 
+  const [inKnobContextMenu, setInKnobContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    targetInsertIndex: number;
+  } | null>(null);
+  const inKnobContextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close IN knob context menu when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (inKnobContextMenuRef.current && !inKnobContextMenuRef.current.contains(e.target as Node)) {
+        setInKnobContextMenu(null);
+      }
+    };
+    if (inKnobContextMenu !== null) {
+      document.addEventListener("mousedown", handleOutsideClick);
+    }
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [inKnobContextMenu]);
+
   const ACCENT_OPTIONS = [
     { label: "BLUE",   value: DARK.accentBlue },
     { label: "GREEN",  value: DARK.accentGreen },
@@ -640,41 +689,105 @@ export function Mixer({
     };
   }, []);
 
+  const pullInserts = useCallback(() => {
+    if (!engine) return;
+    const inserts = engine.getInserts();
+    setInsertsState(
+      inserts.map((ins) => {
+        const fxSlots = Array(8).fill("");
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxSlots && ins.fxSlots[i] !== undefined && ins.fxSlots[i] !== null) {
+            fxSlots[i] = ins.fxSlots[i];
+          }
+        }
+        const fxBypass = Array(8).fill(false);
+        for (let i = 0; i < 8; i++) {
+          if (ins.fxBypass && ins.fxBypass[i] !== undefined && ins.fxBypass[i] !== null) {
+            fxBypass[i] = ins.fxBypass[i];
+          }
+        }
+        return {
+          ...ins,
+          fxSlots,
+          fxBypass
+        };
+      })
+    );
+  }, [engine]);
+
   // Periodic visual refresh of inserts (in case they expand dynamically due to rack additions)
   useEffect(() => {
-    if (!engine) return;
-
-    const pullInserts = () => {
-      const inserts = engine.getInserts();
-      setInsertsState(
-        inserts.map((ins) => {
-          const fxSlots = Array(8).fill("");
-          for (let i = 0; i < 8; i++) {
-            if (ins.fxSlots && ins.fxSlots[i] !== undefined && ins.fxSlots[i] !== null) {
-              fxSlots[i] = ins.fxSlots[i];
-            }
-          }
-          const fxBypass = Array(8).fill(false);
-          for (let i = 0; i < 8; i++) {
-            if (ins.fxBypass && ins.fxBypass[i] !== undefined && ins.fxBypass[i] !== null) {
-              fxBypass[i] = ins.fxBypass[i];
-            }
-          }
-          return {
-            ...ins,
-            fxSlots,
-            fxBypass
-          };
-        })
-      );
-    };
-
     pullInserts();
-    
-    // Poll slowly for structural updates (dynamic insert expansions)
     const interval = setInterval(pullInserts, 1500);
     return () => clearInterval(interval);
-  }, [engine]);
+  }, [pullInserts]);
+
+  const handleInKnobContextMenu = (e: React.MouseEvent, targetIndex: number) => {
+    if (selectedInsertIndex === null || selectedInsertIndex === undefined || selectedInsertIndex === 0) return;
+    if (targetIndex === selectedInsertIndex) return; // Only non-selected inserts
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const parent = document.getElementById("mixer-parent-container");
+    const parentRect = parent ? parent.getBoundingClientRect() : { left: 0, top: 0 };
+    setInKnobContextMenu({
+      visible: true,
+      x: e.clientX - parentRect.left,
+      y: e.clientY - parentRect.top,
+      targetInsertIndex: targetIndex,
+    });
+  };
+
+  const handleAddSend = () => {
+    if (!engine || !inKnobContextMenu) return;
+    const fromIndex = selectedInsertIndex;
+    const toIndex = inKnobContextMenu.targetInsertIndex;
+    if (engine.addSend) {
+      engine.addSend(fromIndex, toIndex);
+    } else if (engine.mixerManager && engine.mixerManager.addSend) {
+      engine.mixerManager.addSend(fromIndex, toIndex);
+    }
+    pullInserts();
+    setInKnobContextMenu(null);
+  };
+
+  const handleRemoveSend = () => {
+    if (!engine || !inKnobContextMenu) return;
+    const fromIndex = selectedInsertIndex;
+    const toIndex = inKnobContextMenu.targetInsertIndex;
+    if (engine.removeSend) {
+      engine.removeSend(fromIndex, toIndex);
+    } else if (engine.mixerManager && engine.mixerManager.removeSend) {
+      engine.mixerManager.removeSend(fromIndex, toIndex);
+    }
+    pullInserts();
+    setInKnobContextMenu(null);
+  };
+
+  const handleDisconnectFromMaster = () => {
+    if (!engine || !inKnobContextMenu) return;
+    const fromIndex = selectedInsertIndex;
+    if (engine.setRoutesToMaster) {
+      engine.setRoutesToMaster(fromIndex, false);
+    } else if (engine.mixerManager && engine.mixerManager.setRoutesToMaster) {
+      engine.mixerManager.setRoutesToMaster(fromIndex, false);
+    }
+    pullInserts();
+    setInKnobContextMenu(null);
+  };
+
+  const handleReconnectToMaster = () => {
+    if (!engine || !inKnobContextMenu) return;
+    const fromIndex = selectedInsertIndex;
+    if (engine.setRoutesToMaster) {
+      engine.setRoutesToMaster(fromIndex, true);
+    } else if (engine.mixerManager && engine.mixerManager.setRoutesToMaster) {
+      engine.mixerManager.setRoutesToMaster(fromIndex, true);
+    }
+    pullInserts();
+    setInKnobContextMenu(null);
+  };
 
   // Apply volume updates
   const handleVolumeChange = (index: number, nextVol: number) => {
@@ -1005,6 +1118,8 @@ export function Mixer({
                 onChange={(v) => handleInputGainChange(0, v)}
                 title={`MASTER INPUT GAIN (${(insertsState[0]?.inputGain ?? 1.0).toFixed(2)}x)`}
                 dotColor={isMasterMuted ? DARK.textDim : DARK.accentMaster}
+                hasRing={false}
+                onContextMenu={(e) => handleInKnobContextMenu(e, 0)}
               />
             </div>
 
@@ -1118,6 +1233,33 @@ export function Mixer({
             const isMuted = ins.isMuted;
             const isDimmed = anySoloed && !ins.isSoloed && !ins.isMuted;
             const knobAccent = (isMuted || isDimmed) ? DARK.textDim : (stripColors[ins.index] ?? DARK.accentMaster);
+
+            // Context-sensitive IN knob values
+            const activeSend = selectedInsert?.sends?.find(s => s.targetInsertIndex === ins.index);
+            const isSendTarget = !!activeSend;
+            const inKnobValue = isSendTarget ? (activeSend?.sendGain ?? 1.0) : (ins.inputGain ?? 1.0);
+            
+            const handleInKnobChange = (v: number) => {
+              if (isSendTarget) {
+                if (engine && engine.updateSendLevel) {
+                  engine.updateSendLevel(selectedInsertIndex, ins.index, v);
+                } else if (engine.mixerManager && engine.mixerManager.updateSendLevel) {
+                  engine.mixerManager.updateSendLevel(selectedInsertIndex, ins.index, v);
+                }
+                pullInserts();
+              } else {
+                handleInputGainChange(ins.index, v);
+              }
+            };
+
+            const inKnobTitle = isSendTarget
+              ? `SEND LEVEL FROM ${selectedInsert?.name || `Insert ${selectedInsertIndex}`} TO ${displayName} (${inKnobValue.toFixed(2)}x)`
+              : `INPUT GAIN FOR INSERT ${ins.index} (${inKnobValue.toFixed(2)}x)`;
+
+            const hasSendRelation = selectedInsertIndex !== ins.index && selectedInsert && (
+              selectedInsert.sends?.some(s => s.targetInsertIndex === ins.index) ||
+              ins.sends?.some(s => s.targetInsertIndex === selectedInsertIndex)
+            );
 
             return (
               <div 
@@ -1314,10 +1456,12 @@ export function Mixer({
                     IN
                   </div>
                   <InputGainKnob
-                    value={ins.inputGain ?? 1.0}
-                    onChange={(v) => handleInputGainChange(ins.index, v)}
-                    title={`INPUT GAIN FOR INSERT ${ins.index} (${(ins.inputGain ?? 1.0).toFixed(2)}x)`}
+                    value={inKnobValue}
+                    onChange={handleInKnobChange}
+                    title={inKnobTitle}
                     dotColor={knobAccent}
+                    hasRing={!!hasSendRelation}
+                    onContextMenu={(e) => handleInKnobContextMenu(e, ins.index)}
                   />
                 </div>
 
@@ -1975,6 +2119,140 @@ export function Mixer({
               {opt.label}
             </div>
           ))}
+        </div>
+      )}
+
+      {inKnobContextMenu && (
+        <div
+          ref={inKnobContextMenuRef}
+          style={{
+            position: "absolute",
+            left: `${inKnobContextMenu.x}px`,
+            top: `${inKnobContextMenu.y}px`,
+            backgroundColor: DARK.bg3,
+            ...flat(DARK),
+            zIndex: 200,
+            fontFamily: DARK.font,
+            minWidth: "180px",
+            boxSizing: "border-box",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div 
+            style={{
+              padding: `${SPACE.xs}px ${SPACE.md}px`,
+              background: DARK.titleBarGradient,
+              ...raised(DARK),
+              fontSize: "8px",
+              color: DARK.textHi,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              fontFamily: DARK.font,
+              boxSizing: "border-box",
+            }}
+          >
+            IN KNOB ROUTING
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {/* 1. Add send option */}
+            {inKnobContextMenu.targetInsertIndex !== 0 && !selectedInsert?.sends?.some(s => s.targetInsertIndex === inKnobContextMenu.targetInsertIndex) && (
+              <button
+                onClick={handleAddSend}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  color: DARK.textHi,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}
+              >
+                Add send from {selectedInsert?.name || `Insert ${selectedInsertIndex}`}
+              </button>
+            )}
+
+            {/* 2. Remove send option */}
+            {selectedInsert?.sends?.some(s => s.targetInsertIndex === inKnobContextMenu.targetInsertIndex) && (
+              <button
+                onClick={handleRemoveSend}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  color: DARK.stateHot,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}
+              >
+                Remove send from {selectedInsert?.name || `Insert ${selectedInsertIndex}`}
+              </button>
+            )}
+
+            {/* divider line */}
+            <div style={{ height: "1px", backgroundColor: DARK.bevelDark }} />
+
+            {/* 3. Disconnect from master option */}
+            {selectedInsert?.routesToMaster !== false ? (
+              <button
+                onClick={handleDisconnectFromMaster}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  color: DARK.textHi,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}
+              >
+                Disconnect {selectedInsert?.name || `Insert ${selectedInsertIndex}`} from master
+              </button>
+            ) : (
+              // 4. Reconnect to master option
+              <button
+                onClick={handleReconnectToMaster}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = DARK.bg4; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = DARK.bg3; }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  color: DARK.textHi,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  cursor: "pointer",
+                  fontFamily: DARK.font,
+                  fontSize: "9px",
+                  fontWeight: "bold",
+                  textTransform: "uppercase",
+                }}
+              >
+                Reconnect {selectedInsert?.name || `Insert ${selectedInsertIndex}`} to master
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

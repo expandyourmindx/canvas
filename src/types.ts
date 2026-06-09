@@ -115,6 +115,9 @@ export interface MixerInsert {
   fxBypass?: boolean[]; // 8 FX bypass flags
   eqSettings?: Record<number, ParametricEQSettings>; // EQ settings indexed by slot index (0-7)
   reverbSettings?: Record<number, ReverbSettings>; // Reverb settings indexed by slot index (0-7)
+  sends: Array<{ targetInsertIndex: number; sendGain: number }>;
+  routesToMaster: boolean;  // default true
+  sendGainNodes?: Map<number, GainNode>;
 }
 
 export interface CanvasProject {

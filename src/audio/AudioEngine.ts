@@ -1261,4 +1261,20 @@ export class AudioEngine {
   public restoreMixerInserts(inserts: MixerInsert[]): void {
     this.mixerManager.restoreMixerInserts(inserts);
   }
+
+  public addSend(fromIndex: number, toIndex: number) {
+    this.mixerManager.addSend(fromIndex, toIndex);
+  }
+
+  public removeSend(fromIndex: number, toIndex: number) {
+    this.mixerManager.removeSend(fromIndex, toIndex);
+  }
+
+  public updateSendLevel(fromIndex: number, toIndex: number, gain: number) {
+    this.mixerManager.updateSendLevel(fromIndex, toIndex, gain);
+  }
+
+  public setRoutesToMaster(fromIndex: number, routesToMaster: boolean) {
+    this.mixerManager.setRoutesToMaster(fromIndex, routesToMaster);
+  }
 }

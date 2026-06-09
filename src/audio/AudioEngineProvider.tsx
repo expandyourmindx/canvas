@@ -97,6 +97,10 @@ export interface AudioEngineContextType {
   setInsertFXBypass: (insertIndex: number, slotIndex: number, bypass: boolean) => void;
   updateInsertEQBand: (insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => void;
   updateInsertReverbParam: (insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => void;
+  addSend: (fromIndex: number, toIndex: number) => void;
+  removeSend: (fromIndex: number, toIndex: number) => void;
+  updateSendLevel: (fromIndex: number, toIndex: number, gain: number) => void;
+  setRoutesToMaster: (fromIndex: number, routesToMaster: boolean) => void;
 
   // Project Save & Load Actions
   newProject: () => void;
@@ -498,6 +502,26 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   const updateInsertReverbParam = useCallback((insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => {
     engine.updateInsertReverbParam(insertIndex, slotIndex, settings);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const addSend = useCallback((fromIndex: number, toIndex: number) => {
+    engine.addSend(fromIndex, toIndex);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const removeSend = useCallback((fromIndex: number, toIndex: number) => {
+    engine.removeSend(fromIndex, toIndex);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const updateSendLevel = useCallback((fromIndex: number, toIndex: number, gain: number) => {
+    engine.updateSendLevel(fromIndex, toIndex, gain);
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const setRoutesToMaster = useCallback((fromIndex: number, routesToMaster: boolean) => {
+    engine.setRoutesToMaster(fromIndex, routesToMaster);
     setIsDirty(true);
   }, [engine, setIsDirty]);
 
@@ -1019,6 +1043,10 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setInsertFXBypass,
     updateInsertEQBand,
     updateInsertReverbParam,
+    addSend,
+    removeSend,
+    updateSendLevel,
+    setRoutesToMaster,
     newProject,
     saveProject,
     loadProject,

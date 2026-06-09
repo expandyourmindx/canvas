@@ -79,7 +79,10 @@ export class MixerManager {
       analyserNode,
       fxSlots: Array(8).fill(""),
       fxBypass: Array(8).fill(false),
-      eqSettings: {}
+      eqSettings: {},
+      sends: [],
+      routesToMaster: true,
+      sendGainNodes: new Map<number, GainNode>()
     };
 
     (insert as any).fxInputNode = inputNode;
@@ -379,6 +382,61 @@ export class MixerManager {
       }
       (target as any).fxInstances = fxInstances;
       this.rebuildFXChain(ins.index);
+
+      // Restore routesToMaster
+      const routesToMaster = ins.routesToMaster !== undefined ? ins.routesToMaster : true;
+      const masterInsert = this.getOrCreateMixerInsert(0);
+      const masterDestination = masterInsert.inputNode || masterInsert.gainNode;
+      if (target.index > 0 && target.analyserNode && masterDestination) {
+        try {
+          target.analyserNode.disconnect(masterDestination);
+        } catch (e) {}
+        if (routesToMaster) {
+          try {
+            target.analyserNode.connect(masterDestination);
+          } catch (e) {
+            console.error("Failed to connect to master during restore", e);
+          }
+        }
+      }
+      target.routesToMaster = routesToMaster;
+
+      // Clean up existing sends
+      if (target.sendGainNodes) {
+        target.sendGainNodes.forEach((node) => {
+          try {
+            if (target.analyserNode) {
+              target.analyserNode.disconnect(node);
+            }
+          } catch (e) {}
+          try {
+            node.disconnect();
+          } catch (e) {}
+        });
+        target.sendGainNodes.clear();
+      } else {
+        target.sendGainNodes = new Map<number, GainNode>();
+      }
+
+      target.sends = [];
+      if (ins.sends) {
+        ins.sends.forEach((send) => {
+          const toInsert = this.getOrCreateMixerInsert(send.targetInsertIndex);
+          const sendGainNode = this.audioContext.createGain();
+          sendGainNode.gain.setValueAtTime(send.sendGain, this.audioContext.currentTime);
+
+          if (target.analyserNode && toInsert.inputNode) {
+            try {
+              target.analyserNode.connect(sendGainNode);
+              sendGainNode.connect(toInsert.inputNode);
+            } catch (e) {
+              console.error("Failed to connect send during restore", e);
+            }
+          }
+          target.sends.push({ targetInsertIndex: send.targetInsertIndex, sendGain: send.sendGain });
+          target.sendGainNodes!.set(send.targetInsertIndex, sendGainNode);
+        });
+      }
     });
     // Re-evaluate solo mapping hierarchy
     this.updateInsertSolo(0, false);
@@ -457,5 +515,117 @@ export class MixerManager {
 
     // Rebuild fx chain
     this.rebuildFXChain(insertIndex);
+  }
+
+  public addSend(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) {
+      throw new Error("An insert cannot send to itself");
+    }
+    if (toIndex === 0) {
+      throw new Error("Cannot send to master (index 0) via addSend");
+    }
+
+    const fromInsert = this.getOrCreateMixerInsert(fromIndex);
+    const toInsert = this.getOrCreateMixerInsert(toIndex);
+
+    if (!fromInsert.sends) {
+      fromInsert.sends = [];
+    }
+    if (!fromInsert.sendGainNodes) {
+      fromInsert.sendGainNodes = new Map<number, GainNode>();
+    }
+
+    // Check if send already exists
+    if (fromInsert.sends.some(s => s.targetInsertIndex === toIndex)) {
+      return; // Already exists
+    }
+
+    const sendGainNode = this.audioContext.createGain();
+    sendGainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+
+    if (fromInsert.analyserNode && toInsert.inputNode) {
+      fromInsert.analyserNode.connect(sendGainNode);
+      sendGainNode.connect(toInsert.inputNode);
+    }
+
+    fromInsert.sends.push({ targetInsertIndex: toIndex, sendGain: 1.0 });
+    fromInsert.sendGainNodes.set(toIndex, sendGainNode);
+  }
+
+  public removeSend(fromIndex: number, toIndex: number) {
+    const fromInsert = this.getOrCreateMixerInsert(fromIndex);
+    if (!fromInsert.sends) {
+      fromInsert.sends = [];
+    }
+    if (!fromInsert.sendGainNodes) {
+      fromInsert.sendGainNodes = new Map<number, GainNode>();
+    }
+
+    const sendGainNode = fromInsert.sendGainNodes.get(toIndex);
+    if (sendGainNode) {
+      try {
+        if (fromInsert.analyserNode) {
+          fromInsert.analyserNode.disconnect(sendGainNode);
+        }
+      } catch (e) {
+        console.warn("Error disconnecting analyserNode from sendGainNode", e);
+      }
+      try {
+        sendGainNode.disconnect();
+      } catch (e) {
+        console.warn("Error disconnecting sendGainNode", e);
+      }
+      fromInsert.sendGainNodes.delete(toIndex);
+    }
+
+    fromInsert.sends = fromInsert.sends.filter(s => s.targetInsertIndex !== toIndex);
+  }
+
+  public updateSendLevel(fromIndex: number, toIndex: number, gain: number) {
+    const fromInsert = this.getOrCreateMixerInsert(fromIndex);
+    if (!fromInsert.sends) {
+      fromInsert.sends = [];
+    }
+    const send = fromInsert.sends.find(s => s.targetInsertIndex === toIndex);
+    if (send) {
+      send.sendGain = gain;
+    }
+
+    if (fromInsert.sendGainNodes) {
+      const sendGainNode = fromInsert.sendGainNodes.get(toIndex);
+      if (sendGainNode) {
+        const now = this.audioContext.currentTime;
+        sendGainNode.gain.cancelScheduledValues(now);
+        sendGainNode.gain.linearRampToValueAtTime(gain, now + 0.01);
+      }
+    }
+  }
+
+  public setRoutesToMaster(fromIndex: number, routesToMaster: boolean) {
+    if (fromIndex === 0) return; // Master cannot route to itself
+
+    const fromInsert = this.getOrCreateMixerInsert(fromIndex);
+    const masterInsert = this.getOrCreateMixerInsert(0);
+    const masterDestination = masterInsert.inputNode || masterInsert.gainNode;
+
+    if (fromInsert.routesToMaster === routesToMaster) return;
+
+    if (fromInsert.analyserNode && masterDestination) {
+      if (!routesToMaster) {
+        try {
+          fromInsert.analyserNode.disconnect(masterDestination);
+        } catch (e) {
+          console.warn(`Failed to disconnect insert ${fromIndex} from master`, e);
+        }
+      } else {
+        try {
+          fromInsert.analyserNode.connect(masterDestination);
+        } catch (e) {
+          console.warn(`Failed to connect insert ${fromIndex} to master`, e);
+        }
+      }
+    }
+
+    fromInsert.routesToMaster = routesToMaster;
   }
 }
