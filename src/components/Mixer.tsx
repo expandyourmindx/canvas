@@ -2553,8 +2553,8 @@ function CableRenderer({
       const currentKeys = new Set<string>();
 
       const sagAmount = 180;
-      const springStrength = 0.04;
-      const damping = 0.85;
+      const springStrength = 0.018;
+      const damping = 0.92;
 
       inserts.forEach((sourceInsert) => {
         if (!sourceInsert.sends) return;
@@ -2601,8 +2601,8 @@ function CableRenderer({
           phys.vy += ay;
 
           // Window movement force ( lag )
-          phys.vx -= dx * 0.2;
-          phys.vy -= dy * 0.2;
+          phys.vx -= dx * 0.5;
+          phys.vy -= dy * 0.5;
 
           phys.vx *= damping;
           phys.vy *= damping;
