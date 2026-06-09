@@ -27,6 +27,7 @@ interface DraggableWindowProps {
   minHeight?: number;
   defaultMaximized?: boolean;
   children: React.ReactNode;
+  onPositionChange?: (position: { x: number; y: number }) => void;
 }
 
 export function DraggableWindow({
@@ -44,6 +45,7 @@ export function DraggableWindow({
   minHeight = 250,
   defaultMaximized = false,
   children,
+  onPositionChange,
 }: DraggableWindowProps) {
   // Positioning and dimensions states
   const [position, setPosition] = useState({ x: defaultX, y: defaultY });
@@ -97,10 +99,12 @@ export function DraggableWindow({
 
     // Boundary constraints could be set, but let's allow free-form sliding!
     // This supports an unbound desktop arranger style layout perfectly.
-    setPosition({
+    const nextPos = {
       x: dragStart.current.winX + deltaX,
       y: Math.max(0, dragStart.current.winY + deltaY), // allow dragging up to the bottom of top toolbar
-    });
+    };
+    setPosition(nextPos);
+    onPositionChange?.(nextPos);
   };
 
   // Handle pointer up/end during drag

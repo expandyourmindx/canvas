@@ -68,6 +68,8 @@ export function Desktop() {
     slotIndex: 0
   });
 
+  const mixerPositionCallbackRef = useRef<((pos: { x: number; y: number }) => void) | null>(null);
+
   const [reverbPanelIndex, setReverbPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
     insertIndex: 0,
     slotIndex: 0
@@ -535,6 +537,9 @@ export function Desktop() {
           defaultHeight={330}
           minWidth={550}
           minHeight={280}
+          onPositionChange={(pos) => {
+            mixerPositionCallbackRef.current?.(pos);
+          }}
         >
           <Mixer
             channels={channels}
@@ -544,6 +549,8 @@ export function Desktop() {
             onOpenReverbPanel={handleOpenReverbPanel}
             stripColors={stripColors}
             setStripColors={setStripColors}
+            isVisible={activeWindows.mixer}
+            onPositionChangeRef={mixerPositionCallbackRef}
           />
         </DraggableWindow>
 
