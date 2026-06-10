@@ -292,7 +292,7 @@ export function Canvas({
     if (!isRecording) return;
 
     const maxLane = canvasClips.length > 0
-      ? Math.max(...canvasClips.map(c => c.laneIndex))
+      ? canvasClips.reduce((acc, c) => Math.max(acc, c.laneIndex), 0)
       : -1;
 
     const armedIndices = engine.getArmedInsertIndices();
@@ -390,47 +390,51 @@ export function Canvas({
   useEffect(() => {
     if (!pendingRecordedClips || pendingRecordedClips.length === 0) return;
 
-    const newClips: CanvasClip[] = pendingRecordedClips.map((result) => {
-      const ghost = ghostClips.find(g => g.insertIndex === result.insertIndex);
-      const laneIndex = ghost ? ghost.laneIndex : (() => {
-        const maxLane = canvasClips.length > 0 ? Math.max(...canvasClips.map(c => c.laneIndex)) : -1;
-        return maxLane + 1;
-      })();
+    setCanvasClips((currentClips) => {
+      const newClips: CanvasClip[] = pendingRecordedClips.map((result) => {
+        const ghost = ghostClips.find(g => g.insertIndex === result.insertIndex);
+        const laneIndex = ghost ? ghost.laneIndex : (() => {
+          const maxLane = currentClips.length > 0
+            ? currentClips.reduce((acc, c) => Math.max(acc, c.laneIndex), 0)
+            : -1;
+          return maxLane + 1;
+        })();
 
-      recordTakeCounterRef.current += 1;
-      const takeName = `REC ${String(recordTakeCounterRef.current).padStart(3, '0')}`;
+        recordTakeCounterRef.current += 1;
+        const takeName = `REC ${String(recordTakeCounterRef.current).padStart(3, '0')}`;
 
-      return {
-        id: crypto.randomUUID(),
-        type: 'sample' as const,
-        startBeat: result.startBeat,
-        duration: result.durationBeats,
-        laneIndex,
-        referenceId: result.sampleId,
-        name: takeName,
-        color: '#c0392b',
-      };
-    });
-
-    if (setChannels) {
-      const newChannels = pendingRecordedClips.map((result) => {
-        const takeName = newClips.find(c => c.referenceId === result.sampleId)?.name || 'REC';
         return {
           id: crypto.randomUUID(),
-          name: takeName,
           type: 'sample' as const,
-          sampleId: result.sampleId,
-          mixerTarget: result.insertIndex,
-          instrumentType: 'sampler' as const,
+          startBeat: result.startBeat,
+          duration: result.durationBeats,
+          laneIndex,
+          referenceId: result.sampleId,
+          name: takeName,
+          color: '#c0392b',
         };
       });
-      setChannels(prev => [...prev, ...newChannels]);
-    }
 
-    newClips.forEach(clip => addCanvasClip(clip));
+      if (setChannels) {
+        const newChannels = pendingRecordedClips.map((result) => {
+          const takeName = newClips.find(c => c.referenceId === result.sampleId)?.name || 'REC';
+          return {
+            id: crypto.randomUUID(),
+            name: takeName,
+            type: 'sample' as const,
+            sampleId: result.sampleId,
+            mixerTarget: result.insertIndex,
+            instrumentType: 'sampler' as const,
+          };
+        });
+        setChannels(prev => [...prev, ...newChannels]);
+      }
 
-    setGhostClips([]);
-    clearPendingRecordedClips();
+      setGhostClips([]);
+      clearPendingRecordedClips();
+
+      return [...currentClips, ...newClips];
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRecordedClips]);
 
