@@ -864,8 +864,23 @@ export class SamplerEngine {
     }
     const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
     const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats);
-    const delay = sampleOffsetSeconds < 0 ? -sampleOffsetSeconds : 0;
-    const offset = sampleOffsetSeconds < 0 ? 0 : sampleOffsetSeconds;
+    // sampleOffsetSeconds arrives in timeline/output seconds (beats at current BPM).
+    // source.start(when, offset) expects offset in SOURCE buffer seconds.
+    // For RESAMPLE mode, playbackRate = canvasPitchRate * resampleTempoRatio,
+    // so: source_seconds = timeline_seconds * (canvasPitchRate * resampleTempoRatio).
+    // Both factors are 1.0 for non-RESAMPLE modes — safe across all clip types.
+    let delay: number;
+    let offset: number;
+    if (sampleOffsetSeconds < 0) {
+      // Pre-gap delay: negative offset means wait this long before starting.
+      // This is already in output/hardware seconds — do NOT scale it.
+      delay = -sampleOffsetSeconds;
+      offset = 0;
+    } else {
+      // Source seek: scale from timeline seconds to source-buffer seconds.
+      delay = 0;
+      offset = sampleOffsetSeconds * canvasPitchRate * resampleTempoRatio;
+    }
     const playStartTime = absoluteContextTime + delay;
     const durationSecondsRemaining = clipDurationSeconds - delay;
 
