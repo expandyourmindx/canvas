@@ -930,7 +930,12 @@ export class SamplerEngine {
       source.start(playStartTime, offset);
 
       // Stop sample playhead if clip ends early
-      if (durationSecondsRemaining < buffer.duration - offset) {
+      // buffer.duration - offset is in source-buffer seconds.
+      // Divide by (canvasPitchRate * resampleTempoRatio) to convert to output seconds
+      // so the comparison is apples-to-apples with durationSecondsRemaining.
+      // For non-RESAMPLE modes both factors are 1.0 — no change in behavior.
+      const playbackRate = canvasPitchRate * resampleTempoRatio;
+      if (durationSecondsRemaining < (buffer.duration - offset) / playbackRate) {
         source.stop(playStartTime + durationSecondsRemaining);
       }
     }
