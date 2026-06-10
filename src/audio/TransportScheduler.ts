@@ -147,19 +147,20 @@ export class TransportScheduler {
     }
 
     this.state = "playing";
-    this.broadcastStateChange();
 
-    // Capture the hardware audio clocks anchor state with a 50ms pre-roll delay
-    // This allows the background web worker thread and Audio Context nodes to initialize cleanly
-    // and completely prevents the lookahead clock start-up note bunching bug.
+    // ⚠️ ORDER IS CRITICAL: Set ALL timing anchors before broadcasting state change.
+    // broadcastStateChange() synchronously triggers getCurrentPosition() calls in
+    // subscribers (e.g. AudioEngineProvider). getCurrentPosition() checks this.state —
+    // which is now "playing" — and computes position using audioContextStartTime.
+    // If audioContextStartTime is stale (from the previous play session),
+    // the subscriber reads a large bogus elapsed time and flashes a wrong playhead
+    // position before the first worker tick corrects it.
     this.audioContextStartTime = this.audioContext.currentTime + 0.050;
-
-    // Start lookahead cursor from where the playhead currently sits
     this.nextTimelineTimeToSchedule = this.pausedTimelinePosition;
     this.isGenuinePlaybackStart = true;
-
-    // Synchronize the metronome scheduler cursor beats
     this.nextMetronomeBeatToSchedule = Math.ceil(this.secondsToBeats(this.pausedTimelinePosition));
+
+    this.broadcastStateChange();
 
     // Spin up the background web worker setInterval loop
     if (this.worker) {
