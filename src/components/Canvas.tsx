@@ -743,6 +743,7 @@ export function Canvas({
     handleResizeDown,
     handleResizeMove,
     handleResizeUp,
+    lastResizedClipsRef,
   } = useClipResize({
     canvasClips,
     setCanvasClips,
@@ -770,7 +771,8 @@ export function Canvas({
   const handleResizeUpWrapper = (e: React.PointerEvent<HTMLDivElement>) => {
     handleResizeUp(e);
     if (resizingClipIdRef.current) {
-      const updatedClip = canvasClips.find((c) => c.id === resizingClipIdRef.current);
+      const source = lastResizedClipsRef.current ?? canvasClips;
+      const updatedClip = source.find((c) => c.id === resizingClipIdRef.current);
       if (updatedClip) {
         setClipDurationBeats(updatedClip.duration);
         setClipCropStart(updatedClip.cropStart || 0);

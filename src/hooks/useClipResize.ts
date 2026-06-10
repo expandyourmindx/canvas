@@ -35,6 +35,8 @@ export function useClipResize({
     }[];
   } | null>(null);
 
+  const lastResizedClipsRef = useRef<CanvasClip[] | null>(null);
+
   const handleResizeDown = (
     e: React.PointerEvent<HTMLDivElement>,
     clip: CanvasClip,
@@ -104,15 +106,17 @@ export function useClipResize({
       });
 
       const origMap = new Map(state.originalClips.map((o) => [o.id, o]));
-      setCanvasClips((prev) =>
-        prev.map((c) => {
+      setCanvasClips((prev) => {
+        const next = prev.map((c) => {
           const orig = origMap.get(c.id);
           if (orig) {
             return { ...c, duration: orig.initialDuration + snappedDelta };
           }
           return c;
-        })
-      );
+        });
+        lastResizedClipsRef.current = next;
+        return next;
+      });
     } else {
       const draggedOrig = state.originalClips.find((o) => o.id === state.clipId);
       if (!draggedOrig) return;
@@ -145,8 +149,8 @@ export function useClipResize({
       });
 
       const origMap = new Map(state.originalClips.map((o) => [o.id, o]));
-      setCanvasClips((prev) =>
-        prev.map((c) => {
+      setCanvasClips((prev) => {
+        const next = prev.map((c) => {
           const orig = origMap.get(c.id);
           if (orig) {
             return {
@@ -157,8 +161,10 @@ export function useClipResize({
             };
           }
           return c;
-        })
-      );
+        });
+        lastResizedClipsRef.current = next;
+        return next;
+      });
     }
   };
 
@@ -175,5 +181,6 @@ export function useClipResize({
     handleResizeDown,
     handleResizeMove,
     handleResizeUp,
+    lastResizedClipsRef,
   };
 }
