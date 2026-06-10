@@ -38,6 +38,7 @@ interface ArrangerClipProps {
   ) => void;
   handleResizeMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   handleResizeUp: (e: React.PointerEvent<HTMLDivElement>) => void;
+  handleResizeCancel: () => void;
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -72,6 +73,7 @@ export function ArrangerClip({
   handleResizeDown,
   handleResizeMove,
   handleResizeUp,
+  handleResizeCancel,
 }: ArrangerClipProps) {
   const { engine } = useAudioEngine();
   const leftPx = clip.startBeat * beatWidth;
@@ -369,6 +371,7 @@ export function ArrangerClip({
         onPointerDown={(e) => handleResizeDown(e, clip, "left")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
+        onLostPointerCapture={handleResizeCancel}
         style={{
           position: "absolute",
           left: 0,
@@ -386,6 +389,7 @@ export function ArrangerClip({
         onPointerDown={(e) => handleResizeDown(e, clip, "right")}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
+        onLostPointerCapture={handleResizeCancel}
         style={{
           position: "absolute",
           right: 0,

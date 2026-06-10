@@ -177,10 +177,35 @@ export function useClipResize({
     }
   };
 
+  const handleResizeCancel = () => {
+    const state = resizeStateRef.current;
+    if (!state) return;
+
+    const origMap = new Map(state.originalClips.map((o) => [o.id, o]));
+    setCanvasClips((prev) =>
+      prev.map((c) => {
+        const orig = origMap.get(c.id);
+        if (orig) {
+          return {
+            ...c,
+            startBeat: orig.initialStartBeat,
+            duration: orig.initialDuration,
+            cropStart: orig.initialCropStart,
+          };
+        }
+        return c;
+      })
+    );
+
+    resizeStateRef.current = null;
+    lastResizedClipsRef.current = null;
+  };
+
   return {
     handleResizeDown,
     handleResizeMove,
     handleResizeUp,
+    handleResizeCancel,
     lastResizedClipsRef,
   };
 }

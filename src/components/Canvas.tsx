@@ -743,6 +743,7 @@ export function Canvas({
     handleResizeDown,
     handleResizeMove,
     handleResizeUp,
+    handleResizeCancel,
     lastResizedClipsRef,
   } = useClipResize({
     canvasClips,
@@ -1540,6 +1541,7 @@ export function Canvas({
                         handleResizeDown={handleResizeDownWrapper}
                         handleResizeMove={handleResizeMove}
                         handleResizeUp={handleResizeUpWrapper}
+                        handleResizeCancel={handleResizeCancel}
                       />
                     );
                   })}
@@ -1563,6 +1565,7 @@ export function Canvas({
                         handleResizeDown={() => {}}
                         handleResizeMove={() => {}}
                         handleResizeUp={() => {}}
+                        handleResizeCancel={() => {}}
                       />
                     </div>
                   )}
