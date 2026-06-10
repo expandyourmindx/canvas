@@ -2,9 +2,32 @@ class RecorderProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this._recording = false;
+    this._chunkBuffer = [];
+    this._chunkBufferSize = 0;
+    this._flushThreshold = 4096;
     this.port.onmessage = (e) => {
       if (e.data.type === 'start') this._recording = true;
-      if (e.data.type === 'stop') this._recording = false;
+      if (e.data.type === 'stop') {
+        this._recording = false;
+        // Flush any remaining buffered chunks on stop
+        if (this._chunkBuffer.length > 0) {
+          const numChannels = this._chunkBuffer[0].length;
+          const merged = [];
+          for (let ch = 0; ch < numChannels; ch++) {
+            const total = this._chunkBufferSize;
+            const out = new Float32Array(total);
+            let offset = 0;
+            for (let i = 0; i < this._chunkBuffer.length; i++) {
+              out.set(this._chunkBuffer[i][ch], offset);
+              offset += this._chunkBuffer[i][ch].length;
+            }
+            merged.push(out);
+          }
+          this.port.postMessage({ type: 'chunk', channelData: merged });
+          this._chunkBuffer = [];
+          this._chunkBufferSize = 0;
+        }
+      }
     };
   }
 
@@ -19,12 +42,29 @@ class RecorderProcessor extends AudioWorkletProcessor {
     if (this._recording && input.length > 0) {
       const channelData = [];
       for (let ch = 0; ch < input.length; ch++) {
-        channelData.push(input[ch].slice()); // .slice() = copy, never reference
+        channelData.push(input[ch].slice());
       }
-      if (input[0].length !== 128) {
-        this.port.postMessage({ type: 'shortchunk', length: input[0].length });
+      this._chunkBuffer.push(channelData);
+      this._chunkBufferSize += input[0].length;
+
+      if (this._chunkBufferSize >= this._flushThreshold) {
+        // Concatenate buffered chunks per channel into one message
+        const numChannels = this._chunkBuffer[0].length;
+        const merged = [];
+        for (let ch = 0; ch < numChannels; ch++) {
+          const total = this._chunkBufferSize;
+          const out = new Float32Array(total);
+          let offset = 0;
+          for (let i = 0; i < this._chunkBuffer.length; i++) {
+            out.set(this._chunkBuffer[i][ch], offset);
+            offset += this._chunkBuffer[i][ch].length;
+          }
+          merged.push(out);
+        }
+        this.port.postMessage({ type: 'chunk', channelData: merged });
+        this._chunkBuffer = [];
+        this._chunkBufferSize = 0;
       }
-      this.port.postMessage({ type: 'chunk', channelData });
     }
     return true; // Keep processor alive
   }
