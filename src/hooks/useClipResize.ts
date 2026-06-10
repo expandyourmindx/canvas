@@ -93,17 +93,16 @@ export function useClipResize({
         }
       });
 
-      const updated = canvasClips.map((c) => {
-        const orig = state.originalClips.find((o) => o.id === c.id);
-        if (orig) {
-          return {
-            ...c,
-            duration: orig.initialDuration + snappedDelta,
-          };
-        }
-        return c;
-      });
-      setCanvasClips(updated);
+      const origMap = new Map(state.originalClips.map((o) => [o.id, o]));
+      setCanvasClips((prev) =>
+        prev.map((c) => {
+          const orig = origMap.get(c.id);
+          if (orig) {
+            return { ...c, duration: orig.initialDuration + snappedDelta };
+          }
+          return c;
+        })
+      );
     } else {
       const draggedOrig = state.originalClips.find((o) => o.id === state.clipId);
       if (!draggedOrig) return;
@@ -135,19 +134,21 @@ export function useClipResize({
         }
       });
 
-      const updated = canvasClips.map((c) => {
-        const orig = state.originalClips.find((o) => o.id === c.id);
-        if (orig) {
-          return {
-            ...c,
-            startBeat: orig.initialStartBeat + snappedDelta,
-            duration: orig.initialDuration - snappedDelta,
-            cropStart: orig.initialCropStart + snappedDelta,
-          };
-        }
-        return c;
-      });
-      setCanvasClips(updated);
+      const origMap = new Map(state.originalClips.map((o) => [o.id, o]));
+      setCanvasClips((prev) =>
+        prev.map((c) => {
+          const orig = origMap.get(c.id);
+          if (orig) {
+            return {
+              ...c,
+              startBeat: orig.initialStartBeat + snappedDelta,
+              duration: orig.initialDuration - snappedDelta,
+              cropStart: orig.initialCropStart + snappedDelta,
+            };
+          }
+          return c;
+        })
+      );
     }
   };
 
