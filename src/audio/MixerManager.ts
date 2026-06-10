@@ -682,6 +682,10 @@ export class MixerManager {
     // Do NOT connect recorderNode output anywhere — it is a tap only
 
     recorderNode.port.onmessage = (e) => {
+      if (e.data.type === 'shortchunk') {
+        console.warn('[Canvas Worklet] Short chunk received:', e.data.length);
+        return;
+      }
       if (e.data.type !== 'chunk') return;
       const chunks = this.recordedChunks.get(insertIndex);
       const mins = this.peakMins.get(insertIndex);

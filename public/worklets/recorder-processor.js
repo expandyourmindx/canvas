@@ -21,6 +21,9 @@ class RecorderProcessor extends AudioWorkletProcessor {
       for (let ch = 0; ch < input.length; ch++) {
         channelData.push(input[ch].slice()); // .slice() = copy, never reference
       }
+      if (input[0].length !== 128) {
+        this.port.postMessage({ type: 'shortchunk', length: input[0].length });
+      }
       this.port.postMessage({ type: 'chunk', channelData });
     }
     return true; // Keep processor alive
