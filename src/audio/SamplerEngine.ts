@@ -863,7 +863,14 @@ export class SamplerEngine {
       }
     }
     const targetBeats = isStretchActive ? effectiveBeats : clip.duration;
-    const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats);
+
+    // When the playhead starts mid-clip, sampleOffsetSeconds includes both the crop
+    // component and the distance from the clip's start to the playhead.
+    // Subtracting the crop isolates the midpoint distance in output/timeline seconds.
+    // This is 0 when the clip starts fresh (clipStartsInWindow), so no change in that case.
+    const cropStartSecs = this.delegate.beatsToSeconds(clip.cropStart || 0);
+    const midpointOffsetSecs = Math.max(0, sampleOffsetSeconds - cropStartSecs);
+    const clipDurationSeconds = this.delegate.beatsToSeconds(targetBeats) - midpointOffsetSecs;
     // sampleOffsetSeconds arrives in timeline/output seconds (beats at current BPM).
     // source.start(when, offset) expects offset in SOURCE buffer seconds.
     // For RESAMPLE mode, playbackRate = canvasPitchRate * resampleTempoRatio,
