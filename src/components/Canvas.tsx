@@ -751,6 +751,7 @@ export function Canvas({
     pushToHistory,
     channels,
     selectedIds,
+    totalBeats,
   });
 
   const handleResizeDownWrapper = (

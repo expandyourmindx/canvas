@@ -9,6 +9,7 @@ interface UseClipResizeProps {
   pushToHistory: (channels: ChannelRow[]) => void;
   channels: ChannelRow[];
   selectedIds: string[];
+  totalBeats: number;
 }
 
 export function useClipResize({
@@ -19,6 +20,7 @@ export function useClipResize({
   pushToHistory,
   channels,
   selectedIds,
+  totalBeats,
 }: UseClipResizeProps) {
   const resizeStateRef = useRef<{
     clipId: string;
@@ -90,6 +92,14 @@ export function useClipResize({
         const minDelta = minDuration - orig.initialDuration;
         if (snappedDelta < minDelta) {
           snappedDelta = minDelta;
+        }
+      });
+
+      // Maximum length constraint: clamp the delta so no clip extends past timeline end
+      state.originalClips.forEach((orig) => {
+        const maxDelta = totalBeats - orig.initialStartBeat - orig.initialDuration;
+        if (snappedDelta > maxDelta) {
+          snappedDelta = maxDelta;
         }
       });
 
