@@ -697,7 +697,7 @@ export function Canvas({
   const getActiveSelectionDetails = () => {
     if (!selectedClipType) return "None selected";
     if (selectedClipType === "sample") {
-      return `${getSampleName(selectedReferenceId)} (1 beat)`;
+      return `${getSampleName(selectedReferenceId)} (${clipDurationBeats} beat${clipDurationBeats === 1 ? "" : "s"})`;
     } else {
       const target = patterns.find(p => p.id === selectedReferenceId);
       return target ? `${target.name} (4 beats)` : `${selectedReferenceId} (4 beats)`;
