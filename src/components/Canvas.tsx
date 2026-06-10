@@ -1399,7 +1399,7 @@ export function Canvas({
                       }}
                       onPointerDown={(e) => {
                         if (e.button !== 0) return;
-                        if (activeTool === 'pointer' || e.ctrlKey) return;
+                        if (activeTool === 'pointer' || activeTool === 'split' || e.ctrlKey) return;
                         if (!selectedClipType) return;
 
                         e.stopPropagation();
