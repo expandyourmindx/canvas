@@ -320,7 +320,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       events: structuredClone(engine.getEvents()),
       canvasClips: structuredClone(engine.getCanvasClips()),
       patterns: structuredClone(engine.getPatternsList()),
-      channels: [],
+      channels: structuredClone(latestChannelsRef.current),
     };
     historyRef.current = [initialState];
     historyIndexRef.current = 0;

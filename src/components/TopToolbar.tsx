@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useShortcuts } from "../hooks/useShortcutRegistry";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import {
   Play,
@@ -79,6 +80,16 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
     startRecording,
     stopRecording,
   } = useAudioEngine();
+
+  const handlePlayPause = useCallback(() => {
+    if (playbackState === "playing") {
+      pause();
+    } else {
+      play();
+    }
+  }, [playbackState, play, pause]);
+
+  useShortcuts({ 'transport.playPause': handlePlayPause });
 
   const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
   const canvasRef = useRef<HTMLCanvasElement>(null);
