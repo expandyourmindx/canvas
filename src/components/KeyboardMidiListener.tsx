@@ -52,49 +52,16 @@ interface ActiveNoteState {
 }
 
 export function KeyboardMidiListener() {
-  const { 
-    pcKeyboardMidiActive, 
-    baseOctave, 
-    focusedChannelId, 
-    triggerNoteOn, 
+  const {
+    pcKeyboardMidiActive,
+    baseOctave,
+    focusedChannelId,
+    triggerNoteOn,
     triggerNoteOff,
-    playbackState,
-    play,
-    stop
   } = useAudioEngine();
 
   // Keep a reference of held keys to prevent hanging notes if octave / target channels change in flight
   const activeNotesRef = useRef<Map<string, ActiveNoteState>>(new Map());
-
-  // Global Spacebar Play/Stop Transport Shortcut
-  useEffect(() => {
-    const handleGlobalKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Space" || event.key === " ") {
-        // Strict Logic: Avoid capturing when interactive text layers are active
-        const activeEl = document.activeElement;
-        if (
-          activeEl &&
-          (activeEl.tagName === "INPUT" ||
-            activeEl.tagName === "TEXTAREA" ||
-            activeEl.getAttribute("contenteditable") === "true")
-        ) {
-          return;
-        }
-
-        event.preventDefault();
-        if (playbackState === "playing") {
-          stop();
-        } else {
-          play();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleGlobalKeyDown);
-    };
-  }, [playbackState, play, stop]);
 
   // Define unified routing operations
   const handleNoteOn = (channelId: string, midiNote: number, velocity: number = 100) => {
