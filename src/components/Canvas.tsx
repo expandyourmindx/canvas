@@ -450,8 +450,8 @@ export function Canvas({
     ? getAutoSnapResolution(zoomX)
     : snapResolution;
 
-  // Helper to construct dynamic grid line CSS background styles
-  const getGridStyle = () => {
+  // Memoized grid line CSS background styles — recomputes only when beatWidth or activeSnapResolution changes
+  const gridStyle = React.useMemo(() => {
     const gradients = [
       'linear-gradient(to right, rgba(74, 102, 128, 0.22) 2px, transparent 2px)', // Bar lines (always drawn)
       'linear-gradient(to right, rgba(74, 102, 128, 0.09) 1px, transparent 1px)' // Beat lines (always drawn)
@@ -485,7 +485,7 @@ export function Canvas({
       backgroundImage: gradients.join(', '),
       backgroundSize: sizes.join(', ')
     };
-  };
+  }, [beatWidth, activeSnapResolution]);
 
   const [selectedClipType, setSelectedClipType] = useState<"pattern" | "sample" | null>(null);
   const [selectedReferenceId, setSelectedReferenceId] = useState<string>("");
@@ -1228,7 +1228,7 @@ export function Canvas({
                     <div
                       className={activeTool === 'pencil' ? 'cursor-pencil' : ''}
                       style={{
-                        ...getGridStyle(),
+                        ...gridStyle,
                         flex: 1,
                         position: "relative",
                         height: "100%",
