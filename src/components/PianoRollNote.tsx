@@ -28,7 +28,7 @@ interface PianoRollNoteProps {
   isDragging: boolean;
   setEvents: (events: DAWEvent[]) => void;
   events: DAWEvent[];
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   channels: ChannelRow[];
   handleNoteRightClick: (e: React.MouseEvent, noteId: string) => void;
   handleNoteSplit: (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => void;
@@ -94,7 +94,7 @@ export function PianoRollNote({
       onPointerEnter={(e) => {
         if (e.buttons === 2) {
           setEvents(events.filter((ev) => ev.id !== noteEvent.id));
-          pushToHistory(channels);
+          pushToHistory();
         }
       }}
       onPointerMove={handleNotePointerMovePointerMode}

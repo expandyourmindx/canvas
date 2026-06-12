@@ -646,7 +646,7 @@ export function Canvas({
 
       const updated = canvasClips.map((c) => (c.id === clip.id ? clipA : c));
       setCanvasClips([...updated, clipB]);
-      pushToHistory(channels);
+      pushToHistory();
       console.log(`Arranger Clip "${clip.name}" split at beat ${snappedSplitBeat}`);
     }
   };
@@ -1298,7 +1298,7 @@ export function Canvas({
                               setClipCropStart(0);
 
                               if (pushToHistory) {
-                                pushToHistory(channels);
+                                pushToHistory();
                               }
                               return;
                             }
@@ -1410,17 +1410,7 @@ export function Canvas({
                             setClipCropStart(newClip.cropStart || 0);
 
                             if (pushToHistory) {
-                              const updatedChannels = existingChannel
-                                ? channels
-                                : [...channels, {
-                                    id: targetChannelId,
-                                    name: getSampleName(id).slice(0, 20),
-                                    type: "sample" as const,
-                                    sampleId: id,
-                                    mixerTarget: Math.min(99, channels.length + 1),
-                                    instrumentType: "sampler" as const
-                                  }];
-                              pushToHistory(updatedChannels);
+                              pushToHistory();
                             }
                           } catch (err) {
                             console.error("Error setting canvas clip from sample drop", err);
@@ -1507,7 +1497,7 @@ export function Canvas({
 
                           if (clipToPlace) {
                             addCanvasClip(clipToPlace);
-                            pushToHistory(channels);
+                            pushToHistory();
 
                             // Select the newly placed clip exclusively
                             setSelectedIds([clipToPlace.id]);

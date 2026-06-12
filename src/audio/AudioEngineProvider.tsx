@@ -87,7 +87,7 @@ export interface AudioEngineContextType {
   // Undo / Redo Actions
   undo: () => void;
   redo: () => void;
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   registerSetChannels: (cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => void;
 
   // Sample loading reactivity
@@ -235,7 +235,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
 
   // 4. Undo/Redo State Serialization stack
-  const pushToHistory = useCallback((channels: ChannelRow[]) => {
+  const pushToHistory = useCallback(() => {
+    const channels = desktopStateRef.current?.getChannels()
+      ?? latestChannelsRef.current;
     latestChannelsRef.current = channels;
     const stateToPush: ProjectState = {
       events: structuredClone(engine.getEvents()),
@@ -461,14 +463,14 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     engine.addEvent(newEvent);
     setEventsState([...engine.getEvents()]);
     setPatternsState([...engine.getPatternsList()]);
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const clearEvents = useCallback(() => {
     engine.clearEvents();
     setEventsState([...engine.getEvents()]);
     setPatternsState([...engine.getPatternsList()]);
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const setCanvasClips = useCallback((newClipsOrFunc: CanvasClip[] | ((prev: CanvasClip[]) => CanvasClip[])) => {
@@ -485,13 +487,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const addCanvasClip = useCallback((newClip: CanvasClip) => {
     engine.addCanvasClip(newClip);
     setCanvasClipsState([...engine.getCanvasClips()]);
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const removeCanvasClip = useCallback((id: string) => {
     engine.removeCanvasClip(id);
     setCanvasClipsState([...engine.getCanvasClips()]);
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const getSampleBuffer = useCallback((sampleId: string) => {
@@ -629,13 +631,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const createPattern = useCallback((id: string, name: string) => {
     engine.createPattern(id, name);
     setPatternsState(engine.getPatternsList());
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const renamePattern = useCallback((id: string, newName: string) => {
     engine.renamePattern(id, newName);
     setPatternsState(engine.getPatternsList());
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const deletePattern = useCallback((id: string) => {
@@ -644,7 +646,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setCanvasClipsState(engine.getCanvasClips());
     setActivePatternIdState(engine.getActivePatternId());
     setEventsState([...engine.getEvents()]);
-    pushToHistory(latestChannelsRef.current);
+    pushToHistory();
   }, [engine, pushToHistory]);
 
   const collectProjectState = useCallback((): CanvasProject | null => {
@@ -743,7 +745,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     // --- PROCEED WITH THE REST OF THE RESTORE SEQUENCE ---
 
     // 1. push undo snapshot
-    pushToHistory(desktopStateRef.current.getChannels());
+    pushToHistory();
 
     // 2. engine state
     engine.setPatternsList(project.patterns);

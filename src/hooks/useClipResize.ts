@@ -6,7 +6,7 @@ interface UseClipResizeProps {
   setCanvasClips: React.Dispatch<React.SetStateAction<CanvasClip[]>>;
   beatWidth: number;
   snapResolution: number | null;
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   channels: ChannelRow[];
   selectedIds: string[];
   totalBeats: number;
@@ -173,7 +173,7 @@ export function useClipResize({
       const element = e.currentTarget;
       element.releasePointerCapture(e.pointerId);
       resizeStateRef.current = null;
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 

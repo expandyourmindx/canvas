@@ -25,7 +25,7 @@ interface UsePianoRollDragProps {
   activeTool: 'pencil' | 'pointer' | 'split';
   selectedNoteIds: string[];
   setSelectedNoteIds: (ids: string[]) => void;
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   channels: ChannelRow[];
   handleKeyAudition: (pitch: number) => void;
   filteredEvents: DAWEvent[];
@@ -510,7 +510,7 @@ export function usePianoRollDrag({
       }
       dragPlacementRef.current = null;
       stopScrollLoop();
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 
@@ -564,7 +564,7 @@ export function usePianoRollDrag({
       element.releasePointerCapture(e.pointerId);
       resizeStateRef.current = null;
       stopScrollLoop();
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 
@@ -636,7 +636,7 @@ export function usePianoRollDrag({
       relocateStateRef.current = null;
       setDraggingNoteId(null);
       stopScrollLoop();
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 
@@ -805,7 +805,7 @@ export function usePianoRollDrag({
       e.currentTarget.releasePointerCapture(e.pointerId);
       setGroupDragStart(null);
       stopScrollLoop();
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 

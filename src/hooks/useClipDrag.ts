@@ -17,7 +17,7 @@ interface UseClipDragProps {
   setCanvasClips: React.Dispatch<React.SetStateAction<CanvasClip[]>>;
   selectedIds: string[];
   setSelectedIds: React.Dispatch<React.SetStateAction<string[]>>;
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   channels: ChannelRow[];
   scrollContainerRef: React.RefObject<HTMLDivElement>;
   tracksContainerRef: React.RefObject<HTMLDivElement>;
@@ -492,7 +492,7 @@ export function useClipDrag({
 
       dragStartRef.current = null;
       stopScrollLoop();
-      pushToHistory(channels);
+      pushToHistory();
     }
   };
 

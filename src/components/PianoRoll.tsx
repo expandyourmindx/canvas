@@ -319,7 +319,7 @@ interface InlinedPianoRollNoteProps {
   isDragging: boolean;
   setEvents: (events: DAWEvent[]) => void;
   events: DAWEvent[];
-  pushToHistory: (channels: ChannelRow[]) => void;
+  pushToHistory: () => void;
   channels: ChannelRow[];
   handleNoteRightClick: (e: React.MouseEvent, noteId: string) => void;
   handleNoteSplit: (e: React.PointerEvent<HTMLDivElement>, noteEvent: DAWEvent) => void;
@@ -396,7 +396,7 @@ function InlinedPianoRollNote({
       onPointerEnter={(e) => {
         if (e.buttons === 2) {
           setEvents(events.filter((ev) => ev.id !== noteEvent.id));
-          pushToHistory(channels);
+          pushToHistory();
         }
       }}
       onPointerMove={handleNotePointerMovePointerMode}
@@ -800,7 +800,7 @@ export function PianoRoll({
       });
 
       setEvents(nextEvents);
-      pushToHistory(channels);
+      pushToHistory();
       console.log(`MIDI note(s) split in half at beat ${snappedSplitBeat}`);
     }
   };
@@ -810,7 +810,7 @@ export function PianoRoll({
     e.preventDefault();
     e.stopPropagation();
     setEvents(events.filter((ev) => ev.id !== noteId));
-    pushToHistory(channels);
+    pushToHistory();
   };
 
   // ── Drag hook ─────────────────────────────────────────────────────────────
@@ -1054,7 +1054,7 @@ export function PianoRoll({
                   ? events.filter((ev) => ev.sampleId !== activeChannel.sampleId)
                   : events;
                 setEvents(updatedEvents);
-                pushToHistory(channels);
+                pushToHistory();
               }
             }}
           />
