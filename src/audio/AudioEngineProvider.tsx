@@ -195,9 +195,16 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
   const registerSetChannels = useCallback((cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => {
     setChannelsCallbackRef.current = cb;
-    if (initialChannels && historyRef.current.length === 1 && historyIndexRef.current === 0) {
-      historyRef.current[0].channels = structuredClone(initialChannels);
+    if (initialChannels) {
       latestChannelsRef.current = structuredClone(initialChannels);
+      // Back-patch index 0 so the earliest undo snapshot holds the real
+      // initial channel state instead of the empty [] seeded before mount.
+      if (historyRef.current.length > 0) {
+        historyRef.current[0] = {
+          ...historyRef.current[0],
+          channels: structuredClone(initialChannels),
+        };
+      }
     }
   }, []);
 
