@@ -7,6 +7,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, ReactNod
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
 import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings, ReverbSettings } from "../types";
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
+import { useShortcuts } from "../hooks/useShortcutRegistry";
 
 export interface AudioEngineContextType {
   /** The raw AudioEngine instance, if direct low-level API access is required. */
@@ -1019,43 +1020,13 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     }
   }, []);
 
-  // Keyboard shortcut listener for global Undo/Redo/Save/Load commands
-  useEffect(() => {
-    const handleGlobalShortcuts = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      if (
-        activeEl &&
-        (activeEl.tagName === "INPUT" ||
-          activeEl.tagName === "TEXTAREA" ||
-          activeEl.getAttribute("contenteditable") === "true")
-      ) {
-        return;
-      }
-
-      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-        if (e.key === "z" || e.key === "Z") {
-          e.preventDefault();
-          if (e.shiftKey) {
-            redo();
-          } else {
-            undo();
-          }
-        } else if (e.key === "y" || e.key === "Y") {
-          e.preventDefault();
-          redo();
-        } else if (e.key === "s" || e.key === "S") {
-          e.preventDefault();
-          saveProject();
-        } else if (e.key === "o" || e.key === "O") {
-          e.preventDefault();
-          loadProject();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalShortcuts);
-    return () => window.removeEventListener("keydown", handleGlobalShortcuts);
-  }, [undo, redo, saveProject, loadProject]);
+  // Keyboard shortcut registration via centralized shortcut registry
+  useShortcuts({
+    'edit.undo': () => undo(),
+    'edit.redo': () => redo(),
+    'project.save': () => saveProject(),
+    'project.open': () => loadProject(),
+  });
 
   const contextValue: AudioEngineContextType = {
     engine,
