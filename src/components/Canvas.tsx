@@ -736,13 +736,16 @@ export function Canvas({
     tracksContainerRef,
   });
 
-  const handleClipPointerDownWrapper = (e: React.PointerEvent<HTMLDivElement>, clip: CanvasClip) => {
+  const handleClipPointerDownWrapper = React.useCallback((
+    e: React.PointerEvent<HTMLDivElement>,
+    clip: CanvasClip
+  ) => {
     setSelectedClipType(clip.type);
     setSelectedReferenceId(clip.referenceId);
     setClipDurationBeats(clip.duration);
     setClipCropStart(clip.cropStart || 0);
     handleClipPointerDown(e, clip);
-  };
+  }, [handleClipPointerDown]);
 
   const resizingClipIdRef = useRef<string | null>(null);
 
@@ -763,7 +766,7 @@ export function Canvas({
     totalBeats,
   });
 
-  const handleResizeDownWrapper = (
+  const handleResizeDownWrapper = React.useCallback((
     e: React.PointerEvent<HTMLDivElement>,
     clip: CanvasClip,
     edge: "left" | "right"
@@ -774,9 +777,11 @@ export function Canvas({
     setClipDurationBeats(clip.duration);
     setClipCropStart(clip.cropStart || 0);
     handleResizeDown(e, clip, edge);
-  };
+  }, [handleResizeDown]);
 
-  const handleResizeUpWrapper = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleResizeUpWrapper = React.useCallback((
+    e: React.PointerEvent<HTMLDivElement>
+  ) => {
     handleResizeUp(e);
     if (resizingClipIdRef.current) {
       const source = lastResizedClipsRef.current ?? canvasClips;
@@ -787,7 +792,7 @@ export function Canvas({
       }
       resizingClipIdRef.current = null;
     }
-  };
+  }, [handleResizeUp, canvasClips]);
 
   // Middle-Click Panning overrides
   const handleGridPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
