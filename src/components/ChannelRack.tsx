@@ -1079,18 +1079,17 @@ export function ChannelRack({
                         }
                       }
 
-                      setChannels((prevChannels: ChannelRow[]) =>
-                        prevChannels.map((c) =>
-                          c.id === channel.id
-                            ? { ...c, name: name, sampleId: id, type: "sample" as const }
-                            : c
-                        )
+                      const updated = channels.map((c) =>
+                        c.id === channel.id
+                          ? { ...c, name: name, sampleId: id, type: "sample" as const }
+                          : c
                       );
+                      setChannels(updated);
                       if (engine) {
                         engine.updateChannelSampleId(channel.id, id);
                       }
                       if (pushToHistory) {
-                        pushToHistory();
+                        pushToHistory(updated);
                       }
                       console.log(`Mapped browser sample to channel rack slot: ${name}`);
                     } catch (err) {

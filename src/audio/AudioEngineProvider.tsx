@@ -87,7 +87,7 @@ export interface AudioEngineContextType {
   // Undo / Redo Actions
   undo: () => void;
   redo: () => void;
-  pushToHistory: () => void;
+  pushToHistory: (channelOverride?: ChannelRow[]) => void;
   registerSetChannels: (cb: (channels: ChannelRow[]) => void, initialChannels?: ChannelRow[]) => void;
 
   // Sample loading reactivity
@@ -235,8 +235,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
 
   // 4. Undo/Redo State Serialization stack
-  const pushToHistory = useCallback(() => {
-    const channels = desktopStateRef.current?.getChannels()
+  const pushToHistory = useCallback((channelOverride?: ChannelRow[]) => {
+    const channels = channelOverride
+      ?? desktopStateRef.current?.getChannels()
       ?? latestChannelsRef.current;
     latestChannelsRef.current = channels;
     const stateToPush: ProjectState = {
@@ -282,6 +283,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       // Restore channel rack state
       if (targetState.channels && setChannelsCallbackRef.current) {
         setChannelsCallbackRef.current(structuredClone(targetState.channels));
+        latestChannelsRef.current = structuredClone(targetState.channels);
       }
 
       // Sync React state
@@ -305,6 +307,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       // Restore channel rack state
       if (targetState.channels && setChannelsCallbackRef.current) {
         setChannelsCallbackRef.current(structuredClone(targetState.channels));
+        latestChannelsRef.current = structuredClone(targetState.channels);
       }
 
       // Sync React state
@@ -744,8 +747,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
 
     // --- PROCEED WITH THE REST OF THE RESTORE SEQUENCE ---
 
-    // 1. push undo snapshot
-    pushToHistory();
+
 
     // 2. engine state
     engine.setPatternsList(project.patterns);
@@ -827,8 +829,20 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     }
     setIsDirty(false);
 
+    // Seed undo history with the loaded project as the only entry.
+    // project.channels is used directly (not via desktopStateRef) to avoid the
+    // React state timing issue — it is exactly what was just restored.
+    const loadedHistoryState: ProjectState = {
+      events: structuredClone(engine.getEvents()),
+      canvasClips: structuredClone(engine.getCanvasClips()),
+      patterns: structuredClone(engine.getPatternsList()),
+      channels: structuredClone(project.channels),
+    };
+    historyRef.current = [loadedHistoryState];
+    historyIndexRef.current = 0;
+
     console.log("[Project Restoration] Restored project successfully!");
-  }, [engine, pushToHistory, notifySampleLoaded, setProjectName, setIsDirty]);
+  }, [engine, notifySampleLoaded, setProjectName, setIsDirty]);
 
   const saveProject = useCallback(async () => {
     const project = collectProjectState();
@@ -967,15 +981,19 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       desktopStateRef.current.resetChannels();
     }
 
-    // Clear history and project meta
-    const blankState: ProjectState = {
-      events: [],
-      canvasClips: [],
-      patterns: engine.getPatternsList(),
-      channels: [],
-    };
-    historyRef.current = [blankState];
-    historyIndexRef.current = 0;
+    // Defer history seed so React has time to flush the resetChannels state update.
+    // patternsSeedSnapshot is captured now because engine state is synchronous.
+    const patternsSeedSnapshot = structuredClone(engine.getPatternsList());
+    setTimeout(() => {
+      const defaultChannels = desktopStateRef.current?.getChannels() ?? [];
+      historyRef.current = [{
+        events: [],
+        canvasClips: [],
+        patterns: patternsSeedSnapshot,
+        channels: structuredClone(defaultChannels),
+      }];
+      historyIndexRef.current = 0;
+    }, 0);
 
     setProjectName("Untitled");
     setIsDirty(false);

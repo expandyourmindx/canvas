@@ -1347,6 +1347,7 @@ export function Canvas({
                             let targetChannelId = id;
                             const existingChannel = channels.find(c => c.sampleId === id || c.id === id);
 
+                            let updatedChannels: ChannelRow[] | undefined;
                             if (existingChannel) {
                               targetChannelId = existingChannel.id;
                             } else if (setChannels) {
@@ -1361,7 +1362,8 @@ export function Canvas({
                                 instrumentType: "sampler" as const
                               };
 
-                              setChannels(prev => [...prev, newChannel]);
+                              updatedChannels = [...channels, newChannel];
+                              setChannels(updatedChannels);
                               if (setActiveInstrumentId) {
                                 setActiveInstrumentId(newChanId);
                               }
@@ -1410,7 +1412,7 @@ export function Canvas({
                             setClipCropStart(newClip.cropStart || 0);
 
                             if (pushToHistory) {
-                              pushToHistory();
+                              pushToHistory(updatedChannels);
                             }
                           } catch (err) {
                             console.error("Error setting canvas clip from sample drop", err);
