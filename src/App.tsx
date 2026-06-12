@@ -9,6 +9,7 @@ import { useAudioEngine } from "./audio/useAudioEngine";
 import { generateDrumSampleWav } from "./audio/sampleGenerator";
 import { Desktop } from "./components/Desktop";
 import { KeyboardMidiListener } from "./components/KeyboardMidiListener";
+import { ShortcutRegistryProvider } from "./hooks/useShortcutRegistry";
 
 function MainWorkspace() {
   return (
@@ -22,7 +23,9 @@ function MainWorkspace() {
 export default function App() {
   return (
     <AudioEngineProvider>
-      <MainWorkspace />
+      <ShortcutRegistryProvider>
+        <MainWorkspace />
+      </ShortcutRegistryProvider>
     </AudioEngineProvider>
   );
 }
