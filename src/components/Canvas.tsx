@@ -121,11 +121,17 @@ export function Canvas({
 
   // Viewport scroll & width tracking
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef<number | null>(null);
   const [scrollLeft, setScrollLeft] = useState<number>(0);
   const [viewportWidth, setViewportWidth] = useState<number>(0);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollLeft(e.currentTarget.scrollLeft);
+    const el = e.currentTarget;
+    if (scrollRafRef.current !== null) return;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      setScrollLeft(el.scrollLeft);
+      scrollRafRef.current = null;
+    });
   };
 
   // Track viewport width via ResizeObserver
@@ -140,6 +146,14 @@ export function Canvas({
     });
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current);
+      }
+    };
   }, []);
 
   const [zoomX, setZoomX] = useState<number>(1.0);
