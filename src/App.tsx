@@ -22,10 +22,10 @@ function MainWorkspace() {
 
 export default function App() {
   return (
-    <AudioEngineProvider>
-      <ShortcutRegistryProvider>
+    <ShortcutRegistryProvider>
+      <AudioEngineProvider>
         <MainWorkspace />
-      </ShortcutRegistryProvider>
-    </AudioEngineProvider>
+      </AudioEngineProvider>
+    </ShortcutRegistryProvider>
   );
 }
