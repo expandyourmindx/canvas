@@ -285,7 +285,10 @@ export function Canvas({
   };
 
   const [laneCount, setLaneCount] = useState<number>(50);
-  const listLanes = Array.from({ length: laneCount }, (_, i) => i);
+  const listLanes = React.useMemo(
+    () => Array.from({ length: laneCount }, (_, i) => i),
+    [laneCount]
+  );
 
   // ── PART 2: Lane assignment + ghost clip creation on recording start ──
   useEffect(() => {
