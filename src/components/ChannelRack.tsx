@@ -39,13 +39,6 @@ export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
   { id: "sampler", name: "Sampler", type: "sampler", description: "Built-in sample player" },
   { id: "obsidian", name: "Obsidian", type: "wam", url: "https://expandyourmindx.github.io/obsidian-wam/index.js", description: "Virtual analog synthesizer" },
   { 
-    id: "distortion", 
-    name: "Simple Distortion", 
-    type: "wam" as const, 
-    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/distortion/index.js", 
-    description: "Waveshaper distortion" 
-  },
-  { 
     id: "synth101", 
     name: "Synth 101", 
     type: "wam" as const, 
@@ -437,18 +430,17 @@ export function ChannelRack({
   const fetchRemoteInstruments = async () => {
     if (remoteInstruments.length > 0) return;
     try {
-      const BASE = "https://www.webaudiomodules.com/community/";
-      const res = await fetch(`${BASE}plugins.json`);
+      const res = await fetch("https://plugins.canvasdaw.com/plugins.json");
       if (res.ok) {
         const data: any[] = await res.json();
         setRemoteInstruments(
           data
-            .filter(p => p.category?.includes("Instrument"))
-            .map(p => ({
-              id: p.identifier,
+            .filter((p: any) => p.type === "instrument")
+            .map((p: any) => ({
+              id: p.id,
               name: p.name,
               type: "wam" as const,
-              url: `${BASE}${p.path}`,
+              url: p.url,
               description: p.description,
             }))
         );
