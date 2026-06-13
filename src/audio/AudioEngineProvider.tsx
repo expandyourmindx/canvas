@@ -767,6 +767,22 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
         if (loadedIds.includes(sampleId)) continue;
         if (sampleId.startsWith("sampler_")) continue; // built-in samples are seeded/in-memory
 
+        // Restore cloud samples from R2
+        if (sampleId.startsWith("https://samples.canvasdaw.com")) {
+          try {
+            console.log(`[Auto-resolve] Fetching cloud sample: ${sampleId}`);
+            const res = await fetch(sampleId);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const ab = await res.arrayBuffer();
+            await engine.loadSample(sampleId, ab);
+            console.log(`[Auto-resolve] Successfully restored cloud sample: ${sampleId}`);
+            notifySampleLoaded();
+            continue;
+          } catch (err) {
+            console.error(`[Auto-resolve] Failed to fetch cloud sample ${sampleId}`, err);
+          }
+        }
+
         // Try to resolve from authorized library folders
         const matchedNode = findSampleInLibrary(sampleId);
         if (matchedNode) {
