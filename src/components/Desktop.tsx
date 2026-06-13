@@ -57,11 +57,12 @@ export function Desktop() {
     eqpanel: false, // EQ Panel window initially closed
     reverbpanel: false, // Reverb Panel window initially closed
     wam: false, // WAM window initially closed
+    wameffect: false,
   });
 
   // 2. Maintain a layer order array (focused items are added to/moved to the end of the array)
-  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "export" | "eqpanel" | "reverbpanel" | "wam";
-  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "export", "eqpanel", "reverbpanel", "wam"]);
+  type WindowId = "canvas" | "sequencer" | "sampler" | "pianoroll" | "mixer" | "export" | "eqpanel" | "reverbpanel" | "wam" | "wameffect";
+  const [winOrder, setWinOrder] = useState<WindowId[]>(["canvas", "sequencer", "sampler", "pianoroll", "mixer", "export", "eqpanel", "reverbpanel", "wam", "wameffect"]);
 
   const [eqPanelIndex, setEqPanelIndex] = useState<{ insertIndex: number; slotIndex: number }>({
     insertIndex: 0,
@@ -159,6 +160,10 @@ export function Desktop() {
 
   // New WAM state
   const [activeWAMChannelId, setActiveWAMChannelId] = useState<string | null>(null);
+  const [activeWAMEffectSlot, setActiveWAMEffectSlot] = useState<{
+    insertIndex: number;
+    slotIndex: number;
+  } | null>(null);
 
 
   // ── Sample Browser State ──
@@ -269,6 +274,12 @@ export function Desktop() {
     setActiveWAMChannelId(channelId);
     setActiveWindows((prev) => ({ ...prev, wam: true }));
     handleSetFocus("wam");
+  };
+
+  const handleOpenWAMEffect = (insertIndex: number, slotIndex: number) => {
+    setActiveWAMEffectSlot({ insertIndex, slotIndex });
+    setActiveWindows((prev) => ({ ...prev, wameffect: true }));
+    handleSetFocus("wameffect");
   };
 
 
@@ -554,6 +565,7 @@ export function Desktop() {
             setChannelMixers={setChannelMixers}
             onOpenEQPanel={handleOpenEQPanel}
             onOpenReverbPanel={handleOpenReverbPanel}
+            onOpenWAMEffect={handleOpenWAMEffect}
             stripColors={stripColors}
             setStripColors={setStripColors}
             isVisible={activeWindows.mixer}
@@ -578,6 +590,28 @@ export function Desktop() {
             minHeight={400}
           >
             <WAMGuiMount channelId={activeWAMChannelId} />
+          </DraggableWindow>
+        )}
+
+        {activeWindows.wameffect && activeWAMEffectSlot && (
+          <DraggableWindow
+            id="wameffect"
+            title={`FX — Insert ${activeWAMEffectSlot.insertIndex} Slot ${activeWAMEffectSlot.slotIndex + 1}`}
+            isVisible={activeWindows.wameffect}
+            onClose={() => setActiveWindows((prev) => ({ ...prev, wameffect: false }))}
+            onFocus={() => handleSetFocus("wameffect")}
+            zIndex={getZIndex("wameffect")}
+            defaultX={520}
+            defaultY={140}
+            defaultWidth={500}
+            defaultHeight={400}
+            minWidth={300}
+            minHeight={250}
+          >
+            <WAMEffectGuiMount
+              insertIndex={activeWAMEffectSlot.insertIndex}
+              slotIndex={activeWAMEffectSlot.slotIndex}
+            />
           </DraggableWindow>
         )}
 
@@ -754,6 +788,69 @@ function WAMGuiMount({ channelId }: { channelId: string }) {
     <div
       ref={containerRef}
       style={{ width: '100%', height: '100%', overflow: 'auto', background: '#131010' }}
+    />
+  );
+}
+
+function WAMEffectGuiMount({
+  insertIndex,
+  slotIndex,
+}: {
+  insertIndex: number;
+  slotIndex: number;
+}) {
+  const { engine } = useAudioEngine();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mountedRef = useRef<string | null>(null);
+  const key = `${insertIndex}_${slotIndex}`;
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (mountedRef.current === key) return;
+
+    containerRef.current.innerHTML = "";
+    mountedRef.current = null;
+
+    let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    const tryMount = async () => {
+      if (cancelled || !containerRef.current) return;
+      const instance = engine.getWAMEffectInstance(insertIndex, slotIndex);
+      if (!instance) {
+        attempts++;
+        if (attempts < maxAttempts) setTimeout(tryMount, 150);
+        return;
+      }
+      try {
+        const createGuiFn = instance.createGui ?? instance.createGUI;
+        if (!createGuiFn) {
+          console.error("[WAM Effect] No createGui method found");
+          return;
+        }
+        const gui = await createGuiFn.call(instance);
+        if (cancelled || !containerRef.current) return;
+        containerRef.current.appendChild(gui);
+        mountedRef.current = key;
+      } catch (err) {
+        console.error("[WAM Effect] createGUI failed:", err);
+      }
+    };
+
+    tryMount();
+
+    return () => {
+      cancelled = true;
+      if (containerRef.current) containerRef.current.innerHTML = "";
+      mountedRef.current = null;
+    };
+  }, [key, engine]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: "100%", height: "100%", overflow: "auto", background: "#131010" }}
     />
   );
 }
