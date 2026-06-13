@@ -19,6 +19,7 @@ interface MixerProps {
   setChannelMixers?: (mixers: Record<string, number>) => void;
   onOpenEQPanel?: (insertIndex: number, slotIndex: number) => void;
   onOpenReverbPanel?: (insertIndex: number, slotIndex: number) => void;
+  onOpenWAMEffect?: (insertIndex: number, slotIndex: number) => void;
   stripColors?: Record<number, string>;
   setStripColors?: React.Dispatch<React.SetStateAction<Record<number, string>>>;
   isVisible?: boolean;
@@ -554,18 +555,28 @@ function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
   );
 }
 
+const LOCAL_EFFECTS = [
+  {
+    id: "burns-distortion",
+    name: "Simple Distortion",
+    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/distortion/index.js",
+    description: "Waveshaper distortion",
+  },
+];
+
 export function Mixer({
   channels = [],
   channelMixers = {},
   setChannelMixers = () => {},
   onOpenEQPanel,
   onOpenReverbPanel,
+  onOpenWAMEffect,
   stripColors = {},
   setStripColors = () => {},
   isVisible = false,
   onPositionChangeRef,
 }: MixerProps) {
-  const { engine, setInsertFXSlot, setInsertFXBypass, focusedChannelId, armInsert, disarmInsert } = useAudioEngine();
+  const { engine, setInsertFXSlot, setInsertFXBypass, loadWAMEffect, focusedChannelId, armInsert, disarmInsert } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   const isDraggingKnobRef = useRef(false);
   const [recordingOffsetMs, setRecordingOffsetMs] = useState<number>(-50);
@@ -598,6 +609,9 @@ export function Mixer({
   const [draggingOverSlotIdx, setDraggingOverSlotIdx] = useState<number | null>(null);
 
   const [activePickerSlotIdx, setActivePickerSlotIdx] = useState<number | null>(null);
+  const [remoteEffects, setRemoteEffects] = useState<typeof LOCAL_EFFECTS>([]);
+  const [effectMoreOpen, setEffectMoreOpen] = useState(false);
+  const [effectMoreLoading, setEffectMoreLoading] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const [slotContextMenu, setSlotContextMenu] = useState<{
@@ -770,6 +784,31 @@ export function Mixer({
     const interval = setInterval(pullInserts, 1500);
     return () => clearInterval(interval);
   }, [pullInserts]);
+
+  const fetchRemoteEffects = async () => {
+    if (remoteEffects.length > 0) return;
+    setEffectMoreLoading(true);
+    try {
+      const res = await fetch("https://plugins.canvasdaw.com/plugins.json");
+      if (res.ok) {
+        const data: any[] = await res.json();
+        setRemoteEffects(
+          data
+            .filter((p: any) => p.type === "effect")
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              url: p.url,
+              description: p.description,
+            }))
+        );
+      }
+    } catch {
+      // fail silently
+    } finally {
+      setEffectMoreLoading(false);
+    }
+  };
 
   const handleInKnobContextMenu = (e: React.MouseEvent, targetIndex: number) => {
     if (selectedInsertIndex === null || selectedInsertIndex === undefined || selectedInsertIndex === 0) return;
@@ -2068,6 +2107,8 @@ export function Mixer({
                   onClick={() => {
                     if (!slotName) {
                       setActivePickerSlotIdx(slotIdx);
+                    } else if (slotName.startsWith("WAM:")) {
+                      onOpenWAMEffect?.(selectedInsert.index, slotIdx);
                     } else if (slotName === "EQ") {
                       onOpenEQPanel?.(selectedInsert.index, slotIdx);
                     } else if (slotName === "Reverb") {
@@ -2260,6 +2301,152 @@ export function Mixer({
                       >
                         REVERB (STUB)
                       </button>
+
+                      {/* WAM Effects section */}
+                      <div
+                        style={{
+                          padding: `${SPACE.xs}px ${SPACE.md}px`,
+                          fontSize: "7.5px",
+                          color: DARK.textLo,
+                          borderTop: `1px solid ${DARK.bg0}`,
+                          borderBottom: `1px solid ${DARK.bg0}`,
+                          fontWeight: "bold",
+                          letterSpacing: "0.08em",
+                          fontFamily: DARK.font,
+                          textTransform: "uppercase",
+                          marginTop: `${SPACE.xs}px`,
+                        }}
+                      >
+                        WAM EFFECTS
+                      </div>
+
+                      {LOCAL_EFFECTS.map((effect) => (
+                        <button
+                          key={effect.id}
+                          onClick={async () => {
+                            setActivePickerSlotIdx(null);
+                            try {
+                              await loadWAMEffect(selectedInsert.index, slotIdx, effect.url, effect.name);
+                            } catch (err) {
+                              console.error("Failed to load WAM effect:", err);
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            textAlign: "left",
+                            padding: `${SPACE.sm}px ${SPACE.md}px`,
+                            color: DARK.accentOrange,
+                            border: "none",
+                            backgroundColor: "transparent",
+                            cursor: "pointer",
+                            fontFamily: DARK.font,
+                            fontSize: "9px",
+                            fontWeight: "bold",
+                            textTransform: "uppercase",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = DARK.bg3;
+                            e.currentTarget.style.color = DARK.textHi;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "transparent";
+                            e.currentTarget.style.color = DARK.accentOrange;
+                          }}
+                        >
+                          {effect.name}
+                        </button>
+                      ))}
+
+                      <div
+                        onMouseEnter={() => { setEffectMoreOpen(true); fetchRemoteEffects(); }}
+                        onMouseLeave={() => setEffectMoreOpen(false)}
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          textAlign: "left",
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          backgroundColor: "transparent",
+                          color: DARK.textLo,
+                          cursor: "pointer",
+                          fontFamily: DARK.font,
+                          fontSize: "9px",
+                          fontWeight: "bold",
+                          textTransform: "uppercase",
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        More ▶
+                        {effectMoreOpen && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: "100%",
+                              top: 0,
+                              width: "180px",
+                              backgroundColor: DARK.bg2,
+                              ...flat(DARK),
+                              padding: "2px",
+                              zIndex: 110,
+                              display: "flex",
+                              flexDirection: "column",
+                              boxSizing: "border-box",
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {effectMoreLoading || remoteEffects.length === 0 ? (
+                              <div style={{
+                                padding: `${SPACE.sm}px ${SPACE.md}px`,
+                                color: DARK.textLo,
+                                fontFamily: DARK.font,
+                                fontSize: "9px",
+                                fontWeight: "bold",
+                                textTransform: "uppercase",
+                              }}>
+                                {effectMoreLoading ? "Loading..." : "No effects found"}
+                              </div>
+                            ) : (
+                              remoteEffects.map((effect) => (
+                                <button
+                                  key={effect.id}
+                                  onClick={async () => {
+                                    setActivePickerSlotIdx(null);
+                                    setEffectMoreOpen(false);
+                                    try {
+                                      await loadWAMEffect(selectedInsert.index, slotIdx, effect.url, effect.name);
+                                    } catch (err) {
+                                      console.error("Failed to load remote WAM effect:", err);
+                                    }
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    textAlign: "left",
+                                    padding: `${SPACE.sm}px ${SPACE.md}px`,
+                                    backgroundColor: "transparent",
+                                    color: DARK.accentOrange,
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontFamily: DARK.font,
+                                    fontSize: "9px",
+                                    fontWeight: "bold",
+                                    textTransform: "uppercase",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = DARK.bg3;
+                                    e.currentTarget.style.color = DARK.textHi;
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                    e.currentTarget.style.color = DARK.accentOrange;
+                                  }}
+                                >
+                                  {effect.name}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                      </div>
+
                       <div style={{ borderTop: `1px solid ${DARK.bg0}`, marginTop: `${SPACE.xs}px`, paddingTop: `${SPACE.xs}px` }}>
                         <button
                           onClick={() => {
