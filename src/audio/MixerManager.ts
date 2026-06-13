@@ -294,6 +294,7 @@ export class MixerManager {
       }
     } else {
       fxInstances[slotIndex] = null;
+      if (insert.wamEffectUrls) delete insert.wamEffectUrls[slotIndex];
     }
 
     (insert as any).fxInstances = fxInstances;
@@ -306,6 +307,38 @@ export class MixerManager {
 
     if (!insert.fxBypass) insert.fxBypass = Array(8).fill(false);
     insert.fxBypass[slotIndex] = bypass;
+
+    this.rebuildFXChain(insertIndex);
+  }
+
+  public setWAMFxInstance(
+    insertIndex: number,
+    slotIndex: number,
+    wrapper: { input: AudioNode; output: AudioNode; disconnect(): void } | null,
+    fxName: string,
+    url: string
+  ): void {
+    const insert = this.getOrCreateMixerInsert(insertIndex);
+    if (!insert) return;
+
+    const fxInstances = (insert as any).fxInstances || Array(8).fill(null);
+
+    // Disconnect and remove old instance at this slot
+    const old = fxInstances[slotIndex];
+    if (old && typeof old.disconnect === "function") {
+      try { old.disconnect(); } catch (_) {}
+    }
+
+    fxInstances[slotIndex] = wrapper;
+    (insert as any).fxInstances = fxInstances;
+    insert.fxSlots[slotIndex] = fxName;
+
+    if (!insert.wamEffectUrls) insert.wamEffectUrls = {};
+    if (wrapper && url) {
+      insert.wamEffectUrls[slotIndex] = url;
+    } else {
+      delete insert.wamEffectUrls[slotIndex];
+    }
 
     this.rebuildFXChain(insertIndex);
   }
@@ -369,6 +402,12 @@ export class MixerManager {
         target.reverbSettings = structuredClone(ins.reverbSettings);
       } else {
         target.reverbSettings = {};
+      }
+
+      if (ins.wamEffectUrls) {
+        target.wamEffectUrls = { ...ins.wamEffectUrls };
+      } else {
+        target.wamEffectUrls = {};
       }
 
       const fxInstances = Array(8).fill(null);
@@ -520,6 +559,21 @@ export class MixerManager {
       delete newReverb[toSlot];
     }
     insert.reverbSettings = newReverb;
+
+    // Swap wamEffectUrls
+    const newWamUrls = insert.wamEffectUrls ? { ...insert.wamEffectUrls } : {};
+    const tempUrl = newWamUrls[fromSlot];
+    if (newWamUrls[toSlot] !== undefined) {
+      newWamUrls[fromSlot] = newWamUrls[toSlot];
+    } else {
+      delete newWamUrls[fromSlot];
+    }
+    if (tempUrl !== undefined) {
+      newWamUrls[toSlot] = tempUrl;
+    } else {
+      delete newWamUrls[toSlot];
+    }
+    insert.wamEffectUrls = newWamUrls;
 
     // Rebuild fx chain
     this.rebuildFXChain(insertIndex);
