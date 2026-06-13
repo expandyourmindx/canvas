@@ -96,6 +96,9 @@ export interface AudioEngineContextType {
 
   setInsertFXSlot: (insertIndex: number, slotIndex: number, fxName: string) => void;
   setInsertFXBypass: (insertIndex: number, slotIndex: number, bypass: boolean) => void;
+  loadWAMEffect: (insertIndex: number, slotIndex: number, url: string, pluginName: string) => Promise<void>;
+  unloadWAMEffect: (insertIndex: number, slotIndex: number) => void;
+  getWAMEffectInstance: (insertIndex: number, slotIndex: number) => any;
   updateInsertEQBand: (insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => void;
   updateInsertReverbParam: (insertIndex: number, slotIndex: number, settings: Partial<ReverbSettings>) => void;
   addSend: (fromIndex: number, toIndex: number) => void;
@@ -539,6 +542,24 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     engine.setInsertFXBypass(insertIndex, slotIndex, bypass);
     setIsDirty(true);
   }, [engine, setIsDirty]);
+
+  const loadWAMEffect = useCallback(
+    (insertIndex: number, slotIndex: number, url: string, pluginName: string) =>
+      engine.loadWAMEffect(insertIndex, slotIndex, url, pluginName),
+    [engine]
+  );
+
+  const unloadWAMEffect = useCallback(
+    (insertIndex: number, slotIndex: number) =>
+      engine.unloadWAMEffect(insertIndex, slotIndex),
+    [engine]
+  );
+
+  const getWAMEffectInstance = useCallback(
+    (insertIndex: number, slotIndex: number) =>
+      engine.getWAMEffectInstance(insertIndex, slotIndex),
+    [engine]
+  );
 
   const updateInsertEQBand = useCallback((insertIndex: number, slotIndex: number, bandIndex: number, settings: Partial<EQBandSettings>) => {
     engine.updateInsertEQBand(insertIndex, slotIndex, bandIndex, settings);
@@ -1104,6 +1125,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     notifySampleLoaded,
     setInsertFXSlot,
     setInsertFXBypass,
+    loadWAMEffect,
+    unloadWAMEffect,
+    getWAMEffectInstance,
     updateInsertEQBand,
     updateInsertReverbParam,
     addSend,
