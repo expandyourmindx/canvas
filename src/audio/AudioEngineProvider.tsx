@@ -9,6 +9,32 @@ import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQ
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 import { useShortcuts } from "../hooks/useShortcutRegistry";
 
+// Helper to strip non-serializable nodes (AudioNodes, WAM instances, etc.) from project state serialization
+function projectReplacer(key: string, value: any): any {
+  if (key === "fxInstances" || key === "sendGainNodes" || key === "fxInputNode") {
+    return undefined;
+  }
+
+  if (value && typeof value === "object") {
+    // Check if the object is an instance of AudioNode or AudioWorkletNode
+    if (typeof AudioNode !== "undefined" && value instanceof AudioNode) {
+      return undefined;
+    }
+    if (typeof AudioWorkletNode !== "undefined" && value instanceof AudioWorkletNode) {
+      return undefined;
+    }
+    // Check if constructor names contain 'Node' or 'Wam'
+    const constructorName = value.constructor?.name;
+    if (
+      constructorName &&
+      (constructorName.includes("Node") || constructorName.includes("Wam"))
+    ) {
+      return undefined;
+    }
+  }
+  return value;
+}
+
 export interface AudioEngineContextType {
   /** The raw AudioEngine instance, if direct low-level API access is required. */
   engine: AudioEngine;
@@ -870,7 +896,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     if (!project) return;
 
     const suggestedName = `${projectName}.cnv`;
-    const jsonStr = JSON.stringify(project, null, 2);
+    const jsonStr = JSON.stringify(project, projectReplacer, 2);
 
     // Native showSaveFilePicker
     if (typeof (window as any).showSaveFilePicker !== "undefined") {
@@ -1028,7 +1054,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       if (!desktopStateRef.current) return;
       const state = collectProjectState();
       if (!state) return;
-      const json = JSON.stringify(state);
+      const json = JSON.stringify(state, projectReplacer);
       if (json !== lastSavedJsonRef.current) {
         localStorage.setItem("canvas_autosave", json);
         lastSavedJsonRef.current = json;
