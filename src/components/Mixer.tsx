@@ -559,7 +559,7 @@ const LOCAL_EFFECTS = [
   {
     id: "burns-distortion",
     name: "Simple Distortion",
-    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/distortion/index.js",
+    url: "https://plugins.canvasdaw.com/burns-audio/distortion/index.js",
     description: "Waveshaper distortion",
   },
 ];
