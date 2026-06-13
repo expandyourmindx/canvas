@@ -74,6 +74,7 @@ export class AudioEngine {
   private sampleBrowserPreviewSource: AudioBufferSourceNode | null = null;
 
   private wamInstances: Map<string, any> = new Map();
+  private wamEffectInstances: Map<string, any> = new Map();
   private wamUrls: Map<string, string> = new Map();
   private wamGroupId: string | null = null;
 
@@ -690,6 +691,71 @@ export class AudioEngine {
     try { instance.destroy?.(); } catch (_) {}
     this.wamInstances.delete(channelId);
     this.wamUrls.delete(channelId);
+  }
+
+  public async loadWAMEffect(
+    insertIndex: number,
+    slotIndex: number,
+    url: string,
+    pluginName: string
+  ): Promise<void> {
+    try {
+      const groupId = await this.ensureWamGroupInitialized();
+      const { default: WAMClass } = await import(/* @vite-ignore */ url);
+      if (!WAMClass || typeof WAMClass.createInstance !== "function") {
+        throw new Error(`Invalid WAM module at ${url}`);
+      }
+      const instance = await WAMClass.createInstance(groupId, this.audioContext);
+      if (!instance) throw new Error(`WAM createInstance returned null for ${url}`);
+
+      let audioNode = instance.audioNode;
+      if (!audioNode) audioNode = await instance.createAudioNode();
+      if (!audioNode) throw new Error(`WAM at ${url} has no audio node`);
+
+      const wamWrapper = {
+        input: audioNode as AudioNode,
+        output: ((audioNode as any)._output ?? audioNode) as AudioNode,
+        instance,
+        disconnect() {
+          try { (this as any).output.disconnect(); } catch (_) {}
+        },
+        updateConnections: undefined as undefined,
+      };
+
+      const key = `${insertIndex}_${slotIndex}`;
+      const existing = this.wamEffectInstances.get(key);
+      if (existing) {
+        try { existing.destroy?.(); } catch (_) {}
+      }
+      this.wamEffectInstances.set(key, instance);
+
+      this.mixerManager.setWAMFxInstance(
+        insertIndex,
+        slotIndex,
+        wamWrapper,
+        `WAM:${pluginName}`,
+        url
+      );
+
+      console.log(`[WAM] Loaded effect "${pluginName}" → insert ${insertIndex} slot ${slotIndex}`);
+    } catch (err) {
+      console.error(`[WAM] Failed to load effect for insert ${insertIndex} slot ${slotIndex}:`, err);
+      throw err;
+    }
+  }
+
+  public unloadWAMEffect(insertIndex: number, slotIndex: number): void {
+    const key = `${insertIndex}_${slotIndex}`;
+    const instance = this.wamEffectInstances.get(key);
+    if (instance) {
+      try { instance.destroy?.(); } catch (_) {}
+      this.wamEffectInstances.delete(key);
+    }
+    this.mixerManager.setWAMFxInstance(insertIndex, slotIndex, null, "", "");
+  }
+
+  public getWAMEffectInstance(insertIndex: number, slotIndex: number): any {
+    return this.wamEffectInstances.get(`${insertIndex}_${slotIndex}`) ?? null;
   }
 
   public getWAMState(channelId: string): any {
