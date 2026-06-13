@@ -42,14 +42,14 @@ export const LOCAL_INSTRUMENTS: InstrumentDefinition[] = [
     id: "synth101", 
     name: "Synth 101", 
     type: "wam" as const, 
-    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/synth101/index.js", 
+    url: "https://plugins.canvasdaw.com/burns-audio/synth101/index.js", 
     description: "Roland SH-101 synthesizer emulation" 
   },
   { 
     id: "modal", 
     name: "Modal", 
     type: "wam" as const, 
-    url: "https://expandyourmindx.github.io/canvas-plugins/burns-audio/modal/index.js", 
+    url: "https://plugins.canvasdaw.com/burns-audio/modal/index.js", 
     description: "Physical modelling synthesizer" 
   }
 ];
