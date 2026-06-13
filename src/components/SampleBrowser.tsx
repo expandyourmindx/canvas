@@ -21,6 +21,7 @@ import {
   Pin,
   PinOff,
 } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { ChannelRow } from "../types";
 import {
   SampleLibraryManager,
@@ -107,6 +108,14 @@ export function SampleBrowser({
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
   const [selectedSampleId, setSelectedSampleId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [cloudPacks, setCloudPacks] = useState<Record<string, string[]>>({});
+  // keys are folder names, values are arrays of full file paths
+
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudError, setCloudError] = useState<string | null>(null);
+  const [cloudFetched, setCloudFetched] = useState(false);
+  // cloudFetched prevents re-fetching if section is collapsed and reopened
 
   useAudioEngine();
 
@@ -210,6 +219,27 @@ export function SampleBrowser({
     }
   };
 
+  const loadCloudSample = async (filePath: string): Promise<AudioBuffer | null> => {
+    const url = `https://samples.canvasdaw.com/${filePath.split('/').map(encodeURIComponent).join('/')}`
+    const cached = localPreviewCacheRef.current.get(url)
+    if (cached) return cached
+    setLoadingItems(prev => ({ ...prev, [url]: true }))
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const ab = await res.arrayBuffer()
+      const ctx = engine.audioContext as AudioContext
+      const buffer = await ctx.decodeAudioData(ab)
+      localPreviewCacheRef.current.set(url, buffer)
+      return buffer
+    } catch (err) {
+      console.error('Failed to load cloud sample:', err)
+      return null
+    } finally {
+      setLoadingItems(prev => ({ ...prev, [url]: false }))
+    }
+  }
+
   // ── Preview click handlers ──
   const handlePreviewBuiltIn = async (sample: Sample) => {
     stopActivePreview(); // Stop immediately on click
@@ -234,6 +264,12 @@ export function SampleBrowser({
       console.warn("User sample preview failed:", err);
     }
   };
+
+  const handlePreviewCloud = async (filePath: string) => {
+    stopActivePreview()
+    const buffer = await loadCloudSample(filePath)
+    if (buffer) playBufferDirect(buffer)
+  }
 
   // ── Drag handlers ──
   const handleDragStartBuiltIn = (e: React.DragEvent, sample: Sample) => {
@@ -262,6 +298,17 @@ export function SampleBrowser({
     loadUserSample(node); // Pre-fetch and cache
   };
 
+  const handleDragStartCloud = (e: React.DragEvent, filePath: string, displayName: string) => {
+    const url = `https://samples.canvasdaw.com/${filePath.split('/').map(encodeURIComponent).join('/')}`
+    e.dataTransfer.setData('application/json', JSON.stringify({
+      id: url,
+      path: url,
+      name: displayName,
+    }))
+    e.dataTransfer.effectAllowed = 'copy'
+    loadCloudSample(filePath) // pre-fetch and cache on drag
+  }
+
   // Toggle path expansion
   const togglePath = (path: string) => {
     setExpandedPaths((prev) => ({
@@ -287,6 +334,31 @@ export function SampleBrowser({
       fallbackInputRef.current?.click();
     }
   };
+
+  const handleFetchCloud = async () => {
+    if (cloudFetched) return
+    setCloudLoading(true)
+    setCloudError(null)
+    try {
+      const res = await fetch('https://canvas-samples-list.electricblade5.workers.dev/')
+      if (!res.ok) throw new Error(`Worker returned ${res.status}`)
+      const paths: string[] = await res.json()
+      // Group by first path segment (folder name)
+      const grouped: Record<string, string[]> = {}
+      for (const p of paths) {
+        const folder = p.split('/')[0]
+        if (!grouped[folder]) grouped[folder] = []
+        grouped[folder].push(p)
+      }
+      setCloudPacks(grouped)
+      setCloudFetched(true)
+    } catch (err) {
+      console.error('Cloud sample fetch failed:', err)
+      setCloudError('Could not connect to sample library.')
+    } finally {
+      setCloudLoading(false)
+    }
+  }
 
   const handleRemoveFolder = async (folderIndex: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -924,6 +996,166 @@ export function SampleBrowser({
               </div>
             );
           })}
+        </div>
+
+        {/* ── Cloud Samples Section ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${DARK.bevelDark}`, paddingTop: `${SPACE.sm}px` }}>
+          {/* Section Header */}
+          <div
+            onClick={() => {
+              togglePath('__cloud__')
+              if (!cloudFetched) handleFetchCloud()
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: `${SPACE.sm}px`,
+              padding: `${SPACE.sm}px ${SPACE.md}px`,
+              backgroundColor: DARK.bg2,
+              color: DARK.textMid,
+              fontFamily: DARK.font,
+              fontSize: '8px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              cursor: 'pointer',
+              boxSizing: 'border-box',
+              ...flat(DARK),
+            }}
+          >
+            <ChevronRight
+              size={10}
+              style={{
+                color: DARK.textLo,
+                transform: expandedPaths.__cloud__ ? 'rotate(90deg)' : 'none',
+                flexShrink: 0,
+              }}
+            />
+            <Cloud size={12} style={{ color: DARK.accentBlue, flexShrink: 0 }} />
+            <span>Cloud Samples</span>
+          </div>
+
+          {expandedPaths.__cloud__ && (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {cloudLoading && (
+                <div style={{ padding: `${SPACE.lg}px`, textAlign: 'center', fontSize: '8px', color: DARK.textDim, fontFamily: DARK.font }}>
+                  <Loader2 size={12} style={{ color: DARK.accentMaster }} />
+                </div>
+              )}
+
+              {cloudError && (
+                <div style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: '8px', color: DARK.stateRed, fontFamily: DARK.font }}>
+                  {cloudError}
+                </div>
+              )}
+
+              {!cloudLoading && !cloudError && Object.entries(cloudPacks).map(([folderName, filePaths]) => {
+                const packKey = `__cloud__${folderName}`
+                const isExpanded = !!expandedPaths[packKey]
+                const isHovered = hoveredItemId === packKey
+
+                const filteredPaths = searchQuery
+                  ? filePaths.filter(p => p.toLowerCase().includes(searchQuery.toLowerCase()))
+                  : filePaths
+
+                if (searchQuery && filteredPaths.length === 0) return null
+
+                return (
+                  <div key={folderName} style={{ display: 'flex', flexDirection: 'column' }}>
+                    <div
+                      onClick={() => togglePath(packKey)}
+                      onMouseEnter={() => setHoveredItemId(packKey)}
+                      onMouseLeave={() => setHoveredItemId(null)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: `${SPACE.sm}px`,
+                        padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                        paddingLeft: `${1 * SPACE.xl}px`,
+                        backgroundColor: isHovered ? DARK.bg3 : DARK.bg1,
+                        color: isHovered ? DARK.textHi : DARK.textMid,
+                        fontFamily: DARK.font,
+                        fontSize: '8px',
+                        textTransform: 'uppercase',
+                        cursor: 'pointer',
+                        boxSizing: 'border-box',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <ChevronRight size={10} style={{ color: DARK.textLo, transform: isExpanded ? 'rotate(90deg)' : 'none', flexShrink: 0 }} />
+                      {isExpanded
+                        ? <FolderOpen size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
+                        : <Folder size={12} style={{ color: DARK.accentMaster, flexShrink: 0 }} />
+                      }
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{folderName}</span>
+                      <span style={{ fontSize: '7px', color: DARK.textDim, fontFamily: DARK.font, flexShrink: 0 }}>{filePaths.length}</span>
+                    </div>
+
+                    {isExpanded && (
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {filteredPaths.map((filePath) => {
+                          const url = `https://samples.canvasdaw.com/${filePath.split('/').map(encodeURIComponent).join('/')}`
+                          // Strip folder prefix and file extension for display
+                          const rawName = filePath.split('/').slice(1).join('/')
+                          const displayName = rawName.replace(/\.[^/.]+$/, '')
+                          const isSelected = selectedSampleId === url
+                          const isLoading = !!loadingItems[url]
+                          const isHov = hoveredItemId === url
+
+                          return (
+                            <div
+                              key={url}
+                              draggable
+                              onDragStart={(e) => handleDragStartCloud(e, filePath, displayName)}
+                              onClick={() => {
+                                setSelectedSampleId(url)
+                                handlePreviewCloud(filePath)
+                              }}
+                              onMouseEnter={() => setHoveredItemId(url)}
+                              onMouseLeave={() => setHoveredItemId(null)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: `${SPACE.xs}px ${SPACE.sm}px`,
+                                paddingLeft: `${2 * SPACE.xl}px`,
+                                backgroundColor: isSelected ? DARK.bg4 : isHov ? DARK.bg3 : DARK.bg1,
+                                color: isSelected ? DARK.accentMaster : isHov ? DARK.textHi : DARK.textMid,
+                                fontFamily: DARK.font,
+                                fontSize: '8px',
+                                textTransform: 'uppercase',
+                                cursor: 'grab',
+                                boxSizing: 'border-box',
+                                userSelect: 'none',
+                              }}
+                              title={displayName}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: `${SPACE.sm}px`, overflow: 'hidden', flex: 1 }}>
+                                {isLoading
+                                  ? <Loader2 size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
+                                  : <Music size={10} style={{ color: isSelected ? DARK.accentMaster : DARK.textLo, flexShrink: 0 }} />
+                                }
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
+                              </div>
+                              {!isLoading && (
+                                <Volume2
+                                  size={10}
+                                  style={{
+                                    color: isSelected ? DARK.accentMaster : DARK.textLo,
+                                    opacity: isHov || isSelected ? 1 : 0,
+                                    flexShrink: 0,
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
