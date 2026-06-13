@@ -83,11 +83,11 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
 
   const handlePlayPause = useCallback(() => {
     if (playbackState === "playing") {
-      pause();
+      stop();
     } else {
       play();
     }
-  }, [playbackState, play, pause]);
+  }, [playbackState, play, stop]);
 
   useShortcuts({ 'transport.playPause': handlePlayPause });
 
