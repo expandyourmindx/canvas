@@ -8,6 +8,7 @@ import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
 import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings, ReverbSettings } from "../types";
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 import { useShortcuts } from "../hooks/useShortcutRegistry";
+import { getCloudSampleCache, setCloudSampleCache } from "./CloudSampleCache";
 
 // Helper to strip non-serializable nodes (AudioNodes, WAM instances, etc.) from project state serialization
 function projectReplacer(key: string, value: any): any {
@@ -767,19 +768,25 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
         if (loadedIds.includes(sampleId)) continue;
         if (sampleId.startsWith("sampler_")) continue; // built-in samples are seeded/in-memory
 
-        // Restore cloud samples from R2
         if (sampleId.startsWith("https://samples.canvasdaw.com")) {
           try {
-            console.log(`[Auto-resolve] Fetching cloud sample: ${sampleId}`);
-            const res = await fetch(sampleId);
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const ab = await res.arrayBuffer();
-            await engine.loadSample(sampleId, ab);
+            // Check IndexedDB first
+            let ab = await getCloudSampleCache(sampleId);
+            if (ab) {
+              console.log(`[Auto-resolve] Restored cloud sample from cache: ${sampleId}`);
+            } else {
+              console.log(`[Auto-resolve] Fetching cloud sample: ${sampleId}`);
+              const res = await fetch(sampleId);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              ab = await res.arrayBuffer();
+              await setCloudSampleCache(sampleId, ab);
+            }
+            await engine.loadSample(sampleId, ab.slice(0));
             console.log(`[Auto-resolve] Successfully restored cloud sample: ${sampleId}`);
             notifySampleLoaded();
             continue;
           } catch (err) {
-            console.error(`[Auto-resolve] Failed to fetch cloud sample ${sampleId}`, err);
+            console.error(`[Auto-resolve] Failed to restore cloud sample ${sampleId}`, err);
           }
         }
 

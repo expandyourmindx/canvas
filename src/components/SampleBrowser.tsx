@@ -30,6 +30,7 @@ import {
   getLibraryManager,
 } from "../audio/SampleLibraryManager";
 import { useAudioEngine } from "../audio/useAudioEngine";
+import { getCloudSampleCache, setCloudSampleCache } from "../audio/CloudSampleCache";
 import {
   DARK,
   raised,
@@ -221,15 +222,32 @@ export function SampleBrowser({
 
   const loadCloudSample = async (filePath: string): Promise<AudioBuffer | null> => {
     const url = `https://samples.canvasdaw.com/${filePath.split('/').map(encodeURIComponent).join('/')}`
+    
+    // 1. In-memory cache (fastest)
     const cached = localPreviewCacheRef.current.get(url)
     if (cached) return cached
+
     setLoadingItems(prev => ({ ...prev, [url]: true }))
     try {
+      const ctx = engine.audioContext as AudioContext
+
+      // 2. IndexedDB cache (disk, no network)
+      const idbBuffer = await getCloudSampleCache(url)
+      if (idbBuffer) {
+        const buffer = await ctx.decodeAudioData(idbBuffer)
+        localPreviewCacheRef.current.set(url, buffer)
+        return buffer
+      }
+
+      // 3. Network fetch (R2)
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const ab = await res.arrayBuffer()
-      const ctx = engine.audioContext as AudioContext
-      const buffer = await ctx.decodeAudioData(ab)
+      
+      // Save to IndexedDB before decoding (decodeAudioData may detach buffer in some browsers)
+      await setCloudSampleCache(url, ab)
+      
+      const buffer = await ctx.decodeAudioData(ab.slice(0))
       localPreviewCacheRef.current.set(url, buffer)
       return buffer
     } catch (err) {
