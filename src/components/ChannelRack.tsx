@@ -297,6 +297,7 @@ export function ChannelRack({
   const [addDropdownOpen, setAddDropdownOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [remoteInstruments, setRemoteInstruments] = useState<InstrumentDefinition[]>([]);
+  const [wamUrlInput, setWamUrlInput] = useState("");
 
   const addChannelBtnRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1517,7 +1518,7 @@ export function ChannelRack({
                 backgroundColor: DARK.bg2,
                 ...flat(DARK),
                 padding: "2px",
-                width: "120px",
+                width: "150px",
                 zIndex: 50,
                 boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
                 display: "flex",
@@ -1683,6 +1684,79 @@ export function ChannelRack({
                   </div>
                 )}
               </div>
+              <div style={{ height: "1px", backgroundColor: DARK.bevelDark, margin: "2px 0" }} />
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const trimmed = wamUrlInput.trim();
+                  if (trimmed) {
+                    addChannelWithInstrument({
+                      id: `custom_${Date.now()}`,
+                      name: "Custom WAM",
+                      type: "wam",
+                      url: trimmed,
+                      description: "Custom WAM URL",
+                    });
+                    setWamUrlInput("");
+                    setAddDropdownOpen(false);
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  gap: "2px",
+                  padding: `${SPACE.sm}px ${SPACE.md}px`,
+                  boxSizing: "border-box",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder="Paste WAM URL..."
+                  value={wamUrlInput}
+                  onChange={(e) => setWamUrlInput(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    backgroundColor: DARK.bg3,
+                    color: DARK.textHi,
+                    border: "none",
+                    outline: "none",
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    padding: `${SPACE.sm}px ${SPACE.md}px`,
+                    boxSizing: "border-box",
+                    borderRadius: 0,
+                    boxShadow: "none",
+                  }}
+                />
+                <button
+                  type="submit"
+                  style={{
+                    backgroundColor: DARK.bg3,
+                    color: DARK.accentBlue,
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: DARK.font,
+                    fontSize: "9px",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    padding: `${SPACE.sm}px ${SPACE.md}px`,
+                    boxSizing: "border-box",
+                    borderRadius: 0,
+                    boxShadow: "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = DARK.bg4;
+                    e.currentTarget.style.color = DARK.textHi;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = DARK.bg3;
+                    e.currentTarget.style.color = DARK.accentBlue;
+                  }}
+                >
+                  Load
+                </button>
+              </form>
             </div>
           )}
         </div>
