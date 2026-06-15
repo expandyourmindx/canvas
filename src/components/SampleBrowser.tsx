@@ -61,6 +61,7 @@ interface SampleBrowserProps {
   onSampleLoaded?: () => void;
   isPinned?: boolean;
   onTogglePin?: () => void;
+  onUnpin?: () => void;
 }
 
 
@@ -75,6 +76,7 @@ export function SampleBrowser({
   onSampleLoaded,
   isPinned,
   onTogglePin,
+  onUnpin,
 }: SampleBrowserProps) {
   const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   // Local fallback pin state if not controlled from props
@@ -569,7 +571,7 @@ export function SampleBrowser({
           Sample Browser
         </span>
         <button
-          onClick={togglePin}
+          onClick={onUnpin || togglePin}
           style={{
             display: "flex",
             alignItems: "center",

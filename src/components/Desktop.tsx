@@ -378,22 +378,6 @@ export function Desktop() {
             borderRight: `1px solid ${DARK.bevelDark}`,
           }}
         >
-          {/* Panel Header */}
-          <div
-            className="flex items-center justify-between px-2 py-1.5 shrink-0"
-            style={{
-              backgroundColor: DARK.bg1,
-              borderBottom: `1px solid ${DARK.bevelDark}`,
-            }}
-          >
-            <button
-              onClick={() => setBrowserPinned(false)}
-              className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
-              title="Unpin – switch to floating window"
-            >
-              <Pin className="h-3 w-3" />
-            </button>
-          </div>
           {/* Browser Contents */}
           <div className="flex-1 overflow-hidden [&>div]:!w-full">
             <SampleBrowser
@@ -402,6 +386,7 @@ export function Desktop() {
               getSampleBuffer={getSampleBuffer}
               previewChannel={previewChannel}
               onSampleLoaded={notifySampleLoaded}
+              onUnpin={() => setBrowserPinned(false)}
             />
           </div>
           {/* Resize Handle */}
