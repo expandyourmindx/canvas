@@ -8,15 +8,7 @@ import { CanvasClip, PatternData } from "../types";
 import { LANE_HEIGHT_PX, CLIP_HEIGHT_PX, CLIP_TOP_OFFSET_PX, AVAILABLE_SAMPLES } from "../config";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { Keyboard, Music } from "lucide-react";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-  SIZE
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 interface ArrangerClipProps {
   clip: CanvasClip;
@@ -49,13 +41,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const getClipAccentColor = (clip: CanvasClip) => {
-  const color = clip.color;
-  if (color && color.startsWith("#")) {
-    return color;
-  }
-  return clip.type === "sample" ? DARK.accentGreen : DARK.accentBlue;
-};
+
 
 export function ArrangerClip({
   clip,
@@ -75,6 +61,16 @@ export function ArrangerClip({
   handleResizeUp,
   handleResizeCancel,
 }: ArrangerClipProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
+
+  const getClipAccentColor = (clip: CanvasClip) => {
+    const color = clip.color;
+    if (color && color.startsWith("#")) {
+      return color;
+    }
+    return clip.type === "sample" ? DARK.accentGreen : DARK.accentBlue;
+  };
+
   const { engine } = useAudioEngine();
   const leftPx = clip.startBeat * beatWidth;
   

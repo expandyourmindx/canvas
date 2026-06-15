@@ -4,10 +4,7 @@
  */
 
 import React, { useRef, useState } from "react";
-import {
-  DARK,
-  SPACE,
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 // Width in pixels of the sticky lane-label column on the left edge of the ruler.
 // Must match the 130px header used in Canvas.tsx so beat math stays aligned.
@@ -48,6 +45,7 @@ export function ArrangerRuler({
   scrollLeft,
   viewportWidth,
 }: ArrangerRulerProps) {
+  const { theme: DARK, SPACE } = useTheme();
   // Tracks whether we are actively scrubbing the playhead via left-click drag
   const isScrubbingRef = useRef(false);
 

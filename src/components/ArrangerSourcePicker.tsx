@@ -7,14 +7,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { ChevronRight, ChevronLeft, Upload, Volume2 } from "lucide-react";
 import { PatternData, ChannelRow } from "../types";
 import { AudioEngine } from "../audio/AudioEngine";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 interface ArrangerSourcePickerProps {
   patterns: PatternData[];
@@ -43,6 +36,7 @@ function SampleWaveform({
   sampleId: string;
   engine: AudioEngine;
 }) {
+  const { theme: DARK } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -138,6 +132,7 @@ export function ArrangerSourcePicker({
   setClipDurationBeats,
   handleAudioFileImport,
 }: ArrangerSourcePickerProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE } = useTheme();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false); // Collapsed by default
