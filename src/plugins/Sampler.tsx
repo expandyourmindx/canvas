@@ -161,16 +161,7 @@ function SectionCard({
   );
 }
 
-// ── LCD readout text ──────────────────────────────────────────────────────────
-const lcdTextStyle: React.CSSProperties = {
-  fontFamily: DARK.font,
-  fontSize: "7px",
-  color: DARK.lcdText,
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  fontWeight: "bold",
-  lineHeight: 1,
-};
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS
@@ -216,6 +207,16 @@ export function Sampler({
   setSamplerSettings,
 }: SamplerProps) {
   const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
+
+  const lcdTextStyle: React.CSSProperties = {
+    fontFamily: DARK.font,
+    fontSize: "7px",
+    color: DARK.lcdText,
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    fontWeight: "bold",
+    lineHeight: 1,
+  };
   const { engine, getSampleBuffer, previewChannel } = useAudioEngine();
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

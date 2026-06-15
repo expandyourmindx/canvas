@@ -77,6 +77,7 @@ export const SIZE = {
   faderThumbH:        14,
   gemButtonH:         13,
   gemDropShadow:      "2px 2px 0",
+  channelNameWidth:   96,
 };
 
 // ── BEVEL CONSTRUCTORS ───────────────────────────────────────
