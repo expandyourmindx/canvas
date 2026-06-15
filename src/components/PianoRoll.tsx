@@ -12,7 +12,7 @@ import { PATTERN_LENGTH_BEATS } from "../config";
 import { usePianoRollDrag } from "../hooks/usePianoRollDrag";
 import { getAutoSnapResolution } from "../utils/snapUtils";
 
-import { useTheme, DARK, raised, sunken, flat, SPACE } from "../theme/ThemeContext";
+import { useTheme } from "../theme/ThemeContext";
 
 // ── MIDI note range (high → low) ────────────────────────────────────────────
 const MIDI_NOTES: number[] = [];
@@ -49,31 +49,7 @@ const hexToRgba = (hex: string, alpha: number): string => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
-// ── Shared select style (LCD dropdown) ───────────────────────────────────────
-const lcdSelectStyle: React.CSSProperties = {
-  ...sunken(DARK),
-  backgroundColor: DARK.bg0,
-  color: DARK.lcdText,
-  fontFamily: DARK.font,
-  fontSize: "8px",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  padding: `${SPACE.xs}px ${SPACE.sm}px`,
-  height: "22px",
-  outline: "none",
-  cursor: "pointer",
-  appearance: "none" as const,
-};
 
-const lcdLabelStyle: React.CSSProperties = {
-  fontFamily: DARK.font,
-  fontSize: "7px",
-  color: DARK.textLo,
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  paddingRight: SPACE.xs,
-  userSelect: "none",
-};
 
 // ── LCD dropdown wrapper ──────────────────────────────────────────────────────
 const DropdownWrapper = ({
@@ -82,18 +58,24 @@ const DropdownWrapper = ({
 }: {
   label: string;
   children: React.ReactNode;
-}) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: SPACE.xs,
-    }}
-  >
-    <span style={lcdLabelStyle}>{label}</span>
-    {children}
-  </div>
-);
+}) => {
+  const { theme: DARK, SPACE } = useTheme();
+  const lcdLabelStyle: React.CSSProperties = {
+    fontFamily: DARK.font,
+    fontSize: "7px",
+    color: DARK.textLo,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    paddingRight: SPACE.xs,
+    userSelect: "none",
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: SPACE.xs }}>
+      <span style={lcdLabelStyle}>{label}</span>
+      {children}
+    </div>
+  );
+};
 
 // ── Zoom button ───────────────────────────────────────────────────────────────
 const ZoomButton = ({
@@ -105,6 +87,7 @@ const ZoomButton = ({
   title: string;
   onClick: () => void;
 }) => {
+  const { theme: DARK, raised, sunken, SPACE } = useTheme();
   const [pressed, setPressed] = useState(false);
   return (
     <button
@@ -134,45 +117,44 @@ const ZoomButton = ({
 };
 
 // ── Tool button ───────────────────────────────────────────────────────────────
-const ToolButton = ({
-  label,
-  icon,
-  active,
-  title,
-  onClick,
+function ToolButton({
+  label, icon, active, title, onClick,
 }: {
   label: string;
   icon: React.ReactNode;
   active: boolean;
   title: string;
   onClick: () => void;
-}) => (
-  <button
-    title={title}
-    onClick={onClick}
-    style={{
-      ...(active ? sunken(DARK) : raised(DARK)),
-      backgroundColor: active ? DARK.bg0 : DARK.bg3,
-      color: active ? DARK.accentBlue : DARK.textMid,
-      fontFamily: DARK.font,
-      fontSize: "8px",
-      fontWeight: "bold",
-      textTransform: "uppercase",
-      letterSpacing: "0.08em",
-      display: "flex",
-      alignItems: "center",
-      gap: SPACE.xs,
-      padding: `${SPACE.xs}px ${SPACE.sm}px`,
-      height: "22px",
-      cursor: "pointer",
-      userSelect: "none",
-      border: "none",
-    }}
-  >
-    {icon}
-    {label}
-  </button>
-);
+}) {
+  const { theme: DARK, raised, sunken, SPACE } = useTheme();
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      style={{
+        ...(active ? sunken(DARK) : raised(DARK)),
+        backgroundColor: active ? DARK.bg0 : DARK.bg3,
+        color: active ? DARK.accentBlue : DARK.textMid,
+        fontFamily: DARK.font,
+        fontSize: "8px",
+        fontWeight: "bold",
+        textTransform: "uppercase",
+        letterSpacing: "0.08em",
+        display: "flex",
+        alignItems: "center",
+        gap: SPACE.xs,
+        padding: `${SPACE.xs}px ${SPACE.sm}px`,
+        height: "22px",
+        cursor: "pointer",
+        userSelect: "none",
+        border: "none",
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
 
 // ── SVG Icons (inline — no external dep) ─────────────────────────────────────
 const IconPencil = () => (
@@ -495,6 +477,29 @@ export function PianoRoll({
   channelPans,
 }: PianoRollProps) {
   const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
+  const lcdSelectStyle: React.CSSProperties = {
+    ...sunken(DARK),
+    backgroundColor: DARK.bg0,
+    color: DARK.lcdText,
+    fontFamily: DARK.font,
+    fontSize: "8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    padding: `${SPACE.xs}px ${SPACE.sm}px`,
+    height: "22px",
+    outline: "none",
+    cursor: "pointer",
+    appearance: "none" as const,
+  };
+  const lcdLabelStyle: React.CSSProperties = {
+    fontFamily: DARK.font,
+    fontSize: "7px",
+    color: DARK.textLo,
+    textTransform: "uppercase",
+    letterSpacing: "0.1em",
+    paddingRight: SPACE.xs,
+    userSelect: "none",
+  };
   const {
     engine,
     events,
