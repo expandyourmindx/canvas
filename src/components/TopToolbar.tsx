@@ -25,15 +25,8 @@ import {
   FilePlus
 } from "lucide-react";
 import { CANVAS_VERSION } from "../config";
-import { 
-  DARK, 
-  raised, 
-  sunken, 
-  flat, 
-  flush, 
-  SPACE, 
-  SIZE 
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
+import { SettingsModal } from "./SettingsModal";
 
 interface TopToolbarProps {
   activeWindows: {
@@ -53,6 +46,7 @@ interface TopToolbarProps {
 }
 
 export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, browserOpen, onToggleBrowser }: TopToolbarProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const {
     engine,
     playbackState,
@@ -92,6 +86,7 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
   useShortcuts({ 'transport.playPause': handlePlayPause });
 
   const [visMode, setVisMode] = useState<"spectrum" | "waveform">("spectrum");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const visModeRef = useRef<"spectrum" | "waveform">("spectrum");
 
@@ -673,6 +668,29 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
             </div>
           )}
         </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          style={{
+            backgroundColor: "transparent",
+            color: DARK.textMid,
+            border: "none",
+            fontFamily: DARK.font,
+            fontSize: "9px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            padding: "2px 6px",
+            cursor: "pointer",
+            letterSpacing: "0.08em",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = DARK.textHi;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = DARK.textMid;
+          }}
+        >
+          Settings
+        </button>
       </div>
 
       {/* CENTER COMPACT TRANSPORT CONSOLE */}
@@ -1161,6 +1179,7 @@ export function TopToolbar({ activeWindows, winOrder, toggleWindow, onSetFocus, 
           );
         })}
       </div>
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </header>
   );
 }

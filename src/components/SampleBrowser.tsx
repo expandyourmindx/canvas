@@ -31,15 +31,7 @@ import {
 } from "../audio/SampleLibraryManager";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { getCloudSampleCache, setCloudSampleCache } from "../audio/CloudSampleCache";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-  SIZE,
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 export { getLibraryManager };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -84,6 +76,7 @@ export function SampleBrowser({
   isPinned,
   onTogglePin,
 }: SampleBrowserProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   // Local fallback pin state if not controlled from props
   const [localPinned, setLocalPinned] = useState(true);
   const pinned = isPinned !== undefined ? isPinned : localPinned;

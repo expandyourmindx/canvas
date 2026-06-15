@@ -1,15 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useAudioEngine } from "../../audio/useAudioEngine";
 import { EQBandSettings } from "../../types";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-  SIZE,
-} from "../../../public/Themes/Vintage Console/tokens";
+import { useTheme, DARK, raised, sunken, flat, flush, SPACE, SIZE } from "../../theme/ThemeContext";
 
 interface ParametricEQPanelProps {
   insertIndex: number;
@@ -72,6 +64,7 @@ function EQKnob({
   formatValue,
   onChange,
 }: EQKnobProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const knobRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startY = useRef(0);
@@ -258,6 +251,7 @@ function EQKnob({
 }
 
 export function ParametricEQPanel({ insertIndex, slotIndex, onClose }: ParametricEQPanelProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine, updateInsertEQBand } = useAudioEngine();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);

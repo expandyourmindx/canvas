@@ -8,14 +8,7 @@ import { ChannelRow, SamplerSettings } from "../types";
 import { Knob } from "../components/ChannelRack";
 import { useAudioEngine } from "../audio/useAudioEngine";
 
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 // ── Hex → rgba helper ─────────────────────────────────────────────────────────
 const hexToRgba = (hex: string, alpha: number): string => {
@@ -97,6 +90,7 @@ function SectionCard({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   return (
     <div
       style={{
@@ -221,6 +215,7 @@ export function Sampler({
   samplerSettings,
   setSamplerSettings,
 }: SamplerProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine, getSampleBuffer, previewChannel } = useAudioEngine();
   const canvasRef   = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

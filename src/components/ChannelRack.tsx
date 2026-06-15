@@ -17,15 +17,7 @@ import {
   GripVertical,
   Copy
 } from "lucide-react";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-  SIZE
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 export interface InstrumentDefinition {
   id: string;
@@ -70,6 +62,7 @@ interface KnobProps {
 }
 
 export function Knob({ value, min, max, onChange, label, title, color = "cyan", defaultValue }: KnobProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const knobRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startY = useRef(0);
@@ -241,6 +234,7 @@ export function ChannelRack({
   onOpenPianoRoll,
   onOpenWAM,
 }: ChannelRackProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const {
     engine,

@@ -7,14 +7,7 @@ import React, { useState } from "react";
 import { ExportEngine, ExportSettings } from "../audio/ExportEngine";
 import { useAudioEngine } from "../audio/useAudioEngine";
 
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme, DARK, raised, sunken, flat, flush, SPACE } from "../theme/ThemeContext";
 
 // ── Hex → rgba helper (no hardcoded hex in render output) ─────────────────────
 const hexToRgba = (hex: string, alpha: number): string => {
@@ -66,6 +59,7 @@ function SectionCard({
   label: string;
   children: React.ReactNode;
 }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   return (
     <div
       style={{
@@ -101,6 +95,7 @@ function ToggleButton({
   onClick?: () => void;
   title?: string;
 }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const style: React.CSSProperties = comingSoon
     ? {
         ...flush(DARK),
@@ -173,6 +168,7 @@ function DspToggle({
   disabled: boolean;
   onToggle: () => void;
 }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   return (
     <button
       id={id}
@@ -293,6 +289,7 @@ interface ExportWindowProps {
 }
 
 export function ExportWindow({ onClose }: ExportWindowProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine } = useAudioEngine();
 
   // 1. Interactive Form states

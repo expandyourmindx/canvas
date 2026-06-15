@@ -109,6 +109,29 @@ export const ghostBorder = () => ({
 // Floating panels ONLY. 2px offset, zero blur. Pure GEM.
 export const gemShadow = `2px 2px 0 ${ink}`;
 
+// Bevel functions compatibility with Vintage Console
+export const raised = (t) => ({
+  borderTop:    `1px solid ${t.bevelLight}`,
+  borderLeft:   `1px solid ${t.bevelLight}`,
+  borderBottom: `1px solid ${t.bevelDark}`,
+  borderRight:  `1px solid ${t.bevelDark}`,
+});
+
+export const sunken = (t) => ({
+  borderTop:    `1px solid ${t.bevelDark}`,
+  borderLeft:   `1px solid ${t.bevelDark}`,
+  borderBottom: `1px solid ${t.bevelLight}`,
+  borderRight:  `1px solid ${t.bevelLight}`,
+});
+
+export const flat = (t) => ({
+  border: `1px solid ${t.bevelMid}`,
+});
+
+export const flush = (t) => ({
+  border: `1px solid ${t.bevelDark}`,
+});
+
 // ── THEME OBJECT (for passing to components) ─────────────────
 export const ATARI_PAPER = {
   paper, paperDark, paperDeep, paperPanel,
@@ -121,6 +144,56 @@ export const ATARI_PAPER = {
   font, fontMono,
   SPACE, SIZE,
   gemRaised, gemSunken, inkBorder, ghostBorder, gemShadow,
+
+  // Surface scale
+  bg0: paperPanel,
+  bg1: paperDeep,
+  bg2: paperDark,
+  bg3: paper,
+  bg4: "#f8f5ee",
+  bg5: "#ffffff",
+
+  // Bevel
+  bevelLight: paper,
+  bevelMid: inkLight,
+  bevelDark: ink,
+
+  // Accents
+  accentMaster: playhead,
+  accentBlue: selection,
+  accentGreen: "#287040",
+  accentPurple: "#6a0080",
+  accentOrange: "#c04000",
+
+  // State
+  stateRed: playhead,
+  stateGreen: "#208840",
+  stateAmber: "#a06808",
+  stateHot: playhead,
+
+  // Text hierarchy
+  textHi: ink,
+  textMid: inkMid,
+  textLo: inkLight,
+  textDim: inkGhost,
+  textGhost: paperDeep,
+
+  // VU meter
+  vu: [ink, ink, ink, ink, ink, ink, inkMid, inkMid, "#a06808", "#a06808", playhead, playhead],
+
+  // LCD
+  lcdBg: paperDark,
+  lcdText: selection,
+
+  // Knob
+  knobBody: paperDeep,
+  knobHighlight: "rgba(255,255,255,0.4)",
+
+  // Title bar
+  titleBarGradient: "none",
+
+  // Font
+  font,
 };
 
 export default ATARI_PAPER;

@@ -62,6 +62,8 @@ export const DARK = {
   titleBarGradient: "linear-gradient(to right, #1a3050, #253a50)",
 
   font: "'Courier New', Courier, monospace",
+  SPACE,
+  SIZE,
 };
 
 // ── LIGHT THEME ──────────────────────────────────────────────
@@ -120,6 +122,8 @@ export const LIGHT = {
   titleBarGradient: "linear-gradient(to right, #b8c8d8, #c8d8e8)",
 
   font: "'Courier New', Courier, monospace",
+  SPACE,
+  SIZE,
 };
 
 // ── SHARED BEVEL CONSTRUCTORS ────────────────────────────────

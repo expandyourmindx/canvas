@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAudioEngine } from "../../audio/useAudioEngine";
 import { Power } from "lucide-react";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  SPACE,
-  SIZE,
-} from "../../../public/Themes/Vintage Console/tokens";
+import { useTheme, DARK, raised, sunken, flat, SPACE, SIZE } from "../../theme/ThemeContext";
 
 interface ReverbPanelProps {
   insertIndex: number;
@@ -39,6 +32,7 @@ function ReverbKnob({
   onChange,
   title,
 }: ReverbKnobProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const knobRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startY = useRef(0);
@@ -201,6 +195,7 @@ function ReverbKnob({
 }
 
 export function ReverbPanel({ insertIndex, slotIndex, onClose }: ReverbPanelProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine, updateInsertReverbParam, setInsertFXBypass } = useAudioEngine();
 
   // Get active insert and Reverb instances

@@ -2,15 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from "react";
 import { useAudioEngine } from "../audio/useAudioEngine";
 import { ChannelRow } from "../types";
 import { MixerInsert } from "../audio/MixerManager";
-import { 
-  DARK, 
-  raised, 
-  sunken, 
-  flat, 
-  flush, 
-  SPACE, 
-  SIZE 
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme, DARK } from "../theme/ThemeContext";
 import { Activity, Shield } from "lucide-react";
 
 interface MixerProps {
@@ -28,6 +20,7 @@ interface MixerProps {
 
 // The LevelMeter component uses requestAnimationFrame and direct DOM updates for high performance
 function LevelMeter({ insertIndex, isMuted }: { insertIndex: number; isMuted: boolean }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine } = useAudioEngine();
   const rawMeterRef = useRef<HTMLDivElement>(null);
   const peakLineRef = useRef<HTMLDivElement>(null);
@@ -199,6 +192,7 @@ interface PanKnobProps {
 }
 
 function PanKnob({ value, min, max, onChange, defaultValue = 0, title, dotColor = DARK.accentBlue }: PanKnobProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -298,6 +292,7 @@ interface InputGainKnobProps {
 }
 
 function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, hasRing, onContextMenu, onDragStart, onDragEnd }: InputGainKnobProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const knobRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -423,6 +418,7 @@ interface VerticalFaderProps {
 }
 
 function VerticalFader({ value, onChange, title }: VerticalFaderProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const trackRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -576,6 +572,7 @@ export function Mixer({
   isVisible = false,
   onPositionChangeRef,
 }: MixerProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const { engine, setInsertFXSlot, setInsertFXBypass, loadWAMEffect, focusedChannelId, armInsert, disarmInsert } = useAudioEngine();
   const [selectedInsertIndex, setSelectedInsertIndex] = useState(0);
   const isDraggingKnobRef = useRef(false);

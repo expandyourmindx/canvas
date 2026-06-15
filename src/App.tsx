@@ -10,6 +10,7 @@ import { generateDrumSampleWav } from "./audio/sampleGenerator";
 import { Desktop } from "./components/Desktop";
 import { KeyboardMidiListener } from "./components/KeyboardMidiListener";
 import { ShortcutRegistryProvider } from "./hooks/useShortcutRegistry";
+import { ThemeProvider } from "./theme/ThemeContext";
 
 function MainWorkspace() {
   return (
@@ -22,10 +23,12 @@ function MainWorkspace() {
 
 export default function App() {
   return (
-    <ShortcutRegistryProvider>
-      <AudioEngineProvider>
-        <MainWorkspace />
-      </AudioEngineProvider>
-    </ShortcutRegistryProvider>
+    <ThemeProvider>
+      <ShortcutRegistryProvider>
+        <AudioEngineProvider>
+          <MainWorkspace />
+        </AudioEngineProvider>
+      </ShortcutRegistryProvider>
+    </ThemeProvider>
   );
 }

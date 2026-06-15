@@ -12,13 +12,7 @@ import { PATTERN_LENGTH_BEATS } from "../config";
 import { usePianoRollDrag } from "../hooks/usePianoRollDrag";
 import { getAutoSnapResolution } from "../utils/snapUtils";
 
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  SPACE,
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme, DARK, raised, sunken, flat, SPACE } from "../theme/ThemeContext";
 
 // ── MIDI note range (high → low) ────────────────────────────────────────────
 const MIDI_NOTES: number[] = [];
@@ -224,6 +218,7 @@ function InlinedPianoKeyboard({
   activeMidiNotes,
   handleKeyAudition,
 }: InlinedPianoKeyboardProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   return (
     <div
       style={{
@@ -357,6 +352,7 @@ function InlinedPianoRollNote({
   handleResizeMove,
   handleResizeUp,
 }: InlinedPianoRollNoteProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   if (noteEvent.pitch === undefined) return null;
   const noteIndex = MIDI_NOTES.indexOf(noteEvent.pitch);
   if (noteIndex === -1) return null;
@@ -498,6 +494,7 @@ export function PianoRoll({
   channelVols,
   channelPans,
 }: PianoRollProps) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const {
     engine,
     events,
@@ -1288,6 +1285,7 @@ export function PianoRoll({
 // Separated for clarity — raised, stateRed text, no hover transitions
 // ─────────────────────────────────────────────────────────────────────────────
 function DeleteMelodiesButton({ onClick }: { onClick: () => void }) {
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
   const [pressed, setPressed] = useState(false);
   return (
     <button
