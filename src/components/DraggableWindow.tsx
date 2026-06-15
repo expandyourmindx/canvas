@@ -5,12 +5,7 @@
 
 import React, { useState, useRef } from "react";
 import { X, Maximize2, Minimize2 } from "lucide-react";
-import {
-  DARK,
-  raised,
-  SPACE,
-  SIZE
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 interface DraggableWindowProps {
   id: string;
@@ -47,6 +42,7 @@ export function DraggableWindow({
   children,
   onPositionChange,
 }: DraggableWindowProps) {
+  const { theme: DARK, raised, SPACE, SIZE } = useTheme();
   // Positioning and dimensions states
   const [position, setPosition] = useState({ x: defaultX, y: defaultY });
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });

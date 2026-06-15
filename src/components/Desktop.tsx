@@ -34,7 +34,10 @@ import {
   PinOff,
 } from "lucide-react";
 
+import { useTheme } from "../theme/ThemeContext";
+
 export function Desktop() {
+  const { theme: DARK } = useTheme();
   const {
     engine,
     getSampleBuffer,
@@ -706,7 +709,10 @@ export function Desktop() {
         >
           <div className="h-full flex flex-col">
             {/* Pin button in floating header */}
-            <div className="flex items-center justify-end px-1 py-0.5 border-b border-neutral-800 bg-[#101114] shrink-0">
+            <div
+              className="flex items-center justify-between px-1 py-0.5 border-b shrink-0"
+              style={{ backgroundColor: DARK.bg1, borderBottomColor: DARK.bevelDark }}
+            >
               <button
                 onClick={() => setBrowserPinned(true)}
                 className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
@@ -787,7 +793,7 @@ function WAMGuiMount({ channelId }: { channelId: string }) {
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', overflow: 'auto', background: '#131010' }}
+      style={{ width: '100%', height: '100%', overflow: 'auto', background: '#060a0f' }} /* TODO: wire to theme when WAM mount is refactored */
     />
   );
 }
@@ -850,7 +856,7 @@ function WAMEffectGuiMount({
   return (
     <div
       ref={containerRef}
-      style={{ width: "100%", height: "100%", overflow: "auto", background: "#131010" }}
+      style={{ width: "100%", height: "100%", overflow: "auto", background: "#060a0f" }} /* TODO: wire to theme when WAM mount is refactored */
     />
   );
 }

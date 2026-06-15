@@ -28,15 +28,7 @@ import { ArrangerClip } from "./ArrangerClip";
 import { getLibraryManager } from "./SampleBrowser";
 
 import { getAutoSnapResolution } from "../utils/snapUtils";
-import {
-  DARK,
-  raised,
-  sunken,
-  flat,
-  flush,
-  SPACE,
-  SIZE
-} from "../../public/Themes/Vintage Console/tokens";
+import { useTheme } from "../theme/ThemeContext";
 
 function hexToRgba(hex: string, alpha: number): string {
   const cleanHex = hex.replace("#", "");
@@ -93,6 +85,8 @@ export function Canvas({
     pendingRecordedClips,
     clearPendingRecordedClips,
   } = useAudioEngine();
+
+  const { theme: DARK, raised, sunken, flat, flush, SPACE, SIZE } = useTheme();
 
   // Safe wrapper to resolve channel reference ID (e.g. sampler_...) to its actual sampleId
   const getSampleBufferWrapper = React.useCallback((id: string) => {
