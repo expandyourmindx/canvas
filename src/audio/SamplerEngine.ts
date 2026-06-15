@@ -769,23 +769,6 @@ export class SamplerEngine {
 
     const settings = channelId ? this.samplerSettings[channelId] : null;
     const isStretchActive = settings && settings.stretchMode?.toUpperCase() === "STRETCH";
-    const stretchedKey = `${clip.id}_stretched`;
-    const cachedStretchedBufferExists = !!this.sampleRegistry.getSampleBuffer(stretchedKey);
-
-    console.log(
-      `[triggerCanvasSample START]\n` +
-      `- Clip ID: ${clip.id}\n` +
-      `- Clip referenceId: ${clip.referenceId}\n` +
-      `- Resolved Channel ID: ${channelId || "none"}\n` +
-      `- Stretch Mode Setting: ${settings ? settings.stretchMode : "none"}\n` +
-      `- Is Stretch Active: ${isStretchActive}\n` +
-      `- Lookup Key (for stretched): ${stretchedKey}\n` +
-      `- Cached Stretched Buffer Exists: ${cachedStretchedBufferExists}`
-    );
-
-    if (channelId) {
-      console.log("Playing buffer reference for channel:", channelId, "Active ID:", this.channelSampleIds[channelId]);
-    }
 
     if (isStretchActive) {
       console.log("[STRETCH PLAYBACK] entering stretch playback path");
