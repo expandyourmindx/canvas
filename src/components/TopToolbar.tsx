@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { CANVAS_VERSION } from "../config";
 import { useTheme } from "../theme/ThemeContext";
-import { SettingsModal } from "./SettingsModal"; // Settings modal component
+import { SettingsModal } from "./SettingsModal.tsx"; // Settings modal component
 
 interface TopToolbarProps {
   activeWindows: {
