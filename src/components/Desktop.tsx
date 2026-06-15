@@ -386,12 +386,6 @@ export function Desktop() {
               borderBottom: `1px solid ${DARK.bevelDark}`,
             }}
           >
-            <span
-              className="text-[9px] font-black tracking-widest uppercase"
-              style={{ color: DARK.textMid }}
-            >
-              Sample Browser
-            </span>
             <button
               onClick={() => setBrowserPinned(false)}
               className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
