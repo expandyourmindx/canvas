@@ -317,7 +317,10 @@ export function Desktop() {
 
 
   return (
-    <div className="absolute inset-0 h-screen w-screen bg-[#070809] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900/30 via-[#0a0b0d] to-[#040506] overflow-hidden flex flex-col font-sans select-none text-neutral-200">
+    <div
+      className="absolute inset-0 h-screen w-screen overflow-hidden flex flex-col font-sans select-none text-neutral-200"
+      style={{ backgroundColor: DARK.bg0 }}
+    >
 
       {/* 2. Extensible top toolbar */}
       <TopToolbar
@@ -367,12 +370,28 @@ export function Desktop() {
       {/* ── Pinned Sample Browser Panel ── */}
       {browserPinned && browserOpen && (
         <div
-          className="fixed left-0 top-11 bottom-0 bg-[#0a0b0d] border-r border-neutral-800 flex flex-col select-none"
-          style={{ width: "var(--sample-browser-width)", zIndex: 45 }}
+          className="fixed left-0 top-11 bottom-0 flex flex-col select-none"
+          style={{
+            width: "var(--sample-browser-width)",
+            zIndex: 45,
+            backgroundColor: DARK.bg0,
+            borderRight: `1px solid ${DARK.bevelDark}`,
+          }}
         >
           {/* Panel Header */}
-          <div className="flex items-center justify-between px-2 py-1.5 border-b border-neutral-800 bg-[#101114] shrink-0">
-            <span className="text-[9px] font-black tracking-widest text-zinc-400 uppercase">Sample Browser</span>
+          <div
+            className="flex items-center justify-between px-2 py-1.5 shrink-0"
+            style={{
+              backgroundColor: DARK.bg1,
+              borderBottom: `1px solid ${DARK.bevelDark}`,
+            }}
+          >
+            <span
+              className="text-[9px] font-black tracking-widest uppercase"
+              style={{ color: DARK.textMid }}
+            >
+              Sample Browser
+            </span>
             <button
               onClick={() => setBrowserPinned(false)}
               className="p-0.5 hover:bg-neutral-800 text-zinc-500 hover:text-amber-400 transition-colors rounded-xs cursor-pointer"
