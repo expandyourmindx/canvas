@@ -7,6 +7,36 @@
 // color values, spacing, or border styles from scratch.
 // ============================================================
 
+// ── SPACING ──────────────────────────────────────────────────
+export const SPACE = {
+  px: 1,   // hairline / bevel
+  xs: 2,   // tight — button gap, segment gap
+  sm: 4,   // base unit
+  md: 6,   // panel padding
+  lg: 12,  // component gap
+  xl: 16,  // section padding
+  xxl: 24,  // page margin
+};
+
+// ── COMPONENT SIZING ─────────────────────────────────────────
+export const SIZE = {
+  channelStrip: 68,   // px — standard channel
+  channelStripMaster: 80,   // px — master channel
+  titleBarHeight: 18,
+  statusBarHeight: 14,
+  fxRowHeight: 20,
+  knobSm: 22,
+  knobMd: 26,
+  knobLg: 32,
+  vuSegW: 6,
+  vuSegH: 3,
+  vuSegGap: 1,
+  vuSegCount: 12,
+  faderThumbW: 22,
+  faderThumbH: 14,
+  channelNameWidth: 96,
+};
+
 // ── DARK THEME ───────────────────────────────────────────────
 export const DARK = {
   // Surfaces — 6-step scale, blue-black with slight warm undertone
@@ -152,32 +182,3 @@ export const flush = (t) => ({
   border: `1px solid ${t.bevelDark}`,
 });
 
-// ── SPACING ──────────────────────────────────────────────────
-export const SPACE = {
-  px: 1,   // hairline / bevel
-  xs: 2,   // tight — button gap, segment gap
-  sm: 4,   // base unit
-  md: 6,   // panel padding
-  lg: 12,  // component gap
-  xl: 16,  // section padding
-  xxl: 24,  // page margin
-};
-
-// ── COMPONENT SIZING ─────────────────────────────────────────
-export const SIZE = {
-  channelStrip: 68,   // px — standard channel
-  channelStripMaster: 80,   // px — master channel
-  titleBarHeight: 18,
-  statusBarHeight: 14,
-  fxRowHeight: 20,
-  knobSm: 22,
-  knobMd: 26,
-  knobLg: 32,
-  vuSegW: 6,
-  vuSegH: 3,
-  vuSegGap: 1,
-  vuSegCount: 12,
-  faderThumbW: 22,
-  faderThumbH: 14,
-  channelNameWidth: 96,
-};
