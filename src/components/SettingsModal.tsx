@@ -114,6 +114,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             <option value="vintage-dark" style={{ backgroundColor: DARK.bg0, color: DARK.lcdText }}>Vintage Console — Dark</option>
             <option value="vintage-light" style={{ backgroundColor: DARK.bg0, color: DARK.lcdText }}>Vintage Console — Light</option>
             <option value="atari-paper" style={{ backgroundColor: DARK.bg0, color: DARK.lcdText }}>Atari Paper</option>
+            <option value="atari-paper-dark" style={{ backgroundColor: DARK.bg0, color: DARK.lcdText }}>Atari Paper Dark</option>
           </select>
         </div>
       </div>
