@@ -971,9 +971,22 @@ export class SamplerEngine {
             voice.gainNode.gain.cancelScheduledValues(now);
             voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
             voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.010);
-            try {
-              voice.source.stop(now + 0.010);
-            } catch (e) {}
+          } catch (err) {}
+        }
+      });
+    });
+  }
+
+  public unmuteLaneVoices(laneIndex: number, time?: number) {
+    const now = time !== undefined ? time : this.audioContext.currentTime;
+    this.activeSamplerVoices.forEach((voices) => {
+      voices.forEach((voice) => {
+        if (voice.laneIndex === laneIndex) {
+          try {
+            voice.gainNode.gain.cancelScheduledValues(now);
+            voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
+            const targetVolume = voice.midiNote === -1 ? 0.8 : 0.8;
+            voice.gainNode.gain.linearRampToValueAtTime(targetVolume, now + 0.010);
           } catch (err) {}
         }
       });

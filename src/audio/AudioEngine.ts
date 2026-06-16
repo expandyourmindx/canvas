@@ -1346,6 +1346,26 @@ export class AudioEngine {
 
     if (isMuted) {
       this.samplerEngine.muteLaneVoices(laneIndex);
+    } else {
+      this.samplerEngine.unmuteLaneVoices(laneIndex);
+
+      const isPlaying = this.scheduler.getState() === "playing";
+      if (isPlaying) {
+        const currentSecs = this.getCurrentPosition("seconds");
+        const audioContextStartTime = this.scheduler.audioContextStartTime;
+
+        for (const clip of this.canvasClips) {
+          if (clip.laneIndex === laneIndex && clip.type === "sample") {
+            const clipStartSecs = this.beatsToSeconds(clip.startBeat);
+            const clipDurationSecs = this.beatsToSeconds(clip.duration);
+            const clipEndSecs = clipStartSecs + clipDurationSecs;
+
+            if (clipStartSecs < currentSecs && clipEndSecs > currentSecs) {
+              this.triggerCanvasSample(clip, audioContextStartTime, currentSecs - clipStartSecs);
+            }
+          }
+        }
+      }
     }
   }
 
