@@ -639,6 +639,7 @@ export function Mixer({
   const [remoteEffects, setRemoteEffects] = useState<typeof LOCAL_EFFECTS>([]);
   const [effectMoreOpen, setEffectMoreOpen] = useState(false);
   const [effectMoreLoading, setEffectMoreLoading] = useState(false);
+  const [wamUrlInput, setWamUrlInput] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const [slotContextMenu, setSlotContextMenu] = useState<{
@@ -727,6 +728,25 @@ export function Mixer({
 
   const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const deriveWamLabelFromUrl = (url: string): string => {
+    try {
+      const path = new URL(url).pathname;
+      const segments = path.split("/").filter(Boolean);
+      const last = segments
+        .reverse()
+        .find(s => !/^index\.(js|mjs)$/i.test(s));
+      if (!last) return "Custom WAM";
+      const cleaned = last.replace(/\.(js|mjs)$/i, "").replace(/[-_]+/g, " ").trim();
+      if (!cleaned) return "Custom WAM";
+      return cleaned
+        .split(" ")
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    } catch {
+      return "Custom WAM";
+    }
+  };
 
   const startRename = (index: number, currentName: string) => {
     setRenamingIndex(index);
@@ -2505,6 +2525,79 @@ export function Mixer({
                           </div>
                         )}
                       </div>
+
+                      <div style={{ borderTop: `1px solid ${DARK.bg0}`, marginTop: `${SPACE.xs}px` }} />
+
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const trimmed = wamUrlInput.trim();
+                          if (!trimmed) return;
+                          const label = deriveWamLabelFromUrl(trimmed);
+                          setWamUrlInput("");
+                          setActivePickerSlotIdx(null);
+                          try {
+                            await loadWAMEffect(selectedInsert.index, slotIdx, trimmed, label);
+                          } catch (err) {
+                            console.error("Failed to load custom WAM effect:", err);
+                          }
+                        }}
+                        style={{
+                          display: "flex",
+                          gap: "2px",
+                          padding: `${SPACE.sm}px ${SPACE.md}px`,
+                          boxSizing: "border-box",
+                        }}
+                      >
+                        <input
+                          type="text"
+                          placeholder="Paste WAM URL..."
+                          value={wamUrlInput}
+                          onChange={(e) => setWamUrlInput(e.target.value)}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            backgroundColor: DARK.bg2,
+                            color: DARK.textHi,
+                            border: "none",
+                            outline: "none",
+                            fontFamily: DARK.font,
+                            fontSize: "9px",
+                            fontWeight: "bold",
+                            padding: `${SPACE.sm}px ${SPACE.md}px`,
+                            boxSizing: "border-box",
+                            borderRadius: 0,
+                            boxShadow: "none",
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          style={{
+                            backgroundColor: DARK.bg2,
+                            color: DARK.accentOrange,
+                            border: "none",
+                            cursor: "pointer",
+                            fontFamily: DARK.font,
+                            fontSize: "9px",
+                            fontWeight: "bold",
+                            textTransform: "uppercase",
+                            padding: `${SPACE.sm}px ${SPACE.md}px`,
+                            boxSizing: "border-box",
+                            borderRadius: 0,
+                            boxShadow: "none",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = DARK.bg3;
+                            e.currentTarget.style.color = DARK.textHi;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = DARK.bg2;
+                            e.currentTarget.style.color = DARK.accentOrange;
+                          }}
+                        >
+                          Load
+                        </button>
+                      </form>
 
                       <div style={{ borderTop: `1px solid ${DARK.bg0}`, marginTop: `${SPACE.xs}px`, paddingTop: `${SPACE.xs}px` }}>
                         <button
