@@ -721,6 +721,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
       loopSettings: engine.getLoopSettings(),
       sampleIds: engine.getLoadedSampleIds(),
       wamChannels: engine.getWamChannels(),
+      laneStates: engine.getLaneStates(),
     };
   }, [engine, projectName]);
 
@@ -878,6 +879,11 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     if (project.bpm) {
       engine.setBpm(project.bpm);
     }
+    if (project.laneStates) {
+      engine.restoreLaneStates(project.laneStates);
+    } else {
+      engine.restoreLaneStates({});
+    }
 
     // 8. sync React state in AudioEngineProvider
     setEventsState(engine.getEvents());
@@ -1034,6 +1040,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     engine.setBpm(120);
     engine.setPlaybackMode("song");
     engine.setLoop(false, 0, 4);
+    engine.restoreLaneStates({});
 
     // Reset React state
     setCanvasClipsState([]);

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { CanvasClip, PatternData, PatternNote, SamplerSettings, DAWEvent, MixerInsert, EQBandSettings, ReverbSettings } from "../types";
+import { CanvasClip, PatternData, PatternNote, SamplerSettings, DAWEvent, MixerInsert, EQBandSettings, ReverbSettings, LaneState } from "../types";
 import { SamplerEngine } from "./SamplerEngine";
 import { SampleRegistry } from "./SampleRegistry";
 import { MixerManager } from "./MixerManager";
@@ -52,6 +52,9 @@ export class AudioEngine {
 
   // Master hybrid arranger clips
   private canvasClips: CanvasClip[] = [];
+
+  // Mute/Solo states for visual arrangement lanes
+  private laneStates: Record<number, LaneState> = {};
 
   // Audio Buffer Registry: Decoupled manager handling cached sample buffers
   public sampleRegistry: SampleRegistry;
@@ -361,6 +364,10 @@ export class AudioEngine {
     return this.scheduler.subscribeToTimelineTick(callback);
   }
 
+  private isAnyLaneSoloed(): boolean {
+    return Object.values(this.laneStates).some((state) => state.isSoloed === true);
+  }
+
   /**
    * Searches and processes all sequence notes inside the requested timeline frame.
    * Maps relative sequence times to absolute Web Audio hardware clock seconds.
@@ -423,7 +430,15 @@ export class AudioEngine {
       }
     } else {
       // Process unbound arranger Canvas clips
+      const anySoloed = this.isAnyLaneSoloed();
       for (const clip of this.canvasClips) {
+        const laneState = this.laneStates[clip.laneIndex];
+        if (anySoloed) {
+          if (!laneState || !laneState.isSoloed) continue;
+        } else {
+          if (laneState && laneState.isMuted) continue;
+        }
+
         const clipStartSecs = this.beatsToSeconds(clip.startBeat);
         const clipDurationSecs = this.beatsToSeconds(clip.duration);
         const clipEndSecs = clipStartSecs + clipDurationSecs;
@@ -1321,6 +1336,32 @@ export class AudioEngine {
 
   public removeCanvasClip(id: string) {
     this.canvasClips = this.canvasClips.filter(c => c.id !== id);
+  }
+
+  public setLaneMute(laneIndex: number, isMuted: boolean) {
+    if (!this.laneStates[laneIndex]) {
+      this.laneStates[laneIndex] = { isMuted: false, isSoloed: false };
+    }
+    this.laneStates[laneIndex].isMuted = isMuted;
+
+    if (isMuted) {
+      this.samplerEngine.muteLaneVoices(laneIndex);
+    }
+  }
+
+  public setLaneSolo(laneIndex: number, isSoloed: boolean) {
+    if (!this.laneStates[laneIndex]) {
+      this.laneStates[laneIndex] = { isMuted: false, isSoloed: false };
+    }
+    this.laneStates[laneIndex].isSoloed = isSoloed;
+  }
+
+  public getLaneStates(): Record<number, LaneState> {
+    return this.laneStates;
+  }
+
+  public restoreLaneStates(states: Record<number, LaneState>) {
+    this.laneStates = { ...states };
   }
 
   public updateClipDuration(clipId: string, durationBeats: number) {
