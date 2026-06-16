@@ -1322,11 +1322,7 @@ export function Canvas({
                               padding: 0,
                               lineHeight: 1,
                               outline: "none",
-                              boxShadow: isSoloed
-                                ? `0 0 4px ${DARK.accentBlue}`
-                                : isMuted
-                                ? `0 0 4px ${DARK.textHi}`
-                                : "none",
+                              boxShadow: "none",
                               transition: "all 0.05s ease",
                             }}
                             title="Left-click to Mute, Right-click to Solo"
