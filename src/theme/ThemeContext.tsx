@@ -21,11 +21,19 @@ import {
   flat as atariFlat,
   flush as atariFlush
 } from "../../public/Themes/Atari Paper/atari-paper-tokens";
+import {
+  ATARI_PAPER_DARK,
+  raised as atariInkRaised,
+  sunken as atariInkSunken,
+  flat as atariInkFlat,
+  flush as atariInkFlush
+} from "../../public/Themes/Atari Ink/atari-ink-tokens";
 
 export const THEMES = {
   "vintage-dark":  DARK,
   "vintage-light": LIGHT,
   "atari-paper":   ATARI_PAPER,
+  "atari-paper-dark": ATARI_PAPER_DARK,
 } as const;
 
 export { DARK, vcRaised as raised, vcSunken as sunken, vcFlat as flat, vcFlush as flush, SPACE, SIZE };
@@ -52,10 +60,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const activeTheme = THEMES[themeName];
 
   // Resolve active bevel functions
-  const activeRaised = themeName === "atari-paper" ? atariRaised : vcRaised;
-  const activeSunken = themeName === "atari-paper" ? atariSunken : vcSunken;
-  const activeFlat = themeName === "atari-paper" ? atariFlat : vcFlat;
-  const activeFlush = themeName === "atari-paper" ? atariFlush : vcFlush;
+  const activeRaised = themeName === "atari-paper"
+    ? atariRaised
+    : themeName === "atari-paper-dark"
+      ? atariInkRaised
+      : vcRaised;
+  const activeSunken = themeName === "atari-paper"
+    ? atariSunken
+    : themeName === "atari-paper-dark"
+      ? atariInkSunken
+      : vcSunken;
+  const activeFlat = themeName === "atari-paper"
+    ? atariFlat
+    : themeName === "atari-paper-dark"
+      ? atariInkFlat
+      : vcFlat;
+  const activeFlush = themeName === "atari-paper"
+    ? atariFlush
+    : themeName === "atari-paper-dark"
+      ? atariInkFlush
+      : vcFlush;
 
   const value: ThemeContextValue = {
     theme: activeTheme as any,
