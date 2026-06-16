@@ -1308,24 +1308,24 @@ export function Canvas({
                               cursor: "pointer",
                               boxSizing: "border-box",
                               border: isSoloed
-                                ? "1px solid #00f0ff"
+                                ? `1px solid ${DARK.accentBlue}`
                                 : isMuted
-                                ? "1px solid #ffffff"
+                                ? `1px solid ${DARK.textHi}`
                                 : `1px solid ${DARK.bevelDark}`,
                               backgroundColor: isSoloed
-                                ? "#00f0ff"
+                                ? DARK.accentBlue
                                 : isMuted
-                                ? "#ffffff"
+                                ? DARK.textHi
                                 : DARK.bg1,
-                              color: isSoloed || isMuted ? "#000000" : DARK.textMid,
+                              color: isSoloed || isMuted ? DARK.bg0 : DARK.textMid,
                               borderRadius: "1px",
                               padding: 0,
                               lineHeight: 1,
                               outline: "none",
                               boxShadow: isSoloed
-                                ? "0 0 4px #00f0ff"
+                                ? `0 0 4px ${DARK.accentBlue}`
                                 : isMuted
-                                ? "0 0 4px #ffffff"
+                                ? `0 0 4px ${DARK.textHi}`
                                 : "none",
                               transition: "all 0.05s ease",
                             }}
