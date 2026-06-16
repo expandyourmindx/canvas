@@ -588,6 +588,12 @@ const LOCAL_EFFECTS = [
     url: "https://plugins.canvasdaw.com/burns-audio/distortion/index.js",
     description: "Waveshaper distortion",
   },
+  {
+    id: "canvas-limiter",
+    name: "Canvas Limiter",
+    url: "https://expandyourmindx.github.io/canvas-limiter/index.js",
+    description: "Limiter and Compression",
+  },
 ];
 
 export function Mixer({
