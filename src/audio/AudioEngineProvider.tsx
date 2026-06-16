@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { AudioEngine, DAWEvent, TransportState } from "./AudioEngine";
-import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings, ReverbSettings } from "../types";
+import { CanvasClip, PatternData, ChannelRow, CanvasProject, SamplerSettings, EQBandSettings, ReverbSettings, LaneState } from "../types";
 import { getLibraryManager, SampleNode } from "./SampleLibraryManager";
 import { useShortcuts } from "../hooks/useShortcutRegistry";
 import { getCloudSampleCache, setCloudSampleCache } from "./CloudSampleCache";
@@ -167,6 +167,9 @@ export interface AudioEngineContextType {
   getRecordingStatus: () => ReturnType<AudioEngine['getRecordingStatus']>;
   pendingRecordedClips: Array<{ insertIndex: number; sampleId: string; audioBuffer: AudioBuffer; startBeat: number; durationBeats: number }>;
   clearPendingRecordedClips: () => void;
+  laneStates: Record<number, LaneState>;
+  setLaneMute: (laneIndex: number, isMuted: boolean) => void;
+  setLaneSolo: (laneIndex: number, isSoloed: boolean) => void;
 }
 
 export const AudioEngineContext = createContext<AudioEngineContextType | null>(null);
@@ -248,6 +251,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const [canvasClips, setCanvasClipsState] = useState<CanvasClip[]>(engine.getCanvasClips());
   const [patterns, setPatternsState] = useState<PatternData[]>(engine.getPatternsList());
   const [activePatternId, setActivePatternIdState] = useState<string>(engine.getActivePatternId());
+  const [laneStates, setLaneStatesState] = useState<Record<number, LaneState>>(engine.getLaneStates());
 
   // React state elements for Keyboard MIDI support
   const [pcKeyboardMidiActive, setPcKeyboardMidiActive] = useState<boolean>(true);
@@ -471,6 +475,18 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
   const setLoop = useCallback((active: boolean, startBeats: number = 0, endBeats: number = 4) => {
     engine.setLoop(active, startBeats, endBeats);
     setLoopSettings(engine.getLoopSettings());
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const setLaneMute = useCallback((laneIndex: number, isMuted: boolean) => {
+    engine.setLaneMute(laneIndex, isMuted);
+    setLaneStatesState({ ...engine.getLaneStates() });
+    setIsDirty(true);
+  }, [engine, setIsDirty]);
+
+  const setLaneSolo = useCallback((laneIndex: number, isSoloed: boolean) => {
+    engine.setLaneSolo(laneIndex, isSoloed);
+    setLaneStatesState({ ...engine.getLaneStates() });
     setIsDirty(true);
   }, [engine, setIsDirty]);
 
@@ -889,6 +905,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setEventsState(engine.getEvents());
     setCanvasClipsState(engine.getCanvasClips());
     setPatternsState(engine.getPatternsList());
+    setLaneStatesState(engine.getLaneStates());
     setActivePatternIdState(engine.getActivePatternId());
     setPlaybackModeState(engine.getPlaybackMode());
     setBpmState(engine.getBpm());
@@ -1046,6 +1063,7 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     setCanvasClipsState([]);
     setEventsState([]);
     setPatternsState(engine.getPatternsList());
+    setLaneStatesState({});
     setActivePatternIdState(engine.getActivePatternId());
     setPlaybackModeState("song");
     setBpmState(120);
@@ -1208,6 +1226,9 @@ export function AudioEngineProvider({ children }: AudioEngineProviderProps) {
     getRecordingStatus,
     pendingRecordedClips,
     clearPendingRecordedClips,
+    laneStates,
+    setLaneMute,
+    setLaneSolo,
   };
 
   return (
