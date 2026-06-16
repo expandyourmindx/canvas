@@ -957,6 +957,18 @@ export function Canvas({
                 setActiveTool('pencil');
                 setSelectedIds([]);
               }}
+              onMouseEnter={(e) => {
+                if (activeTool !== 'pencil') {
+                  e.currentTarget.style.backgroundColor = DARK.bg4;
+                  e.currentTarget.style.color = DARK.textHi;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTool !== 'pencil') {
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textMid;
+                }
+              }}
               style={{
                 padding: `2px ${SPACE.sm}px`,
                 fontSize: "8px",
@@ -982,6 +994,18 @@ export function Canvas({
             <button
               onClick={() => {
                 setActiveTool('pointer');
+              }}
+              onMouseEnter={(e) => {
+                if (activeTool !== 'pointer') {
+                  e.currentTarget.style.backgroundColor = DARK.bg4;
+                  e.currentTarget.style.color = DARK.textHi;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTool !== 'pointer') {
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textMid;
+                }
               }}
               style={{
                 padding: `2px ${SPACE.sm}px`,
@@ -1009,6 +1033,18 @@ export function Canvas({
               onClick={() => {
                 setActiveTool('split');
                 setSelectedIds([]);
+              }}
+              onMouseEnter={(e) => {
+                if (activeTool !== 'split') {
+                  e.currentTarget.style.backgroundColor = DARK.bg4;
+                  e.currentTarget.style.color = DARK.textHi;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTool !== 'split') {
+                  e.currentTarget.style.backgroundColor = DARK.bg3;
+                  e.currentTarget.style.color = DARK.textMid;
+                }
               }}
               style={{
                 padding: `2px ${SPACE.sm}px`,

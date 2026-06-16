@@ -235,6 +235,21 @@ function PanKnob({ value, min, max, onChange, defaultValue = 0, title, dotColor 
       ref={knobRef}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderTop = `1px solid ${DARK.bevelLight}`;
+        e.currentTarget.style.borderLeft = `1px solid ${DARK.bevelLight}`;
+        e.currentTarget.style.borderBottom = `1px solid ${DARK.bevelMid}`;
+        e.currentTarget.style.borderRight = `1px solid ${DARK.bevelMid}`;
+        e.currentTarget.style.backgroundColor = DARK.bg4;
+      }}
+      onMouseLeave={(e) => {
+        const rStyle = raised(DARK);
+        e.currentTarget.style.borderTop = rStyle.borderTop || "";
+        e.currentTarget.style.borderLeft = rStyle.borderLeft || "";
+        e.currentTarget.style.borderBottom = rStyle.borderBottom || "";
+        e.currentTarget.style.borderRight = rStyle.borderRight || "";
+        e.currentTarget.style.backgroundColor = DARK.knobBody;
+      }}
       title={title}
       style={{
         width: "22px",
@@ -341,6 +356,21 @@ function InputGainKnob({ value, onChange, title, dotColor = DARK.accentBlue, has
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
       onContextMenu={onContextMenu}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderTop = `1px solid ${DARK.bevelLight}`;
+        e.currentTarget.style.borderLeft = `1px solid ${DARK.bevelLight}`;
+        e.currentTarget.style.borderBottom = `1px solid ${DARK.bevelMid}`;
+        e.currentTarget.style.borderRight = `1px solid ${DARK.bevelMid}`;
+        e.currentTarget.style.backgroundColor = DARK.bg4;
+      }}
+      onMouseLeave={(e) => {
+        const rStyle = raised(DARK);
+        e.currentTarget.style.borderTop = rStyle.borderTop || "";
+        e.currentTarget.style.borderLeft = rStyle.borderLeft || "";
+        e.currentTarget.style.borderBottom = rStyle.borderBottom || "";
+        e.currentTarget.style.borderRight = rStyle.borderRight || "";
+        e.currentTarget.style.backgroundColor = DARK.knobBody;
+      }}
       title={title}
       style={{
         width: "22px",
@@ -1344,6 +1374,14 @@ export function Mixer({
               <div style={{ display: "flex", gap: `${SPACE.xs}px` }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleMute(0, insertsState[0]?.isMuted); }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = insertsState[0]?.isMuted ? '#ff5252' : DARK.bg4;
+                    if (!insertsState[0]?.isMuted) e.currentTarget.style.color = DARK.textHi;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = insertsState[0]?.isMuted ? DARK.stateRed : DARK.bg3;
+                    if (!insertsState[0]?.isMuted) e.currentTarget.style.color = DARK.textMid;
+                  }}
                   style={{
                     flex: 1,
                     height: "18px",
@@ -1368,6 +1406,14 @@ export function Mixer({
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleToggleSolo(0, insertsState[0]?.isSoloed); }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = insertsState[0]?.isSoloed ? '#57e082' : DARK.bg4;
+                    if (!insertsState[0]?.isSoloed) e.currentTarget.style.color = DARK.textHi;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = insertsState[0]?.isSoloed ? DARK.stateGreen : DARK.bg3;
+                    if (!insertsState[0]?.isSoloed) e.currentTarget.style.color = DARK.textMid;
+                  }}
                   style={{
                     flex: 1,
                     height: "18px",
@@ -1918,6 +1964,14 @@ export function Mixer({
                   <div style={{ display: "flex", gap: `${SPACE.xs}px` }}>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleMute(ins.index, ins.isMuted); }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = ins.isMuted ? '#ff5252' : DARK.bg4;
+                        if (!ins.isMuted) e.currentTarget.style.color = DARK.textHi;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = ins.isMuted ? DARK.stateRed : DARK.bg3;
+                        if (!ins.isMuted) e.currentTarget.style.color = DARK.textMid;
+                      }}
                       style={{
                         flex: 1,
                         height: "18px",
@@ -1942,6 +1996,14 @@ export function Mixer({
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleSolo(ins.index, ins.isSoloed); }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = ins.isSoloed ? '#57e082' : DARK.bg4;
+                        if (!ins.isSoloed) e.currentTarget.style.color = DARK.textHi;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = ins.isSoloed ? DARK.stateGreen : DARK.bg3;
+                        if (!ins.isSoloed) e.currentTarget.style.color = DARK.textMid;
+                      }}
                       style={{
                         flex: 1,
                         height: "18px",

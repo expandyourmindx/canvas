@@ -131,6 +131,18 @@ function ToolButton({
     <button
       title={title}
       onClick={onClick}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = DARK.bg4;
+          e.currentTarget.style.color = DARK.textHi;
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.backgroundColor = DARK.bg3;
+          e.currentTarget.style.color = DARK.textMid;
+        }
+      }}
       style={{
         ...(active ? sunken(DARK) : raised(DARK)),
         backgroundColor: active ? DARK.bg0 : DARK.bg3,

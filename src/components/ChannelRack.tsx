@@ -149,6 +149,21 @@ export function Knob({ value, min, max, onChange, label, title, color = "cyan", 
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderTop = `1px solid ${DARK.bevelLight}`;
+          e.currentTarget.style.borderLeft = `1px solid ${DARK.bevelLight}`;
+          e.currentTarget.style.borderBottom = `1px solid ${DARK.bevelMid}`;
+          e.currentTarget.style.borderRight = `1px solid ${DARK.bevelMid}`;
+          e.currentTarget.style.backgroundColor = DARK.bg4;
+        }}
+        onMouseLeave={(e) => {
+          const rStyle = raised(DARK);
+          e.currentTarget.style.borderTop = rStyle.borderTop || "";
+          e.currentTarget.style.borderLeft = rStyle.borderLeft || "";
+          e.currentTarget.style.borderBottom = rStyle.borderBottom || "";
+          e.currentTarget.style.borderRight = rStyle.borderRight || "";
+          e.currentTarget.style.backgroundColor = DARK.knobBody;
+        }}
         style={{
           width: "22px",
           height: "22px",
@@ -1182,6 +1197,14 @@ export function ChannelRack({
                       e.stopPropagation();
                       setMutedChannels(prev => ({ ...prev, [channel.id]: !prev[channel.id] }));
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = isMuted ? '#ff5252' : DARK.bg4;
+                      if (!isMuted) e.currentTarget.style.color = DARK.textHi;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = isMuted ? DARK.stateRed : DARK.bg3;
+                      if (!isMuted) e.currentTarget.style.color = DARK.textMid;
+                    }}
                     style={{
                       width: "18px",
                       height: "20px",
@@ -1211,6 +1234,14 @@ export function ChannelRack({
                     onClick={(e) => {
                       e.stopPropagation();
                       setSoloedChannels(prev => ({ ...prev, [channel.id]: !prev[channel.id] }));
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = isSoloed ? '#57e082' : DARK.bg4;
+                      if (!isSoloed) e.currentTarget.style.color = DARK.textHi;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = isSoloed ? DARK.stateGreen : DARK.bg3;
+                      if (!isSoloed) e.currentTarget.style.color = DARK.textMid;
                     }}
                     style={{
                       width: "18px",
