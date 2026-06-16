@@ -101,7 +101,7 @@ export function IntroModal() {
             }}
           >
             {/* ELIJAH: replace this title */}
-            WELCOME TO CANVAS
+            WELCOME TO CANVAS - PLEASE READ
           </span>
           <button
             onClick={handleDismiss}
@@ -140,7 +140,7 @@ export function IntroModal() {
             }}
           >
             {/* ELIJAH: replace this body */}
-            Canvas is a multi-track web-based digital audio workstation (DAW) designed to run completely inside your browser. Build patterns, arrange clips on the canvas, route signals through the mixer, and export your track.
+            This is prerelease software that is actively in development and should not be used for important work as it will likely be LOST FOREVER (DUN DUN DUN). This early access version is meant for testing, but please, have fun and enjoy making music in your browser.
           </p>
           <p
             style={{
@@ -152,7 +152,20 @@ export function IntroModal() {
             }}
           >
             {/* ELIJAH: replace this body */}
-            Use the sample browser on the left to drag and drop audio files, or create notes in the Piano Roll to play virtual instruments. Enjoy high-performance, low-latency audio processing in real-time.
+            If you've ever used a certain fruit themed DAW, the workflow should feel instantly familiar to you. Make some music, and tell me about your experience via feedback@canvasdaw.com.
+          </p>
+          <p
+            style={{
+              fontFamily: theme.font,
+              fontSize: "9px",
+              color: theme.textMid,
+              lineHeight: "1.4",
+              margin: 0,
+            }}
+          >
+            {/* ELIJAH: replace this body */}
+            Thanks,<br />
+            expandyourm_i_n_d :)
           </p>
         </div>
 
