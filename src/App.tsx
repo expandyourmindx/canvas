@@ -9,6 +9,7 @@ import { useAudioEngine } from "./audio/useAudioEngine";
 import { generateDrumSampleWav } from "./audio/sampleGenerator";
 import { Desktop } from "./components/Desktop";
 import { KeyboardMidiListener } from "./components/KeyboardMidiListener";
+import { IntroModal } from "./components/IntroModal";
 import { ShortcutRegistryProvider } from "./hooks/useShortcutRegistry";
 import { ThemeProvider } from "./theme/ThemeContext";
 
@@ -17,6 +18,7 @@ function MainWorkspace() {
     <>
       <KeyboardMidiListener />
       <Desktop />
+      <IntroModal />
     </>
   );
 }
