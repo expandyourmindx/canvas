@@ -17,6 +17,7 @@ export interface SamplerVoice {
   gainNode: GainNode;
   settings: Partial<SamplerSettings>;
   startTime: number;
+  laneIndex?: number;
 }
 
 export interface SamplerEngineDelegate {
@@ -887,7 +888,8 @@ export class SamplerEngine {
       source,
       gainNode,
       settings: {},
-      startTime: playStartTime
+      startTime: playStartTime,
+      laneIndex: clip.laneIndex
     };
 
     const existingVoices = this.activeSamplerVoices.get(trackingId) || [];
@@ -957,6 +959,24 @@ export class SamplerEngine {
         chanId,
         voices.filter((v) => !v.noteId.startsWith("midi-sampler-"))
       );
+    });
+  }
+
+  public muteLaneVoices(laneIndex: number, time?: number) {
+    const now = time !== undefined ? time : this.audioContext.currentTime;
+    this.activeSamplerVoices.forEach((voices) => {
+      voices.forEach((voice) => {
+        if (voice.laneIndex === laneIndex) {
+          try {
+            voice.gainNode.gain.cancelScheduledValues(now);
+            voice.gainNode.gain.setValueAtTime(voice.gainNode.gain.value, now);
+            voice.gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.010);
+            try {
+              voice.source.stop(now + 0.010);
+            } catch (e) {}
+          } catch (err) {}
+        }
+      });
     });
   }
 

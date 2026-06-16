@@ -123,6 +123,11 @@ export interface MixerInsert {
   inputDeviceId?: string;
 }
 
+export interface LaneState {
+  isMuted: boolean;
+  isSoloed: boolean;
+}
+
 export interface CanvasProject {
   version: string;
   savedAt: string;
@@ -142,6 +147,7 @@ export interface CanvasProject {
   loopSettings: { loopStart: number; loopEnd: number; loopEnabled: boolean };
   wamChannels?: Record<string, { url: string; state: any }>;
   sampleIds: string[];
+  laneStates?: Record<number, LaneState>;
 }
 
 
